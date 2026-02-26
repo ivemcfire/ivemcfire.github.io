@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Running a Local AI Model on My Homelab Kubernetes Cluster — Ivalin's Lab</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #111;
+            --border: #222;
+            --text: #e0e0e0;
+            --text-dim: #777;
+            --accent: #ff6b35;
+            --accent-dim: #ff6b3522;
+            --mono: 'JetBrains Mono', monospace;
+            --serif: 'Instrument Serif', Georgia, serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 15px;
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+
+        .grain {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        nav {
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        nav a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.8rem;
+            transition: color 0.2s;
+        }
+
+        nav a:hover { color: var(--accent); }
+
+        article {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 3rem 2rem 6rem;
+        }
+
+        article h1 {
+            font-family: var(--serif);
+            font-size: 2.8rem;
+            font-weight: 400;
+            line-height: 1.15;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        article > em:first-of-type {
+            display: block;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 2.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        article h2 {
+            font-family: var(--serif);
+            font-size: 1.8rem;
+            font-weight: 400;
+            margin-top: 3rem;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        article h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-top: 2rem;
+            margin-bottom: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        article p {
+            margin-bottom: 1.2rem;
+            font-size: 0.88rem;
+        }
+
+        article a {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px solid var(--accent-dim);
+            transition: border-color 0.2s;
+        }
+
+        article a:hover {
+            border-bottom-color: var(--accent);
+        }
+
+        article strong {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        article code {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 0.15em 0.4em;
+            font-size: 0.85em;
+            font-family: var(--mono);
+            color: var(--accent);
+        }
+
+        .code-block {
+            position: relative;
+            margin: 1.5rem 0;
+        }
+
+        .code-block .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--border);
+            border: 1px solid #333;
+            color: var(--text-dim);
+            padding: 0.3rem 0.7rem;
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .code-block .copy-btn:hover {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .code-block .copy-btn.copied {
+            background: #2a9d4a;
+            border-color: #2a9d4a;
+            color: #fff;
+        }
+
+        article pre {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            padding-top: 2.5rem;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        article pre code {
+            background: none;
+            border: none;
+            padding: 0;
+            color: var(--text);
+            font-size: inherit;
+            user-select: text;
+        }
+
+        article blockquote {
+            border-left: 3px solid var(--accent);
+            padding: 0.75rem 1.5rem;
+            margin: 1.5rem 0;
+            background: var(--accent-dim);
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        article blockquote p { margin-bottom: 0; }
+
+        article ul, article ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            font-size: 0.88rem;
+        }
+
+        article li {
+            margin-bottom: 0.5rem;
+        }
+
+        article img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid var(--border);
+            margin: 1.5rem 0;
+            display: block;
+        }
+
+        article .photo-caption {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            text-align: center;
+            margin-top: -1rem;
+            margin-bottom: 1.5rem;
+            font-style: italic;
+        }
+
+        article hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 3rem 0;
+        }
+
+        article table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.82rem;
+        }
+
+        article th {
+            text-align: left;
+            padding: 0.6rem 1rem;
+            border-bottom: 2px solid var(--accent);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+        }
+
+        article td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 600px) {
+            article h1 { font-size: 1.8rem; }
+            article h2 { font-size: 1.4rem; }
+            article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+            article pre { padding: 1rem; font-size: 0.72rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+    <nav><a href="../">&larr; Ivalin's Lab</a></nav>
+    <article>
+<h1>Running a Local AI Model on My Homelab Kubernetes Cluster</h1>
+<p><em>Adding GPU-accelerated AI inference to a k3s cluster using Ollama, a GTX 1050 Ti, and Open WebUI — no cloud, no subscriptions, no data leaving the network.</em></p>
+<hr />
+<p><img alt="Local AI abstract art" src="../images/local-ai-abstract.png" /></p>
+<h2>Why Run AI Locally?</h2>
+<p>Cloud AI services are convenient, but they come with recurring costs, rate limits, and the fact that every prompt you send leaves your network. For a homelab, running a local model means full control — the data stays on your machines, it works offline, and once it's set up, it costs nothing to run.</p>
+<p>I already had a <a href="k3s-phone-cluster.html">k3s cluster built from old phones and a laptop</a> handling monitoring and web apps. Adding local AI inference was the logical next step — I just needed a GPU.</p>
+<hr />
+<h2>The Hardware</h2>
+<p>My daily driver Windows PC had a spare GPU doing nothing most of the day:</p>
+<ul>
+<li><strong>CPU</strong>: Intel i5-10400F — 6 cores, 12 threads</li>
+<li><strong>RAM</strong>: 32GB DDR4</li>
+<li><strong>GPU</strong>: NVIDIA GeForce GTX 1050 Ti — 4GB VRAM</li>
+</ul>
+<p>The GTX 1050 Ti is far from a data center GPU, but 4GB VRAM is enough to run quantized 7B parameter models at reasonable speed. That's roughly the intelligence of early ChatGPT — more than sufficient for a DevOps study assistant, code helper, or general Q&amp;A tool.</p>
+<hr />
+<h2>Architecture</h2>
+<div class="codehilite"><pre><span></span><code>Windows PC (192.168.100.203)
+  └── WSL2 (Ubuntu 24.04)
+        ├── Ollama (GPU inference, port 11434)
+        └── NVIDIA GPU passthrough via /dev/dxg
+
+k3s Cluster (192.168.100.52)
+  ├── Open WebUI pod → talks to Ollama API
+  ├── MetalLB → exposes WebUI at 192.168.100.204
+  └── k3s ExternalName service → routes to Ollama
+</code></pre></div>
+
+<p>The trick is that WSL2 doesn't expose <code>/dev/nvidia*</code> like native Linux — it uses DirectX's <code>/dev/dxg</code> for GPU passthrough. This means the standard NVIDIA k8s device plugin won't work. Instead, Ollama runs directly in WSL2 where it can access the GPU natively, and k3s pods communicate with it over the LAN.</p>
+<hr />
+<h2>Step 1: Enable WSL2 with GPU Support</h2>
+<p>WSL2 needs Hyper-V enabled. If you have VirtualBox installed, you may need to enable it explicitly:</p>
+<div class="codehilite"><pre><span></span><code><span class="c"># PowerShell as Administrator</span>
+<span class="n">dism</span> <span class="p">/</span><span class="n">online</span> <span class="p">/</span><span class="nb">enable-feature</span> <span class="p">/</span><span class="n">featurename</span><span class="p">:</span><span class="n">Microsoft-Hyper-V-All</span> <span class="p">/</span><span class="n">all</span> <span class="p">/</span><span class="n">norestart</span>
+</code></pre></div>
+
+<p>Restart Windows, then install Ubuntu inside WSL2:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">wsl</span> <span class="p">-</span><span class="n">-install</span> <span class="n">-d</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="n">24</span><span class="p">.</span><span class="n">04</span>
+</code></pre></div>
+
+<p>After creating a user, verify GPU passthrough works:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Inside WSL2 Ubuntu</span>
+nvidia-smi
+</code></pre></div>
+
+<p>You should see your GTX 1050 Ti. If <code>nvidia-smi</code> is not found, update your NVIDIA Windows driver to the latest version — WSL2 GPU support requires driver 470+.</p>
+<hr />
+<h2>Step 2: Install Ollama</h2>
+<p>Inside WSL2 Ubuntu:</p>
+<div class="codehilite"><pre><span></span><code>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://ollama.com/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+</code></pre></div>
+
+<p>By default Ollama listens on localhost only. To make it accessible from the k3s cluster, configure it to listen on all interfaces:</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>ollama
+sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>/etc/systemd/system/ollama.service.d
+<span class="nb">echo</span><span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;[Service]\nEnvironment=&quot;OLLAMA_HOST=0.0.0.0&quot;&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/systemd/system/ollama.service.d/override.conf
+sudo<span class="w"> </span>systemctl<span class="w"> </span>daemon-reload
+sudo<span class="w"> </span>systemctl<span class="w"> </span>start<span class="w"> </span>ollama
+</code></pre></div>
+
+<p>Pull a model:</p>
+<div class="codehilite"><pre><span></span><code>ollama<span class="w"> </span>pull<span class="w"> </span>mistral
+</code></pre></div>
+
+<p>Mistral 7B (Q4 quantized) fits comfortably in 4GB VRAM, using about 3.2GB. It's fast, good at code, and solid for technical conversations.</p>
+<hr />
+<h2>Step 3: Expose Ollama to the LAN</h2>
+<p>WSL2 has its own virtual network — pods running on k3master can't reach WSL2's internal IP directly. We need to forward port 11434 from Windows to WSL2.</p>
+<p><strong>PowerShell as Administrator:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c"># Get WSL2&#39;s internal IP</span>
+<span class="n">wsl</span> <span class="n">-d</span> <span class="n">Ubuntu</span><span class="p">-</span><span class="n">24</span><span class="p">.</span><span class="n">04</span> <span class="n">hostname</span> <span class="n">-I</span>
+
+<span class="c"># Forward the port (replace 172.x.x.x with the IP from above)</span>
+<span class="n">netsh</span> <span class="n">interface</span> <span class="n">portproxy</span> <span class="n">add</span> <span class="n">v4tov4</span> <span class="n">listenport</span><span class="p">=</span><span class="n">11434</span> <span class="n">listenaddress</span><span class="p">=</span><span class="n">0</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">0</span> <span class="n">connectport</span><span class="p">=</span><span class="n">11434</span> <span class="n">connectaddress</span><span class="p">=</span><span class="n">172</span><span class="p">.</span><span class="n">25</span><span class="p">.</span><span class="n">103</span><span class="p">.</span><span class="n">186</span>
+
+<span class="c"># Allow through firewall</span>
+<span class="n">netsh</span> <span class="n">advfirewall</span> <span class="n">firewall</span> <span class="n">add</span> <span class="n">rule</span> <span class="n">name</span><span class="p">=</span><span class="s2">&quot;Ollama&quot;</span> <span class="n">dir</span><span class="p">=</span><span class="k">in</span> <span class="n">action</span><span class="p">=</span><span class="n">allow</span> <span class="n">protocol</span><span class="p">=</span><span class="n">TCP</span> <span class="n">localport</span><span class="p">=</span><span class="n">11434</span>
+</code></pre></div>
+
+<p>Verify from k3master:</p>
+<div class="codehilite"><pre><span></span><code>curl<span class="w"> </span>http://192.168.100.203:11434/api/generate<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;model&quot;:&quot;mistral&quot;,&quot;prompt&quot;:&quot;Hello&quot;,&quot;stream&quot;:false}&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span>
+</code></pre></div>
+
+<p>You should get a JSON response with the model's reply.</p>
+<hr />
+<p><img alt="LLama abstract art" src="../images/llama-abstract.png" /></p>
+<h2>Step 4: Deploy Open WebUI on k3s</h2>
+<p>Open WebUI gives you a ChatGPT-like interface that talks to Ollama. Deploy it as a k3s pod with a MetalLB LoadBalancer:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">open-webui</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">matchLabels</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">open-webui</span>
+<span class="w">  </span><span class="nt">template</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">labels</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">open-webui</span>
+<span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">nodeSelector</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">kubernetes.io/hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k3master</span>
+<span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">open-webui</span>
+<span class="w">        </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/open-webui/open-webui:main</span>
+<span class="w">        </span><span class="nt">imagePullPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">IfNotPresent</span>
+<span class="w">        </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">containerPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<span class="w">        </span><span class="nt">env</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">OLLAMA_BASE_URL</span>
+<span class="w">          </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;http://192.168.100.203:11434&quot;</span>
+<span class="w">        </span><span class="nt">resources</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">requests</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1Gi</span>
+<span class="w">          </span><span class="nt">limits</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3Gi</span>
+<span class="nn">---</span>
+<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">open-webui</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">metallb.universe.tf/loadBalancerIPs</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.100.204&quot;</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">open-webui</span>
+<span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">    </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+</code></pre></div>
+
+<p>Apply and wait for it to start:</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>open-webui.yaml
+sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-w
+</code></pre></div>
+
+<blockquote>
+<p><strong>Note:</strong> Open WebUI's container image is about 2GB and it downloads additional files on first startup. Give it a few minutes and make sure the memory limit is at least 3Gi — it will get OOMKilled at 1Gi.</p>
+</blockquote>
+<p>Once running, open <strong>http://192.168.100.204</strong> in your browser. Create an account (it's local, no external service), and start chatting with Mistral.</p>
+<hr />
+<h2>What Fits in 4GB VRAM?</h2>
+<p>Not every model will fit on a GTX 1050 Ti. Here's what works:</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Parameters</th>
+<th>VRAM Usage</th>
+<th>Good For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mistral 7B (Q4)</td>
+<td>7B</td>
+<td>~3.2GB</td>
+<td>General chat, code, technical</td>
+</tr>
+<tr>
+<td>Phi-3 Mini</td>
+<td>3.8B</td>
+<td>~2.5GB</td>
+<td>Fast responses, studying</td>
+</tr>
+<tr>
+<td>CodeLlama 7B (Q4)</td>
+<td>7B</td>
+<td>~3.2GB</td>
+<td>Code generation, debugging</td>
+</tr>
+<tr>
+<td>Deepseek Coder 6.7B</td>
+<td>6.7B</td>
+<td>~3.2GB</td>
+<td>Infrastructure and code</td>
+</tr>
+<tr>
+<td>Llama 3.1 8B (Q4)</td>
+<td>8B</td>
+<td>~3.8GB</td>
+<td>General assistant</td>
+</tr>
+</tbody>
+</table>
+<p>To try a different model:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Inside WSL2</span>
+ollama<span class="w"> </span>pull<span class="w"> </span>phi3
+ollama<span class="w"> </span>pull<span class="w"> </span>codellama
+</code></pre></div>
+
+<p>Then select it from the model dropdown in Open WebUI.</p>
+<hr />
+<h2>Key Decisions</h2>
+<p><strong>WSL2 instead of native Linux</strong> — The Windows PC is my daily driver. Dual-booting would give better GPU performance but would mean choosing between Windows and the AI server. WSL2 lets both coexist.</p>
+<p><strong>Ollama outside k3s</strong> — WSL2's GPU passthrough uses <code>/dev/dxg</code> instead of <code>/dev/nvidia*</code>, which means the standard NVIDIA k8s device plugin can't detect the GPU. Running Ollama directly in WSL2 and exposing it as a LAN service is simpler and more reliable.</p>
+<p><strong>Port forwarding with netsh</strong> — WSL2's virtual network is isolated from the physical LAN. The <code>netsh interface portproxy</code> command bridges the gap without needing additional software.</p>
+<p><strong>3Gi memory for Open WebUI</strong> — The container downloads embedding models and builds internal indexes on first start. With only 1Gi, it gets killed by the OOM killer before finishing initialization.</p>
+<hr />
+<h2>The Complete Homelab</h2>
+<p>With this addition, the homelab now runs four services across two machines:</p>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>URL</th>
+<th>Machine</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Grafana</td>
+<td>http://192.168.100.201</td>
+<td>k3master (laptop)</td>
+<td>Cluster monitoring</td>
+</tr>
+<tr>
+<td>Guitar App</td>
+<td>http://192.168.100.202</td>
+<td>k3master (laptop)</td>
+<td>Audio stem separation</td>
+</tr>
+<tr>
+<td>Ollama API</td>
+<td>http://192.168.100.203:11434</td>
+<td>Windows PC (GPU)</td>
+<td>LLM inference</td>
+</tr>
+<tr>
+<td>Open WebUI</td>
+<td>http://192.168.100.204</td>
+<td>k3master (laptop)</td>
+<td>AI chat interface</td>
+</tr>
+</tbody>
+</table>
+<p>Four nodes, 32 ARM cores, an i5 with a GPU, about 30GB of RAM total — all running Kubernetes workloads from monitoring to AI inference, without spending a dollar on cloud services.</p>
+<hr />
+<h2>Credits</h2>
+<ul>
+<li><a href="https://ollama.com">Ollama</a> — Local LLM runtime with GPU acceleration</li>
+<li><a href="https://github.com/open-webui/open-webui">Open WebUI</a> — Self-hosted ChatGPT-like interface</li>
+<li><a href="https://mistral.ai">Mistral AI</a> — The Mistral 7B model</li>
+</ul>
+    </article>
+    <footer>
+        Built with bare HTML and deployed on GitHub Pages.
+    </footer>
+    <script>
+        document.querySelectorAll('article pre').forEach(pre => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-block';
+            pre.parentNode.insertBefore(wrapper, pre);
+            wrapper.appendChild(pre);
+
+            const btn = document.createElement('button');
+            btn.className = 'copy-btn';
+            btn.textContent = 'Copy';
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const code = pre.querySelector('code') || pre;
+                navigator.clipboard.writeText(code.textContent).then(() => {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+            wrapper.appendChild(btn);
+        });
+    </script>
+</body>
+</html>

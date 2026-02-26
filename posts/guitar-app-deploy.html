@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deploying a Guitar Practice App on My Phone Kubernetes Cluster — Ivalin's Lab</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #111;
+            --border: #222;
+            --text: #e0e0e0;
+            --text-dim: #777;
+            --accent: #ff6b35;
+            --accent-dim: #ff6b3522;
+            --mono: 'JetBrains Mono', monospace;
+            --serif: 'Instrument Serif', Georgia, serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 15px;
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+
+        .grain {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        nav {
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        nav a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.8rem;
+            transition: color 0.2s;
+        }
+
+        nav a:hover { color: var(--accent); }
+
+        article {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 3rem 2rem 6rem;
+        }
+
+        article h1 {
+            font-family: var(--serif);
+            font-size: 2.8rem;
+            font-weight: 400;
+            line-height: 1.15;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        article > em:first-of-type {
+            display: block;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 2.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        article h2 {
+            font-family: var(--serif);
+            font-size: 1.8rem;
+            font-weight: 400;
+            margin-top: 3rem;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        article h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-top: 2rem;
+            margin-bottom: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        article p {
+            margin-bottom: 1.2rem;
+            font-size: 0.88rem;
+        }
+
+        article a {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px solid var(--accent-dim);
+            transition: border-color 0.2s;
+        }
+
+        article a:hover {
+            border-bottom-color: var(--accent);
+        }
+
+        article strong {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        article code {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 0.15em 0.4em;
+            font-size: 0.85em;
+            font-family: var(--mono);
+            color: var(--accent);
+        }
+
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            width: 44px;
+            height: 44px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+        }
+
+        .back-to-top:hover {
+            background: #e55a2b;
+        }
+            position: relative;
+            margin: 1.5rem 0;
+        }
+
+        .code-block .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--border);
+            border: 1px solid #333;
+            color: var(--text-dim);
+            padding: 0.3rem 0.7rem;
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .code-block .copy-btn:hover {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .code-block .copy-btn.copied {
+            background: #2a9d4a;
+            border-color: #2a9d4a;
+            color: #fff;
+        }
+
+        article pre {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            padding-top: 2.5rem;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        article pre code {
+            background: none;
+            border: none;
+            padding: 0;
+            color: var(--text);
+            font-size: inherit;
+            user-select: text;
+        }
+
+        article blockquote {
+            border-left: 3px solid var(--accent);
+            padding: 0.75rem 1.5rem;
+            margin: 1.5rem 0;
+            background: var(--accent-dim);
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        article blockquote p { margin-bottom: 0; }
+
+        article ul, article ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            font-size: 0.88rem;
+        }
+
+        article li {
+            margin-bottom: 0.5rem;
+        }
+
+        article img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid var(--border);
+            margin: 1.5rem 0;
+            display: block;
+        }
+
+        article .photo-caption {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            text-align: center;
+            margin-top: -1rem;
+            margin-bottom: 1.5rem;
+            font-style: italic;
+        }
+
+        article hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 3rem 0;
+        }
+
+        article table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.82rem;
+        }
+
+        article th {
+            text-align: left;
+            padding: 0.6rem 1rem;
+            border-bottom: 2px solid var(--accent);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+        }
+
+        article td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 600px) {
+            article h1 { font-size: 1.8rem; }
+            article h2 { font-size: 1.4rem; }
+            article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+            article pre { padding: 1rem; font-size: 0.72rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+<h1>Deploying a Guitar Practice App on My Phone Kubernetes Cluster</h1>
+<p><em>Containerizing a React + FastAPI audio processing app and deploying it to a k3s cluster made of old smartphones.</em></p>
+<hr />
+<h2>The App</h2>
+<p>The <a href="https://github.com/ivmos/ivmos-guitar-practice-app">Guitar Practice App</a> by <a href="https://github.com/ivmos">ivmos</a> is a web application for guitar practice. Upload any audio file and it separates the guitar track from the rest of the instruments, detects the BPM, and generates a synchronized metronome — all in the browser. You can then control the volume of each stem independently: mute the guitar to play along yourself, or crank the metronome to nail the timing.</p>
+<p>The tech stack: a React + Vite + Tailwind CSS frontend talks to a Python FastAPI backend that does the audio heavy lifting with librosa, numpy, and scipy. No database — just file uploads and processed WAV files.</p>
+<p>I wanted to deploy this on my <a href="k3s-phone-cluster.html">k3s homelab cluster</a> — a Lenovo laptop and three OnePlus phones connected via USB running postmarketOS. This post covers the containerization and deployment process.</p>
+<p><img alt="Guitar Practice App uploading a song" src="../images/guitar-app-loading.jpg" /></p>
+<hr />
+<h2>Architecture on the Cluster</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">Browser</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">MetalLB</span><span class="w"> </span><span class="p">(</span><span class="mf">192.168</span><span class="o">.</span><span class="mf">100.202</span><span class="p">)</span>
+<span class="w">            </span><span class="err">↓</span>
+<span class="w">    </span><span class="n">guitar</span><span class="o">-</span><span class="n">frontend</span><span class="w"> </span><span class="p">(</span><span class="n">nginx</span><span class="p">)</span>
+<span class="w">      </span><span class="err">├──</span><span class="w"> </span><span class="o">/</span><span class="w">            </span><span class="err">→</span><span class="w"> </span><span class="n">serves</span><span class="w"> </span><span class="n">React</span><span class="w"> </span><span class="n">SPA</span>
+<span class="w">      </span><span class="err">├──</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/*</span><span class="w">       </span><span class="err">→</span><span class="w"> </span><span class="n">proxy</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">guitar</span><span class="o">-</span><span class="n">backend</span><span class="p">:</span><span class="mi">8000</span>
+<span class="w">      </span><span class="err">└──</span><span class="w"> </span><span class="o">/</span><span class="n">processed</span><span class="o">/*</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">proxy</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">guitar</span><span class="o">-</span><span class="n">backend</span><span class="p">:</span><span class="mi">8000</span>
+<span class="w">            </span><span class="err">↓</span>
+<span class="w">    </span><span class="n">guitar</span><span class="o">-</span><span class="n">backend</span><span class="w"> </span><span class="p">(</span><span class="n">FastAPI</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">librosa</span><span class="p">)</span>
+<span class="w">      </span><span class="err">├──</span><span class="w"> </span><span class="n">uploads</span><span class="o">/</span>
+<span class="w">      </span><span class="err">└──</span><span class="w"> </span><span class="n">processed</span><span class="o">/</span>
+</code></pre></div>
+
+<p>Both services run on k3master (the laptop) because the backend needs significant CPU for audio processing — librosa's BPM detection and FFT-based stem separation can spike to 100% CPU on large files. The phones serve as workers for other workloads.</p>
+<hr />
+<h2>Step 1: Fix Hardcoded URLs</h2>
+<p>The original app was built for local development with <code>localhost:8000</code> hardcoded in the frontend. In Kubernetes, the frontend nginx container proxies API requests to the backend service, so we need relative URLs:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>/tmp/ivmos-guitar-practice-app
+
+<span class="c1"># Replace hardcoded localhost with relative paths</span>
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|http://localhost:8000/api/|/api/|g&quot;</span><span class="w"> </span>frontend/src/App.jsx
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|const API_BASE = &#39;http://localhost:8000&#39;|const API_BASE = &#39;&#39;|g&quot;</span><span class="w"> </span>frontend/src/components/AudioPlayer.jsx
+
+<span class="c1"># Verify no localhost references remain</span>
+grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;localhost:8000&quot;</span><span class="w"> </span>frontend/src/
+<span class="c1"># Should return empty</span>
+</code></pre></div>
+
+<hr />
+<h2>Step 2: Create Dockerfiles</h2>
+<p>The original repo doesn't include Dockerfiles, so we create them.</p>
+<h3>Backend</h3>
+<p>The backend needs Python 3.11 with native audio libraries — libsndfile for reading audio formats and ffmpeg for conversion:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">FROM</span><span class="w"> </span><span class="s">python:3.11-slim</span>
+
+<span class="k">RUN</span><span class="w"> </span>apt-get<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>--no-install-recommends<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>libsndfile1<span class="w"> </span>ffmpeg<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>rm<span class="w"> </span>-rf<span class="w"> </span>/var/lib/apt/lists/*
+
+<span class="k">WORKDIR</span><span class="w"> </span><span class="s">/app</span>
+<span class="k">COPY</span><span class="w"> </span>requirements.txt<span class="w"> </span>.
+<span class="k">RUN</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--no-cache-dir<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+
+<span class="k">COPY</span><span class="w"> </span>main.py<span class="w"> </span>.
+
+<span class="k">RUN</span><span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>uploads<span class="w"> </span>processed
+
+<span class="k">EXPOSE</span><span class="w"> </span><span class="s">8000</span>
+<span class="k">CMD</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;uvicorn&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;main:app&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--host&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;0.0.0.0&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--port&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;8000&quot;</span><span class="p">]</span>
+</code></pre></div>
+
+<h3>Frontend</h3>
+<p>Multi-stage build: Node builds the React app, then nginx serves the static files and proxies API requests to the backend:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">FROM</span><span class="w"> </span><span class="s">node:20-alpine</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">build</span>
+<span class="k">WORKDIR</span><span class="w"> </span><span class="s">/app</span>
+<span class="k">COPY</span><span class="w"> </span>package*.json<span class="w"> </span>./
+<span class="k">RUN</span><span class="w"> </span>npm<span class="w"> </span>ci
+<span class="k">COPY</span><span class="w"> </span>.<span class="w"> </span>.
+<span class="k">RUN</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>build
+
+<span class="k">FROM</span><span class="w"> </span><span class="s">nginx:alpine</span>
+<span class="k">COPY</span><span class="w"> </span>--from<span class="o">=</span>build<span class="w"> </span>/app/dist<span class="w"> </span>/usr/share/nginx/html
+<span class="k">COPY</span><span class="w"> </span>nginx.conf<span class="w"> </span>/etc/nginx/conf.d/default.conf
+<span class="k">EXPOSE</span><span class="w"> </span><span class="s">80</span>
+</code></pre></div>
+
+<h3>Nginx Config</h3>
+<p>The nginx config is the glue — it serves the React SPA for any route and proxies <code>/api/</code> and <code>/processed/</code> to the backend Kubernetes service by name:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">server</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kn">listen</span><span class="w"> </span><span class="mi">80</span><span class="p">;</span>
+<span class="w">    </span><span class="kn">root</span><span class="w"> </span><span class="s">/usr/share/nginx/html</span><span class="p">;</span>
+<span class="w">    </span><span class="kn">index</span><span class="w"> </span><span class="s">index.html</span><span class="p">;</span>
+
+<span class="w">    </span><span class="kn">location</span><span class="w"> </span><span class="s">/</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kn">try_files</span><span class="w"> </span><span class="nv">$uri</span><span class="w"> </span><span class="nv">$uri/</span><span class="w"> </span><span class="s">/index.html</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="kn">location</span><span class="w"> </span><span class="s">/api/</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kn">proxy_pass</span><span class="w"> </span><span class="s">http://guitar-backend:8000</span><span class="p">;</span>
+<span class="w">        </span><span class="kn">proxy_set_header</span><span class="w"> </span><span class="s">Host</span><span class="w"> </span><span class="nv">$host</span><span class="p">;</span>
+<span class="w">        </span><span class="kn">proxy_set_header</span><span class="w"> </span><span class="s">X-Real-IP</span><span class="w"> </span><span class="nv">$remote_addr</span><span class="p">;</span>
+<span class="w">        </span><span class="kn">client_max_body_size</span><span class="w"> </span><span class="s">100M</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="kn">location</span><span class="w"> </span><span class="s">/processed/</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kn">proxy_pass</span><span class="w"> </span><span class="s">http://guitar-backend:8000</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The <code>client_max_body_size 100M</code> is important — audio files can be large and nginx defaults to 1MB.</p>
+<p>The <code>proxy_pass http://guitar-backend:8000</code> works because Kubernetes DNS resolves the service name <code>guitar-backend</code> to the ClusterIP automatically.</p>
+<p><img alt="Guitar Practice App volume mixer interface" src="../images/guitar-app-mixer.jpg" /></p>
+<hr />
+<h2>Step 3: Build Images</h2>
+<p>My cluster runs k3s with containerd, so I build with Docker and import into k3s:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>/tmp/ivmos-guitar-practice-app/backend
+sudo<span class="w"> </span>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>guitar-backend:latest<span class="w"> </span>.
+
+<span class="nb">cd</span><span class="w"> </span>/tmp/ivmos-guitar-practice-app/frontend
+sudo<span class="w"> </span>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>guitar-frontend:latest<span class="w"> </span>.
+
+<span class="c1"># Import into k3s containerd</span>
+sudo<span class="w"> </span>docker<span class="w"> </span>save<span class="w"> </span>guitar-backend:latest<span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>k3s<span class="w"> </span>ctr<span class="w"> </span>images<span class="w"> </span>import<span class="w"> </span>-
+sudo<span class="w"> </span>docker<span class="w"> </span>save<span class="w"> </span>guitar-frontend:latest<span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>k3s<span class="w"> </span>ctr<span class="w"> </span>images<span class="w"> </span>import<span class="w"> </span>-
+
+<span class="c1"># Verify</span>
+sudo<span class="w"> </span>k3s<span class="w"> </span>ctr<span class="w"> </span>images<span class="w"> </span>ls<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>guitar
+</code></pre></div>
+
+<hr />
+<h2>Step 4: Deploy to k3s</h2>
+<p>Both deployments are pinned to k3master with <code>nodeSelector</code>. The frontend service gets a MetalLB LoadBalancer IP so it's accessible from the local network.</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guitar-backend</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">matchLabels</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guitar-backend</span>
+<span class="w">  </span><span class="nt">template</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">labels</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guitar-backend</span>
+<span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">nodeSelector</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">kubernetes.io/hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k3master</span>
+<span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">backend</span>
+<span class="w">        </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker.io/library/guitar-backend:latest</span>
+<span class="w">        </span><span class="nt">imagePullPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Never</span>
+<span class="w">        </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">containerPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
+<span class="w">        </span><span class="nt">resources</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">requests</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256Mi</span>
+<span class="w">          </span><span class="nt">limits</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1Gi</span>
+<span class="nn">---</span>
+<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guitar-backend</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guitar-backend</span>
+<span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
+<span class="w">    </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
+<span class="nn">---</span>
+<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guitar-frontend</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">matchLabels</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guitar-frontend</span>
+<span class="w">  </span><span class="nt">template</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">labels</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guitar-frontend</span>
+<span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">nodeSelector</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">kubernetes.io/hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k3master</span>
+<span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frontend</span>
+<span class="w">        </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker.io/library/guitar-frontend:latest</span>
+<span class="w">        </span><span class="nt">imagePullPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Never</span>
+<span class="w">        </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">containerPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="nn">---</span>
+<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guitar-frontend</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guitar-frontend</span>
+<span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">    </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+</code></pre></div>
+
+<p>MetalLB assigns an IP from the homelab pool (in my case 192.168.100.202). Open it in a browser and you should see the upload interface.</p>
+<hr />
+<h2>Key Decisions</h2>
+<p><strong><code>imagePullPolicy: Never</code></strong> — The images are built locally and imported into containerd. Without this flag, k3s would try to pull from Docker Hub and fail.</p>
+<p><strong>Backend pinned to k3master</strong> — The audio processing (FFT, BPM detection) is CPU-intensive. The backend image is also amd64-only since we built it on the laptop.</p>
+<p><strong>ClusterIP for backend, LoadBalancer for frontend</strong> — The backend doesn't need external access. The frontend nginx proxies all API traffic internally using Kubernetes service DNS (<code>guitar-backend:8000</code>). Only the frontend gets a MetalLB IP.</p>
+<p><strong>1Gi memory limit on backend</strong> — librosa loads entire audio files into memory as numpy arrays. A 5-minute WAV at 44.1kHz stereo is about 100MB in memory, and the FFT operations roughly double that.</p>
+<hr />
+<h2>How It Works</h2>
+<ol>
+<li>Upload an MP3/WAV/FLAC file through the browser</li>
+<li>The backend detects BPM using librosa's beat tracking algorithm</li>
+<li>It separates the audio into "guitar" (80Hz–5kHz band) and "other" (everything else) using STFT frequency masking</li>
+<li>A metronome click track is generated at the detected BPM</li>
+<li>All stems are served as WAV files that the frontend plays simultaneously</li>
+<li>Volume sliders let you mix stems in real-time — mute the guitar to practice the part yourself</li>
+</ol>
+<p>The frequency-based separation is a simple bandpass filter, not AI. The original app supports Demucs (a neural network stem separator) via the <code>USE_DEMUCS=true</code> environment variable for higher quality, but that would need a GPU or significantly more RAM.</p>
+<hr />
+<h2>Credits</h2>
+<p>The Guitar Practice App was created by <a href="https://github.com/ivmos">ivmos</a>. The original repository is at <a href="https://github.com/ivmos/ivmos-guitar-practice-app">github.com/ivmos/ivmos-guitar-practice-app</a>. I containerized it and deployed it to my k3s phone cluster as described above.</p>
+<p>The k3s phone cluster setup is documented in my other blog post: <a href="k3s-phone-cluster.html">I Built a Kubernetes Cluster from Old Phones and a Laptop</a>.</p>
+    </article>
+    <footer>
+        Built with bare HTML and deployed on GitHub Pages.
+    </footer>
+    <button class="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">&uarr;</button>
+    <script>
+        const btn = document.querySelector('.back-to-top');
+        window.addEventListener('scroll', () => {
+            btn.classList.toggle('visible', window.scrollY > 400);
+        });
+
+        document.querySelectorAll('article pre').forEach(pre => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-block';
+            pre.parentNode.insertBefore(wrapper, pre);
+            wrapper.appendChild(pre);
+
+            const btn = document.createElement('button');
+            btn.className = 'copy-btn';
+            btn.textContent = 'Copy';
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const code = pre.querySelector('code') || pre;
+                navigator.clipboard.writeText(code.textContent).then(() => {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+            wrapper.appendChild(btn);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      The Kubernetes Sidecar Pattern: Building Real Observability on a Phone
+      Cluster — Ivalin's Lab
+    </title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+      <h1>
+        The Kubernetes Sidecar Pattern: Building Real Observability on a Phone
+        Cluster
+      </h1>
+      <p>
+        <em
+          >Adding structured logging and metrics to a FastAPI app on k3s using
+          Fluent Bit, Loki, and a shared volume — without touching the
+          application code.</em
+        >
+      </p>
+      <hr />
+      <h2>The Problem</h2>
+      <p>
+        When the guitar practice application crashed, debugging was painfully
+        manual. I'd notice a 502 error on the frontend, run
+        <code>kubectl logs guitar-backend-xxxxx</code>, scroll through output
+        looking for a timestamp that matched the crash, then cross-reference it
+        with Grafana's memory graphs in a second browser tab. No automation, no
+        correlation, no way to catch it unless I was watching at the right
+        moment.
+      </p>
+      <p>
+        The root cause was known — librosa, the audio processing library, causes
+        memory spikes on large files. But detecting <em>when</em> it happened
+        and capturing the context around it required being in the right place at
+        the right time.
+      </p>
+      <p>
+        This post is about solving that problem using one of Kubernetes' most
+        elegant patterns: the <strong>sidecar</strong>.
+      </p>
+      <p>
+        <img
+          alt="A motorcycle with a sidecar racing through a neon-lit tunnel, representing the sidecar pattern"
+          src="../images/sidecar-hero_small.jpg"
+        />
+      </p>
+      <hr />
+      <h2>What the Sidecar Pattern Actually Means</h2>
+      <p>
+        A Kubernetes <strong>Pod</strong> is not a container — it's a wrapper
+        that can hold one or more containers sharing certain resources. Every
+        container in a pod shares the same network namespace (they all see
+        <code>localhost</code> as each other) and can optionally share mounted
+        volumes. Each container still has its own filesystem root, its own
+        process space, and its own resource limits. Think of a pod as an
+        apartment building floor: each apartment (container) is separate, but
+        all share the building's electrical system (network) and can use shared
+        storage rooms (volumes) if you wire them that way.
+      </p>
+      <p>
+        A <strong>sidecar</strong> is a second container in that pod whose job
+        is to help the first one — to extend or augment it — without being part
+        of its core business logic. The name comes from motorcycle sidecars: the
+        passenger car is attached to the bike, shares its momentum, but doesn't
+        drive. It just handles what the driver can't do alone.
+      </p>
+      <p>
+        The pattern is powerful because it achieves
+        <strong>separation of concerns at the infrastructure level</strong>. The
+        guitar-backend container doesn't need to know how to ship logs to Loki,
+        format Prometheus metrics, or handle retry logic when the log store is
+        temporarily unavailable. That's the sidecar's job. The application just
+        writes a file.
+      </p>
+      <hr />
+      <h2>Architecture</h2>
+      <div class="codehilite">
+        <pre><span></span><code>┌─────────────────────────────────────────────────────────────────────┐
+│                         Guitar Backend Pod                          │
+│                                                                     │
+│   ┌──────────────────────┐          ┌───────────────────────────┐   │
+│   │   guitar-backend     │  writes  │   fluent-bit-sidecar      │   │
+│   │   (FastAPI + librosa)│ ───────► │   (log processor)         │   │
+│   │                      │          │                           │   │
+│   │   :8000 (HTTP API)   │          │   :2020 (health API)      │   │
+│   │                      │          │   :2021 (Prometheus out)  │   │
+│   └──────────────────────┘          └───────────────────────────┘   │
+│             │                                    │                   │
+│             └──────────────┬────────────────────-┘                   │
+│                            │                                         │
+│                    shared-logs (emptyDir)                            │
+│                    /var/log/guitar-backend/app.log                   │
+└────────────────────────────┬─────────────────────────────────────────┘
+                             │
+           ┌─────────────────┼──────────────────┐
+           ▼                 ▼                  ▼
+      Loki :3100      Prometheus :2021      stdout
+      (log store)     (metrics scrape)   (kubectl logs)
+           │
+           ▼
+      Grafana :80
+</code></pre>
+      </div>
+
+      <p>
+        The critical mechanism is the <strong>shared emptyDir volume</strong>.
+        Both containers mount it at <code>/var/log/guitar-backend</code>. The
+        application writes a structured JSON log file there; Fluent Bit tails
+        that file and fans the data out to three outputs simultaneously.
+      </p>
+      <hr />
+      <h2>Why Not a DaemonSet Log Collector?</h2>
+      <p>
+        The alternative is a single Fluentd or Fluent Bit pod running on each
+        node as a DaemonSet, scraping every container's stdout centrally. That
+        works well for homogeneous workloads. The sidecar approach is better
+        here for three reasons.
+      </p>
+      <p>
+        <strong>Structured files vs unstructured stdout.</strong> A node-level
+        collector reads raw stdout and has to parse unstructured text to extract
+        fields. With a sidecar, the application writes JSON directly to a file,
+        and Fluent Bit reads it already structured — no regex required.
+      </p>
+      <p>
+        <strong>Portability.</strong> The logging configuration is part of the
+        pod spec. If the guitar-backend moves to a different node or cluster
+        entirely, the sidecar comes with it. No DaemonSet pre-installed on the
+        destination required. On this cluster that matters — the OnePlus phone
+        workers have constrained RAM and I'd rather not run an additional
+        logging agent on each of them.
+      </p>
+      <p>
+        <strong>Isolation.</strong> The observability stack for this one service
+        is self-contained. No shared Fluentd config to edit, no risk of a change
+        affecting another pod's log shipping.
+      </p>
+      <hr />
+      <h2>The Shared Volume: How It Works</h2>
+      <p>
+        An <code>emptyDir</code> volume is created when a pod starts, lives for
+        the pod's entire lifetime, is deleted when the pod stops, and is visible
+        to every container in that pod that mounts it. In the pod spec:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>volumes:
+  - name: shared-logs
+    emptyDir: {}
+</code></pre>
+      </div>
+
+      <p>Then both containers mount it:</p>
+      <div class="codehilite">
+        <pre><span></span><code># In guitar-backend container:
+volumeMounts:
+  - name: shared-logs
+    mountPath: /var/log/guitar-backend
+
+# In fluent-bit-sidecar container:
+volumeMounts:
+  - name: shared-logs
+    mountPath: /var/log/guitar-backend
+</code></pre>
+      </div>
+
+      <p>
+        From each container's perspective it's just a regular directory. The
+        guitar-backend writes <code>app.log</code> there; Fluent Bit opens and
+        tails the same file. The kernel handles the rest — no network call, no
+        serialization, no protocol.
+      </p>
+      <p>
+        Fluent Bit uses Linux's <strong>inotify</strong> mechanism to watch the
+        file. The kernel taps it on the shoulder the moment new bytes appear —
+        no polling, no delay. When I tested this, Fluent Bit detected a newly
+        created log file and registered a watch within milliseconds:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>[2026/02/24 19:49:24] [ info] [input:tail:tail.0] inotify_fs_add(): inode=2234192 watch_fd=1 name=/var/log/guitar-backend/app.log
+</code></pre>
+      </div>
+
+      <hr />
+      <h2>Fluent Bit Configuration</h2>
+      <p>
+        The full pipeline is defined in a ConfigMap mounted into the sidecar
+        container:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>[SERVICE]
+    Flush         5
+    HTTP_Server   On
+    HTTP_Listen   0.0.0.0
+    HTTP_Port     2020
+    Parsers_File  parsers.conf
+
+[INPUT]
+    Name              tail
+    Path              /var/log/guitar-backend/app.log
+    Parser            json
+    Tag               guitar.backend
+    DB                /var/log/guitar-backend/flb_pos.db
+
+[FILTER]
+    Name    record_modifier
+    Match   guitar.*
+    Record  cluster    homelab-k3s
+    Record  node       ${NODE_NAME}
+    Record  service    guitar-backend
+
+[OUTPUT]
+    Name            loki
+    Match           guitar.*
+    Host            loki.default.svc.cluster.local
+    Port            3100
+    Labels          job=guitar-backend, env=homelab
+
+[OUTPUT]
+    Name   prometheus_exporter
+    Match  guitar.*
+    Host   0.0.0.0
+    Port   2021
+
+[OUTPUT]
+    Name  stdout
+    Match guitar.*
+</code></pre>
+      </div>
+
+      <p>
+        The <code>DB</code> parameter stores Fluent Bit's read position in a
+        small SQLite file inside the shared volume. If the sidecar restarts (but
+        the pod survives), Fluent Bit resumes from where it left off rather than
+        replaying the entire log file. The <code>record_modifier</code> FILTER
+        enriches every record with cluster identity fields that become Loki
+        labels — making it easy to filter by cluster, node, or service in
+        Grafana.
+      </p>
+      <hr />
+      <h2>The Pod Spec</h2>
+      <p>Both containers side by side in a single deployment:</p>
+      <div class="codehilite">
+        <pre><span></span><code>spec:
+  volumes:
+    - name: shared-logs
+      emptyDir: {}
+    - name: fluent-bit-config
+      configMap:
+        name: fluent-bit-sidecar-config
+
+  containers:
+
+    - name: guitar-backend
+      image: guitar-backend:latest
+      imagePullPolicy: Never
+      ports:
+        - containerPort: 8000
+      livenessProbe:
+        httpGet:
+          path: /api/health
+          port: 8000
+      volumeMounts:
+        - name: shared-logs
+          mountPath: /var/log/guitar-backend
+      resources:
+        limits:
+          memory: "1536Mi"
+
+    - name: fluent-bit-sidecar
+      image: fluent/fluent-bit:3.0
+      env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      ports:
+        - containerPort: 2020
+        - containerPort: 2021
+      resources:
+        limits:
+          memory: "64Mi"
+          cpu: "100m"
+      volumeMounts:
+        - name: shared-logs
+          mountPath: /var/log/guitar-backend
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc
+</code></pre>
+      </div>
+
+      <p>
+        The <code>NODE_NAME</code> environment variable is populated from the
+        Kubernetes downward API — Kubernetes injects the actual node name at
+        runtime. No hardcoding, works correctly regardless of which node the pod
+        lands on.
+      </p>
+      <hr />
+      <h2>Three Outputs From One Sidecar</h2>
+      <p>
+        <strong>Loki</strong> is the primary log storage backend. The mental
+        model from Prometheus translates almost directly: instead of indexing
+        time-series metric samples, Loki indexes labels (low-cardinality
+        key-value pairs like <code>job=guitar-backend</code>) and stores the
+        actual log text as compressed chunks. Grafana — already running at
+        <code>192.168.100.201</code> — has native Loki support, so you get full
+        log exploration in the same tool already used for metrics.
+      </p>
+      <p>
+        <strong>Prometheus metrics</strong> come from Fluent Bit's built-in
+        <code>prometheus_exporter</code> output plugin. This exposes a
+        <code>/metrics</code> endpoint on port 2021 of the pod, scraped by
+        Prometheus on its normal cycle. The metrics include records processed,
+        bytes sent, and output plugin error rates — so you can alert on "Fluent
+        Bit stopped shipping logs" as a distinct signal from "the application
+        crashed."
+      </p>
+      <p>
+        <strong>Stdout</strong> remains available for real-time debugging.
+        <code>kubectl logs &lt;pod&gt; -c fluent-bit-sidecar</code> shows every
+        processed log record in human-readable form — invaluable during initial
+        setup and when investigating a specific incident without opening
+        Grafana.
+      </p>
+      <hr />
+      <h2>Resource Cost</h2>
+      <p>
+        One concern with sidecars is resource consumption. On k3master's 8GB
+        RAM, every megabyte counts. Fluent Bit is written in C, the binary is
+        around 450KB, and under normal conditions consumes 10–20MB of actual
+        memory for this workload.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Container</th>
+            <th>Memory Request</th>
+            <th>Memory Limit</th>
+            <th>CPU Limit</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>guitar-backend</td>
+            <td>256Mi</td>
+            <td>1536Mi</td>
+            <td>1000m</td>
+          </tr>
+          <tr>
+            <td>fluent-bit-sidecar</td>
+            <td>32Mi</td>
+            <td>64Mi</td>
+            <td>100m</td>
+          </tr>
+          <tr>
+            <td><strong>Pod total</strong></td>
+            <td><strong>288Mi</strong></td>
+            <td><strong>1600Mi</strong></td>
+            <td><strong>1100m</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        The sidecar represents about 4% of the pod's memory ceiling — a
+        reasonable price for the observability it provides.
+      </p>
+      <hr />
+      <h2>Things That Went Wrong</h2>
+      <p>
+        <strong>Fluent Bit 3.0 renamed plugin properties.</strong> The Loki
+        output plugin removed <code>Batch_Size</code> and
+        <code>Batch_Wait</code> in version 3.0 — valid in 2.x but a startup
+        failure in 3.x with a clear error:
+        <code>unknown configuration property 'batch_size'</code>. The fix is to
+        remove them; Fluent Bit 3.0 handles batching automatically.
+      </p>
+      <p>
+        <strong>The liveness probe path was wrong.</strong> The manifest used
+        <code>/health</code> as the probe path but the actual endpoint is
+        <code>/api/health</code>. Kubernetes would probe, get a 404, wait for
+        three consecutive failures, then terminate the container with exit code
+        0 — which looks like a graceful shutdown rather than a crash. The tell
+        was in the logs:
+        <code>GET /health HTTP/1.1" 404 Not Found</code> appearing three times
+        followed by <code>Shutting down</code>.
+      </p>
+      <p>
+        <strong><code>kubectl edit</code> corrupts nested YAML.</strong> When
+        editing a ConfigMap that contains a multi-line string value (like a
+        Fluent Bit config), <code>kubectl edit</code> shows you
+        YAML-inside-YAML. Any indentation mistake corrupts the inner content
+        while the outer Kubernetes object saves successfully. The reliable fix
+        is to delete the ConfigMap and recreate it from a heredoc — content
+        written character-for-character with no editor interpretation layer.
+      </p>
+      <p>
+        <strong>Loki rejects future timestamps.</strong> When testing with a
+        hardcoded timestamp that was slightly in the future, every log entry was
+        rejected with <code>entry for stream has timestamp too new</code>. Loki
+        enforces time-ordered ingestion to maintain index integrity. The fix was
+        dynamic timestamp generation with
+        <code>$(date -u +%Y-%m-%dT%H:%M:%S)</code> inside the container.
+      </p>
+      <p>
+        <strong>Fluent Bit's position database retains stale offsets.</strong>
+        After fixing the timestamp issue, the position DB
+        (<code>flb_pos.db</code>) still held the offset from the rejected
+        entries, causing Fluent Bit to retry them indefinitely. A
+        <code>kubectl rollout restart</code> cleared the emptyDir volume and the
+        position DB together, letting fresh log entries flow through cleanly.
+      </p>
+      <hr />
+      <h2>The Payoff</h2>
+      <p>
+        With this setup running, crash investigation transforms. When a librosa
+        OOMKill happens, Prometheus captures the memory spike via Node Exporter,
+        and Fluent Bit captures the log context — the filename being processed,
+        the operation that triggered the spike, the stack trace if the app
+        logged it. Both land in Grafana. The Explore view's Correlations feature
+        lets you select a time range on a metric graph and jump directly to the
+        Loki logs from that exact interval.
+      </p>
+      <p>
+        What was a manual, multi-tab, "I hope I was watching" process becomes a
+        single Grafana investigation workflow.
+      </p>
+      <p>
+        To verify the pipeline end-to-end, I injected a test log line directly
+        into the shared volume using <code>kubectl exec</code>:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>kubectl exec $POD -c guitar-backend -- /bin/sh -c \
+  'TS=$(date -u +%Y-%m-%dT%H:%M:%S) && echo \
+  "{\"time\":\"${TS}.000\",\"level\":\"WARNING\",\
+  \"message\":\"librosa memory spike detected\",\
+  \"module\":\"audio_processor\",\"file_size_mb\":42}" \
+  >> /var/log/guitar-backend/app.log'
+</code></pre>
+      </div>
+
+      <p>
+        Within seconds the record appeared in Grafana's Explore view under
+        <code>{job="guitar-backend"}</code>, enriched with <code>cluster</code>,
+        <code>node</code>, and <code>service</code> labels added by Fluent Bit's
+        record_modifier filter.
+      </p>
+      <hr />
+      <h2>Cluster Context</h2>
+      <p>
+        This runs on a k3s cluster built from a Lenovo laptop (control plane)
+        and three OnePlus smartphones running postmarketOS, connected via USB
+        ethernet with routed /30 point-to-point links. Full cluster build
+        documented in
+        <a href="k3s-phone-cluster.html"
+          >I Built a Kubernetes Cluster from Old Phones and a Laptop</a
+        >.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Hardware</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>k3master</td>
+            <td>Lenovo i7-10750H, 8GB RAM</td>
+            <td>control-plane + workloads</td>
+          </tr>
+          <tr>
+            <td>one6t</td>
+            <td>OnePlus 6T, Snapdragon 845, 6GB</td>
+            <td>worker</td>
+          </tr>
+          <tr>
+            <td>one62</td>
+            <td>OnePlus 6, Snapdragon 845, 8GB</td>
+            <td>worker</td>
+          </tr>
+          <tr>
+            <td>one61</td>
+            <td>OnePlus 6, Snapdragon 845, 8GB</td>
+            <td>worker</td>
+          </tr>
+        </tbody>
+      </table>
+      <hr />
+      <p>
+        Previous posts:
+        <a href="k3s-phone-cluster.html">Building the cluster</a> &middot;
+        <a href="guitar-app-deploy.html">Deploying the guitar app</a> &middot;
+        <a href="ollama-local-ai.html">Running Ollama locally</a>
+      </p>
+    </article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>

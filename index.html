@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ivalin's Lab</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #111;
+            --border: #222;
+            --text: #e0e0e0;
+            --text-dim: #777;
+            --accent: #ff6b35;
+            --accent-dim: #ff6b3522;
+            --mono: 'JetBrains Mono', monospace;
+            --serif: 'Instrument Serif', Georgia, serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 15px;
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+
+        .grain {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border);
+            padding: 3rem 2rem 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header h1 {
+            font-family: var(--serif);
+            font-size: 3.5rem;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+        }
+
+        header h1 span {
+            color: var(--accent);
+        }
+
+        header p {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            max-width: 500px;
+        }
+
+        .links {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .links a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.8rem;
+            transition: color 0.2s;
+        }
+
+        .links a:hover { color: var(--accent); }
+
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-dim);
+            margin-bottom: 2rem;
+        }
+
+        .post {
+            display: block;
+            text-decoration: none;
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .post::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 3px;
+            height: 100%;
+            background: var(--accent);
+            transform: scaleY(0);
+            transform-origin: bottom;
+            transition: transform 0.3s ease;
+        }
+
+        .post:hover {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .post:hover::before {
+            transform: scaleY(1);
+        }
+
+        .post-meta {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.75rem;
+        }
+
+        .post h2 {
+            font-family: var(--serif);
+            font-size: 1.8rem;
+            font-weight: 400;
+            line-height: 1.2;
+            margin-bottom: 0.75rem;
+        }
+
+        .post p {
+            color: var(--text-dim);
+            font-size: 0.82rem;
+            line-height: 1.6;
+        }
+
+        .tags {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            font-size: 0.65rem;
+            padding: 0.2rem 0.6rem;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 2rem;
+            max-width: 900px;
+            margin: 4rem auto 0;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.75rem;
+        }
+
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            width: 44px;
+            height: 44px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+        }
+
+        .back-to-top:hover {
+            background: #e55a2b;
+        }
+
+        @media (max-width: 600px) {
+            header h1 { font-size: 2.2rem; }
+            .post h2 { font-size: 1.4rem; }
+            header, main { padding-left: 1.2rem; padding-right: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+
+    <header>
+        <h1>Ivalin's <span>Lab</span></h1>
+        <p>Infrastructure experiments, homelab builds, and deploying things on hardware that wasn't designed for it.</p>
+        <div class="links">
+            <a href="https://github.com/ivemcfire">GitHub</a>
+            <a href="https://www.linkedin.com/in/ivemcfire">LinkedIn</a>
+        </div>
+    </header>
+
+    <main>
+        <img src="images/hero-working.png" alt="Working on the homelab" style="max-width:100%;border:1px solid #222;margin-bottom:2rem;">
+        <div class="label">Posts</div>
+
+        <a href="posts/sidecar-pattern.html" class="post">
+            <div class="post-meta">February 2026 · 10 min read</div>
+            <h2>The Kubernetes Sidecar Pattern: Building Real Observability on a Phone Cluster</h2>
+            <p>Adding structured logging and metrics to a FastAPI app using Fluent Bit, Loki, and a shared emptyDir volume — without touching the application code. Three simultaneous outputs, inotify-based tailing, and lessons from five things that went wrong.</p>
+            <div class="tags">
+                <span class="tag">Kubernetes</span>
+                <span class="tag">Fluent Bit</span>
+                <span class="tag">Loki</span>
+                <span class="tag">Grafana</span>
+                <span class="tag">Observability</span>
+                <span class="tag">k3s</span>
+            </div>
+        </a>
+
+        <a href="posts/ollama-local-ai.html" class="post">
+            <div class="post-meta">February 2026 · 8 min read</div>
+            <h2>Running a Local AI Model on My Homelab Kubernetes Cluster</h2>
+            <p>GPU-accelerated Mistral 7B via Ollama on a GTX 1050 Ti, exposed to the k3s cluster through WSL2 port forwarding, with Open WebUI providing a ChatGPT-like interface accessible from any device on the network.</p>
+            <div class="tags">
+                <span class="tag">Ollama</span>
+                <span class="tag">Mistral</span>
+                <span class="tag">WSL2</span>
+                <span class="tag">GPU</span>
+                <span class="tag">Open WebUI</span>
+                <span class="tag">k3s</span>
+            </div>
+        </a>
+
+        <a href="posts/k3s-phone-cluster.html" class="post">
+            <div class="post-meta">February 2026 · 15 min read</div>
+            <h2>I Built a Kubernetes Cluster from Old Phones and a Laptop</h2>
+            <p>Three OnePlus phones, a Lenovo laptop, USB cables, and a lot of debugging. 32 ARM cores, 27GB RAM, full monitoring with Prometheus and Grafana — all communicating over USB tethering.</p>
+            <div class="tags">
+                <span class="tag">k3s</span>
+                <span class="tag">postmarketOS</span>
+                <span class="tag">USB networking</span>
+                <span class="tag">MetalLB</span>
+                <span class="tag">Prometheus</span>
+                <span class="tag">Grafana</span>
+            </div>
+        </a>
+
+        <a href="posts/guitar-app-deploy.html" class="post">
+            <div class="post-meta">February 2026 · 8 min read</div>
+            <h2>Deploying a Guitar Practice App on My Phone Kubernetes Cluster</h2>
+            <p>Containerizing a React + FastAPI audio processing app and deploying it to a k3s cluster made of old smartphones. Dockerfiles, nginx reverse proxy, and MetalLB LoadBalancer.</p>
+            <div class="tags">
+                <span class="tag">Docker</span>
+                <span class="tag">FastAPI</span>
+                <span class="tag">React</span>
+                <span class="tag">k3s</span>
+                <span class="tag">nginx</span>
+            </div>
+        </a>
+    </main>
+
+    <footer>
+        Built with bare HTML and deployed on GitHub Pages.
+    </footer>
+    <button class="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">&uarr;</button>
+    <script>
+        const btn = document.querySelector('.back-to-top');
+        window.addEventListener('scroll', () => {
+            btn.classList.toggle('visible', window.scrollY > 400);
+        });
+    </script>
+</body>
+</html>
