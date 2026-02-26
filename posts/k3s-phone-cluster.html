@@ -1,285 +1,349 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>I Built a Kubernetes Cluster from Old Phones and a Laptop — Ivalin's Lab</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      I Built a Kubernetes Cluster from Old Phones and a Laptop — Ivalin's Lab
+    </title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        :root {
-            --bg: #0a0a0a;
-            --surface: #111;
-            --border: #222;
-            --text: #e0e0e0;
-            --text-dim: #777;
-            --accent: #ff6b35;
-            --accent-dim: #ff6b3522;
-            --mono: 'JetBrains Mono', monospace;
-            --serif: 'Instrument Serif', Georgia, serif;
-        }
+      :root {
+        --bg: #0a0a0a;
+        --surface: #111;
+        --border: #222;
+        --text: #e0e0e0;
+        --text-dim: #777;
+        --accent: #ff6b35;
+        --accent-dim: #ff6b3522;
+        --mono: "JetBrains Mono", monospace;
+        --serif: "Instrument Serif", Georgia, serif;
+      }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: var(--mono);
-            font-size: 15px;
-            line-height: 1.7;
-            min-height: 100vh;
-        }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 15px;
+        line-height: 1.7;
+        min-height: 100vh;
+      }
 
-        .grain {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-            pointer-events: none;
-            z-index: 100;
-        }
+      .grain {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 100;
+      }
 
-        nav {
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 2rem;
-            max-width: 800px;
-            margin: 0 auto;
-        }
+      nav {
+        border-bottom: 1px solid var(--border);
+        padding: 1rem 2rem;
+        max-width: 800px;
+        margin: 0 auto;
+      }
 
-        nav a {
-            color: var(--text-dim);
-            text-decoration: none;
-            font-size: 0.8rem;
-            transition: color 0.2s;
-        }
+      nav a {
+        color: var(--text-dim);
+        text-decoration: none;
+        font-size: 0.8rem;
+        transition: color 0.2s;
+      }
 
-        nav a:hover { color: var(--accent); }
+      nav a:hover {
+        color: var(--accent);
+      }
 
-        article {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 3rem 2rem 6rem;
-        }
+      article {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 3rem 2rem 6rem;
+      }
 
+      article h1 {
+        font-family: var(--serif);
+        font-size: 2.8rem;
+        font-weight: 400;
+        line-height: 1.15;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+        display: block;
+        color: var(--text-dim);
+        font-size: 0.9rem;
+        margin-bottom: 2.5rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+        font-family: var(--serif);
+        font-size: 1.8rem;
+        font-weight: 400;
+        margin-top: 3rem;
+        margin-bottom: 1rem;
+        color: var(--text);
+      }
+
+      article h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      article p {
+        margin-bottom: 1.2rem;
+        font-size: 0.88rem;
+      }
+
+      article a {
+        color: var(--accent);
+        text-decoration: none;
+        border-bottom: 1px solid var(--accent-dim);
+        transition: border-color 0.2s;
+      }
+
+      article a:hover {
+        border-bottom-color: var(--accent);
+      }
+
+      article strong {
+        color: #fff;
+        font-weight: 700;
+      }
+
+      article code {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 0.15em 0.4em;
+        font-size: 0.85em;
+        font-family: var(--mono);
+        color: var(--accent);
+      }
+
+      .code-block {
+        position: relative;
+        margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: var(--border);
+        border: 1px solid #333;
+        color: var(--text-dim);
+        padding: 0.3rem 0.7rem;
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        cursor: pointer;
+        z-index: 10;
+        transition: all 0.2s;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+        background: #2a9d4a;
+        border-color: #2a9d4a;
+        color: #fff;
+      }
+
+      article pre {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 1.5rem;
+        padding-top: 2.5rem;
+        overflow-x: auto;
+        font-size: 0.8rem;
+        line-height: 1.6;
+        margin: 0;
+      }
+
+      article pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--text);
+        font-size: inherit;
+        user-select: text;
+      }
+
+      article blockquote {
+        border-left: 3px solid var(--accent);
+        padding: 0.75rem 1.5rem;
+        margin: 1.5rem 0;
+        background: var(--accent-dim);
+        color: var(--text-dim);
+        font-size: 0.85rem;
+      }
+
+      article blockquote p {
+        margin-bottom: 0;
+      }
+
+      article ul,
+      article ol {
+        margin: 1rem 0 1.5rem 1.5rem;
+        font-size: 0.88rem;
+      }
+
+      article li {
+        margin-bottom: 0.5rem;
+      }
+
+      article img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid var(--border);
+        margin: 1.5rem 0;
+        display: block;
+      }
+
+      article .photo-caption {
+        font-size: 0.72rem;
+        color: var(--text-dim);
+        text-align: center;
+        margin-top: -1rem;
+        margin-bottom: 1.5rem;
+        font-style: italic;
+      }
+
+      article hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 3rem 0;
+      }
+
+      article table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+        font-size: 0.82rem;
+      }
+
+      article th {
+        text-align: left;
+        padding: 0.6rem 1rem;
+        border-bottom: 2px solid var(--accent);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        letter-spacing: 0.1em;
+        color: var(--text-dim);
+      }
+
+      article td {
+        padding: 0.6rem 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 2rem;
+        max-width: 800px;
+        margin: 0 auto;
+        text-align: center;
+        color: var(--text-dim);
+        font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
         article h1 {
-            font-family: var(--serif);
-            font-size: 2.8rem;
-            font-weight: 400;
-            line-height: 1.15;
-            margin-bottom: 0.5rem;
-            letter-spacing: -0.02em;
+          font-size: 1.8rem;
         }
-
-        article > em:first-of-type {
-            display: block;
-            color: var(--text-dim);
-            font-size: 0.9rem;
-            margin-bottom: 2.5rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--border);
-        }
-
         article h2 {
-            font-family: var(--serif);
-            font-size: 1.8rem;
-            font-weight: 400;
-            margin-top: 3rem;
-            margin-bottom: 1rem;
-            color: var(--text);
+          font-size: 1.4rem;
         }
-
-        article h3 {
-            font-size: 1rem;
-            font-weight: 700;
-            margin-top: 2rem;
-            margin-bottom: 0.75rem;
-            color: var(--accent);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+        article,
+        nav {
+          padding-left: 1.2rem;
+          padding-right: 1.2rem;
         }
-
-        article p {
-            margin-bottom: 1.2rem;
-            font-size: 0.88rem;
-        }
-
-        article a {
-            color: var(--accent);
-            text-decoration: none;
-            border-bottom: 1px solid var(--accent-dim);
-            transition: border-color 0.2s;
-        }
-
-        article a:hover {
-            border-bottom-color: var(--accent);
-        }
-
-        article strong {
-            color: #fff;
-            font-weight: 700;
-        }
-
-        article code {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            padding: 0.15em 0.4em;
-            font-size: 0.85em;
-            font-family: var(--mono);
-            color: var(--accent);
-        }
-
-        .code-block {
-            position: relative;
-            margin: 1.5rem 0;
-        }
-
-        .code-block .copy-btn {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background: var(--border);
-            border: 1px solid #333;
-            color: var(--text-dim);
-            padding: 0.3rem 0.7rem;
-            font-family: var(--mono);
-            font-size: 0.65rem;
-            cursor: pointer;
-            z-index: 10;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .code-block .copy-btn:hover {
-            background: var(--accent);
-            color: #fff;
-            border-color: var(--accent);
-        }
-
-        .code-block .copy-btn.copied {
-            background: #2a9d4a;
-            border-color: #2a9d4a;
-            color: #fff;
-        }
-
         article pre {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            padding: 1.5rem;
-            padding-top: 2.5rem;
-            overflow-x: auto;
-            font-size: 0.8rem;
-            line-height: 1.6;
-            margin: 0;
+          padding: 1rem;
+          font-size: 0.72rem;
         }
-
-        article pre code {
-            background: none;
-            border: none;
-            padding: 0;
-            color: var(--text);
-            font-size: inherit;
-            user-select: text;
-        }
-
-        article blockquote {
-            border-left: 3px solid var(--accent);
-            padding: 0.75rem 1.5rem;
-            margin: 1.5rem 0;
-            background: var(--accent-dim);
-            color: var(--text-dim);
-            font-size: 0.85rem;
-        }
-
-        article blockquote p { margin-bottom: 0; }
-
-        article ul, article ol {
-            margin: 1rem 0 1.5rem 1.5rem;
-            font-size: 0.88rem;
-        }
-
-        article li {
-            margin-bottom: 0.5rem;
-        }
-
-        article img {
-            max-width: 100%;
-            height: auto;
-            border: 1px solid var(--border);
-            margin: 1.5rem 0;
-            display: block;
-        }
-
-        article .photo-caption {
-            font-size: 0.72rem;
-            color: var(--text-dim);
-            text-align: center;
-            margin-top: -1rem;
-            margin-bottom: 1.5rem;
-            font-style: italic;
-        }
-
-        article hr {
-            border: none;
-            border-top: 1px solid var(--border);
-            margin: 3rem 0;
-        }
-
-        article table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-            font-size: 0.82rem;
-        }
-
-        article th {
-            text-align: left;
-            padding: 0.6rem 1rem;
-            border-bottom: 2px solid var(--accent);
-            font-weight: 700;
-            text-transform: uppercase;
-            font-size: 0.7rem;
-            letter-spacing: 0.1em;
-            color: var(--text-dim);
-        }
-
-        article td {
-            padding: 0.6rem 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        footer {
-            border-top: 1px solid var(--border);
-            padding: 2rem;
-            max-width: 800px;
-            margin: 0 auto;
-            text-align: center;
-            color: var(--text-dim);
-            font-size: 0.75rem;
-        }
-
-        @media (max-width: 600px) {
-            article h1 { font-size: 1.8rem; }
-            article h2 { font-size: 1.4rem; }
-            article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
-            article pre { padding: 1rem; font-size: 0.72rem; }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="grain"></div>
     <nav><a href="../">&larr; Ivalin's Lab</a></nav>
     <article>
-<h1>I Built a Kubernetes Cluster from Old Phones and a Laptop</h1>
-<p><em>How I turned three OnePlus phones and a Lenovo laptop into a production-grade k3s homelab with USB networking, MetalLB, and Grafana monitoring.</em></p>
-<hr />
-<h2>Why Phones?</h2>
-<p>I had three old, family-owned OnePlus phones gathering dust — flagship powerhouses from 2018, powered by Qualcomm's Snapdragon 845 with 8 cores at 2.8GHz on an ultra-efficient arm64 architecture. Two OnePlus 6 (8GB RAM each) and one OnePlus 6T (6GB RAM). That's 22GB of RAM and 24 ARM cores sitting in a drawer. For the control plane, I used a Lenovo IdeaPad Gaming 3 15IRH10 — 8 cores, 12 threads up to 4.6GHz with 16GB RAM, also retired due to a broken screen. I had enough hardware for a real, silent, power-efficient Kubernetes cluster without spending a dollar. Every device has its own battery, so no UPS is needed — I limited charging to 70% to reduce stress on the cells and eliminate the risk of swelling during always-on operation.</p>
-<p>The twist: all node-to-node communication happens over USB cables. No Wi-Fi, no Ethernet switch — just direct USB tethering. One phone even has a broken screen, managed entirely through serial console.</p>
-<img src="../images/cluster-setup.jpg" alt="Three OnePlus phones connected via USB to a laptop forming a k3s cluster" style="max-width:100%;border:1px solid #222;margin:1.5rem 0;">
-<img src="../images/laptop-phones-k3s.png" alt="Laptop with three phones running k3s" style="max-width:100%;border:1px solid #222;margin:1.5rem 0;">
-<p><img alt="Three OnePlus phones connected via USB to a laptop, forming a k3s cluster" src="../images/cluster-setup.jpg" /></p>
-<hr />
-<h2>Architecture</h2>
-<div class="codehilite"><pre><span></span><code>                    ┌──────────────────────────────────┐
+      <h1>I Built a Kubernetes Cluster from Old Phones and a Laptop</h1>
+      <p>
+        <em
+          >How I turned three OnePlus phones and a Lenovo laptop into a
+          production-grade k3s homelab with USB networking, MetalLB, and Grafana
+          monitoring.</em
+        >
+      </p>
+      <hr />
+      <h2>Why Phones?</h2>
+      <p>
+        I had three old, family-owned OnePlus phones gathering dust — flagship
+        powerhouses from 2018, powered by Qualcomm's Snapdragon 845 with 8 cores
+        at 2.8GHz on an ultra-efficient arm64 architecture. Two OnePlus 6 (8GB
+        RAM each) and one OnePlus 6T (6GB RAM). That's 22GB of RAM and 24 ARM
+        cores sitting in a drawer. For the control plane, I used a Lenovo
+        IdeaPad Gaming 3 15IRH10 — 8 cores, 12 threads up to 4.6GHz with 16GB
+        RAM, also retired due to a broken screen. I had enough hardware for a
+        real, silent, power-efficient Kubernetes cluster without spending a
+        dollar. Every device has its own battery, so no UPS is needed — I
+        limited charging to 70% to reduce stress on the cells and eliminate the
+        risk of swelling during always-on operation.
+      </p>
+      <p>
+        The twist: all node-to-node communication happens over USB cables. No
+        Wi-Fi, no Ethernet switch — just direct USB tethering. One phone even
+        has a broken screen, managed entirely through serial console.
+      </p>
+      <img
+        src="../images/3phones_small.jpg"
+        alt="Three OnePlus phones connected via USB to a laptop forming a k3s cluster"
+        style="max-width: 100%; border: 1px solid #222; margin: 1.5rem 0"
+      />
+      <img
+        src="../images/laptop3phonesK3Ssmall.png"
+        alt="Laptop with three phones running k3s"
+        style="max-width: 100%; border: 1px solid #222; margin: 1.5rem 0"
+      />
+      <p>
+        <img
+          alt="Three OnePlus phones connected via USB to a laptop, forming a k3s cluster"
+          src="../images/phone_screen_small.jpg"
+        />
+      </p>
+      <hr />
+      <h2>Architecture</h2>
+      <div class="codehilite">
+        <pre><span></span><code>                    ┌──────────────────────────────────┐
                     │  k3master (Ubuntu 24.04, 16GB RAM) │
                     │  Lenovo IdeaPad Gaming 3 15IRH10    │
                     │                                    │
@@ -297,60 +361,119 @@
   Pod CIDRs:     10.42.{0-3}.0/24 (flannel VXLAN)
   Service CIDR:  10.43.0.0/16
   MetalLB Pool:  192.168.100.200–192.168.100.220
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>Each phone connects to the laptop via USB C cable through a powered USB hub — not directly to the laptop's USB port. Phones need around 1A of power and a laptop USB port only provides 0.5A max. A cheap USB powered hub from AliExpress with USB C power delivery does the trick. The laptop acts as router, NAT gateway, and k3s control plane. Phones are worker nodes running container workloads.</p>
-<h3>Key Design Decisions</h3>
-<p>Every technical choice here was learned the hard way through debugging. Here's what matters and why.</p>
-<p><strong>Routed /30 point-to-point links, not a Linux bridge.</strong> My first attempt used a bridge (br0) connecting all USB interfaces. This triggered br_netfilter, which made iptables process bridged packets at both L2 and L3 — causing silent drops that were nearly impossible to diagnose. Dedicated /30 subnets per link eliminated this entirely and mirrors how real data centers connect routers.</p>
-<p><strong>Flannel VXLAN, not host-gw.</strong> host-gw mode adds static routes with the next-hop set to each node's IP, but it requires all nodes to be on the same L2 broadcast domain. Our separate /30 subnets mean one62 can't directly reach one6t without routing through k3master — flannel can't add the route and fails with "network is unreachable." VXLAN encapsulates pod traffic in UDP, works across any routed network.</p>
-<p><strong>Stable interface naming via udev rules.</strong> USB C cables connected to a USB powered hub on postmarketOS generate random MAC addresses on every boot, so the kernel creates a different <code>enx...</code> interface name each time. I use udev rules that match by USB hub port path to assign stable names like <code>usb-one6t</code>, making netplan, k3s, and NAT rules work reliably across reboots.</p>
-<hr />
-<h2>Step 1: Flash postmarketOS on the Phones</h2>
-<h3>1.1 Unlock the Bootloader</h3>
-<ol>
-<li>On the phone, go to <strong>Settings &gt; About phone</strong> and tap <strong>Build number</strong> seven times to enable Developer Options.</li>
-<li>In <strong>Settings &gt; Developer options</strong>, enable <strong>OEM Unlocking</strong>, <strong>USB Debugging</strong>, and <strong>Advanced Restart</strong>.</li>
-<li>Reboot to Bootloader: hold power button, tap the three dots on the right, and select Bootloader.</li>
-<li>From your computer:
-   <code>bash
-   fastboot oem unlock</code></li>
-<li>On the phone, press <strong>volume down</strong> then <strong>power button</strong> to confirm. The phone will factory reset — this is expected.</li>
-<li>After reboot, repeat step 1–2 to re-enable Developer Options and USB Debugging.</li>
-<li>Reboot to Bootloader again.</li>
-</ol>
-<h3>1.2 Flash with pmbootstrap</h3>
-<p>Install pmbootstrap on your computer and select your device during init:</p>
-<div class="codehilite"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>--user<span class="w"> </span>pmbootstrap
+      <p>
+        Each phone connects to the laptop via USB C cable through a powered USB
+        hub — not directly to the laptop's USB port. Phones need around 1A of
+        power and a laptop USB port only provides 0.5A max. A cheap USB powered
+        hub from AliExpress with USB C power delivery does the trick. The laptop
+        acts as router, NAT gateway, and k3s control plane. Phones are worker
+        nodes running container workloads.
+      </p>
+      <h3>Key Design Decisions</h3>
+      <p>
+        Every technical choice here was learned the hard way through debugging.
+        Here's what matters and why.
+      </p>
+      <p>
+        <strong>Routed /30 point-to-point links, not a Linux bridge.</strong> My
+        first attempt used a bridge (br0) connecting all USB interfaces. This
+        triggered br_netfilter, which made iptables process bridged packets at
+        both L2 and L3 — causing silent drops that were nearly impossible to
+        diagnose. Dedicated /30 subnets per link eliminated this entirely and
+        mirrors how real data centers connect routers.
+      </p>
+      <p>
+        <strong>Flannel VXLAN, not host-gw.</strong> host-gw mode adds static
+        routes with the next-hop set to each node's IP, but it requires all
+        nodes to be on the same L2 broadcast domain. Our separate /30 subnets
+        mean one62 can't directly reach one6t without routing through k3master —
+        flannel can't add the route and fails with "network is unreachable."
+        VXLAN encapsulates pod traffic in UDP, works across any routed network.
+      </p>
+      <p>
+        <strong>Stable interface naming via udev rules.</strong> USB C cables
+        connected to a USB powered hub on postmarketOS generate random MAC
+        addresses on every boot, so the kernel creates a different
+        <code>enx...</code> interface name each time. I use udev rules that
+        match by USB hub port path to assign stable names like
+        <code>usb-one6t</code>, making netplan, k3s, and NAT rules work reliably
+        across reboots.
+      </p>
+      <hr />
+      <h2>Step 1: Flash postmarketOS on the Phones</h2>
+      <h3>1.1 Unlock the Bootloader</h3>
+      <ol>
+        <li>
+          On the phone, go to <strong>Settings &gt; About phone</strong> and tap
+          <strong>Build number</strong> seven times to enable Developer Options.
+        </li>
+        <li>
+          In <strong>Settings &gt; Developer options</strong>, enable
+          <strong>OEM Unlocking</strong>, <strong>USB Debugging</strong>, and
+          <strong>Advanced Restart</strong>.
+        </li>
+        <li>
+          Reboot to Bootloader: hold power button, tap the three dots on the
+          right, and select Bootloader.
+        </li>
+        <li>From your computer: <code>bash fastboot oem unlock</code></li>
+        <li>
+          On the phone, press <strong>volume down</strong> then
+          <strong>power button</strong> to confirm. The phone will factory reset
+          — this is expected.
+        </li>
+        <li>
+          After reboot, repeat step 1–2 to re-enable Developer Options and USB
+          Debugging.
+        </li>
+        <li>Reboot to Bootloader again.</li>
+      </ol>
+      <h3>1.2 Flash with pmbootstrap</h3>
+      <p>
+        Install pmbootstrap on your computer and select your device during init:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>--user<span class="w"> </span>pmbootstrap
 pmbootstrap<span class="w"> </span>init
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>Device selection:
-- OnePlus 6T → <code>oneplus-fajita</code>
-- OnePlus 6 → <code>oneplus-enchilada</code>
-- Kernel: <code>stable v25.12</code>
-- UI: <code>phosh</code></p>
-<p>Build and flash:</p>
-<div class="codehilite"><pre><span></span><code>pmbootstrap<span class="w"> </span>install
+      <p>
+        Device selection: - OnePlus 6T → <code>oneplus-fajita</code> - OnePlus 6
+        → <code>oneplus-enchilada</code> - Kernel: <code>stable v25.12</code> -
+        UI: <code>phosh</code>
+      </p>
+      <p>Build and flash:</p>
+      <div class="codehilite">
+        <pre><span></span><code>pmbootstrap<span class="w"> </span>install
 sudo<span class="w"> </span>fastboot<span class="w"> </span>erase<span class="w"> </span>dtbo
 pmbootstrap<span class="w"> </span>flasher<span class="w"> </span>flash_rootfs
 pmbootstrap<span class="w"> </span>flasher<span class="w"> </span>flash_kernel
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>The phone boots into postmarketOS. Connect via USB cable:</p>
-<div class="codehilite"><pre><span></span><code>ssh<span class="w"> </span>user@172.16.42.1
-</code></pre></div>
+      <p>The phone boots into postmarketOS. Connect via USB cable:</p>
+      <div class="codehilite">
+        <pre><span></span><code>ssh<span class="w"> </span>user@172.16.42.1
+</code></pre>
+      </div>
 
-<h3>1.3 Configure Phone Networking</h3>
-<p>Disable wireless radios and set up a static USB network profile.</p>
-<div class="codehilite"><pre><span></span><code>doas<span class="w"> </span>nmcli<span class="w"> </span>radio<span class="w"> </span>wifi<span class="w"> </span>off
+      <h3>1.3 Configure Phone Networking</h3>
+      <p>Disable wireless radios and set up a static USB network profile.</p>
+      <div class="codehilite">
+        <pre><span></span><code>doas<span class="w"> </span>nmcli<span class="w"> </span>radio<span class="w"> </span>wifi<span class="w"> </span>off
 doas<span class="w"> </span>nmcli<span class="w"> </span>radio<span class="w"> </span>wwan<span class="w"> </span>off
 doas<span class="w"> </span>rfkill<span class="w"> </span>block<span class="w"> </span>bluetooth<span class="w"> </span><span class="m">2</span>&gt;/dev/null
 doas<span class="w"> </span>nmcli<span class="w"> </span>con<span class="w"> </span>delete<span class="w"> </span><span class="s2">&quot;USB Networking&quot;</span><span class="w"> </span><span class="m">2</span>&gt;/dev/null
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>Create the <code>usb-client</code> profile (adjust IP per phone):</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># one6t (10.0.1.2)</span>
+      <p>Create the <code>usb-client</code> profile (adjust IP per phone):</p>
+      <div class="codehilite">
+        <pre><span></span><code><span class="c1"># one6t (10.0.1.2)</span>
 doas<span class="w"> </span>nmcli<span class="w"> </span>con<span class="w"> </span>add<span class="w"> </span><span class="nb">type</span><span class="w"> </span>ethernet<span class="w"> </span>con-name<span class="w"> </span>usb-client<span class="w"> </span>ifname<span class="w"> </span>usb0<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>ipv4.method<span class="w"> </span>manual<span class="w"> </span>ipv4.addresses<span class="w"> </span><span class="m">10</span>.0.1.2/30<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>ipv4.gateway<span class="w"> </span><span class="m">10</span>.0.1.1<span class="w"> </span>ipv4.dns<span class="w"> </span><span class="s2">&quot;1.1.1.1,8.8.8.8&quot;</span><span class="w"> </span><span class="se">\</span>
@@ -367,110 +490,190 @@ doas<span class="w"> </span>nmcli<span class="w"> </span>con<span class="w"> </s
 <span class="w">  </span>ipv4.method<span class="w"> </span>manual<span class="w"> </span>ipv4.addresses<span class="w"> </span><span class="m">10</span>.0.3.2/30<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>ipv4.gateway<span class="w"> </span><span class="m">10</span>.0.3.1<span class="w"> </span>ipv4.dns<span class="w"> </span><span class="s2">&quot;1.1.1.1,8.8.8.8&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>connection.autoconnect<span class="w"> </span>yes
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>Set hostname and enable the connection:</p>
-<div class="codehilite"><pre><span></span><code>doas<span class="w"> </span>hostnamectl<span class="w"> </span>set-hostname<span class="w"> </span>one6t<span class="w">   </span><span class="c1"># or one62, one61</span>
+      <p>Set hostname and enable the connection:</p>
+      <div class="codehilite">
+        <pre><span></span><code>doas<span class="w"> </span>hostnamectl<span class="w"> </span>set-hostname<span class="w"> </span>one6t<span class="w">   </span><span class="c1"># or one62, one61</span>
 doas<span class="w"> </span>nmcli<span class="w"> </span>con<span class="w"> </span>up<span class="w"> </span>usb-client
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>1.4 Flush nftables</h3>
-<p>postmarketOS ships with nftables rules that silently drop forwarded traffic. The default forward chain has <code>policy drop</code> and only accepts packets from <code>usb*</code> and <code>wlan*</code> interfaces — pod traffic from <code>cni0</code>, <code>flannel.1</code>, and <code>veth*</code> gets dropped. Critically, these rules are invisible to <code>iptables -L</code> because nftables and iptables-nft maintain separate rule sets.</p>
-<div class="codehilite"><pre><span></span><code><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;#!/usr/sbin/nft -f</span>
+      <h3>1.4 Flush nftables</h3>
+      <p>
+        postmarketOS ships with nftables rules that silently drop forwarded
+        traffic. The default forward chain has <code>policy drop</code> and only
+        accepts packets from <code>usb*</code> and <code>wlan*</code> interfaces
+        — pod traffic from <code>cni0</code>, <code>flannel.1</code>, and
+        <code>veth*</code> gets dropped. Critically, these rules are invisible
+        to <code>iptables -L</code> because nftables and iptables-nft maintain
+        separate rule sets.
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;#!/usr/sbin/nft -f</span>
 <span class="s1">flush ruleset&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>doas<span class="w"> </span>tee<span class="w"> </span>/etc/nftables.nft
 doas<span class="w"> </span>nft<span class="w"> </span>flush<span class="w"> </span>ruleset
 doas<span class="w"> </span>rc-update<span class="w"> </span>del<span class="w"> </span>nftables<span class="w"> </span><span class="m">2</span>&gt;/dev/null
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>1.5 Kernel Parameters</h3>
-<div class="codehilite"><pre><span></span><code><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;net.ipv4.ip_forward = 1</span>
+      <h3>1.5 Kernel Parameters</h3>
+      <div class="codehilite">
+        <pre><span></span><code><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;net.ipv4.ip_forward = 1</span>
 <span class="s1">net.ipv4.conf.all.rp_filter = 0</span>
 <span class="s1">net.ipv4.conf.default.rp_filter = 0&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>doas<span class="w"> </span>tee<span class="w"> </span>/etc/sysctl.d/90-k3s-network.conf
 doas<span class="w"> </span>sysctl<span class="w"> </span>--system
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>1.6 Limit Battery Charge Voltage</h3>
-<p>These phones will be plugged in 24/7. Keeping lithium batteries at 100% charge (4.4V) permanently risks swelling and potential fire. We lower the max charge voltage in the device tree from 4.4V to 3.8V, which corresponds to roughly 70% state of charge — a much safer level for always-on devices.</p>
-<p>Install the device tree compiler:</p>
-<div class="codehilite"><pre><span></span><code>doas<span class="w"> </span>apk<span class="w"> </span>add<span class="w"> </span>dtc
-</code></pre></div>
+      <h3>1.6 Limit Battery Charge Voltage</h3>
+      <p>
+        These phones will be plugged in 24/7. Keeping lithium batteries at 100%
+        charge (4.4V) permanently risks swelling and potential fire. We lower
+        the max charge voltage in the device tree from 4.4V to 3.8V, which
+        corresponds to roughly 70% state of charge — a much safer level for
+        always-on devices.
+      </p>
+      <p>Install the device tree compiler:</p>
+      <div class="codehilite">
+        <pre><span></span><code>doas<span class="w"> </span>apk<span class="w"> </span>add<span class="w"> </span>dtc
+</code></pre>
+      </div>
 
-<p>Decompile, patch, and recompile the device tree:</p>
-<p><strong>one6t (OnePlus 6T — fajita):</strong></p>
-<div class="codehilite"><pre><span></span><code>doas<span class="w"> </span>cp<span class="w"> </span>/boot/sdm845-oneplus-fajita.dtb<span class="w"> </span>/boot/sdm845-oneplus-fajita.dtb.bak
+      <p>Decompile, patch, and recompile the device tree:</p>
+      <p><strong>one6t (OnePlus 6T — fajita):</strong></p>
+      <div class="codehilite">
+        <pre><span></span><code>doas<span class="w"> </span>cp<span class="w"> </span>/boot/sdm845-oneplus-fajita.dtb<span class="w"> </span>/boot/sdm845-oneplus-fajita.dtb.bak
 doas<span class="w"> </span>dtc<span class="w"> </span>-I<span class="w"> </span>dtb<span class="w"> </span>-O<span class="w"> </span>dts<span class="w"> </span>-o<span class="w"> </span>/tmp/fajita.dts<span class="w"> </span>/boot/sdm845-oneplus-fajita.dtb<span class="w"> </span><span class="m">2</span>&gt;/dev/null
 doas<span class="w"> </span>sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/voltage-max-design-microvolt = &lt;0x432380&gt;/voltage-max-design-microvolt = &lt;0x39f740&gt;/&#39;</span><span class="w"> </span>/tmp/fajita.dts
 doas<span class="w"> </span>dtc<span class="w"> </span>-I<span class="w"> </span>dts<span class="w"> </span>-O<span class="w"> </span>dtb<span class="w"> </span>-o<span class="w"> </span>/boot/sdm845-oneplus-fajita.dtb<span class="w"> </span>/tmp/fajita.dts<span class="w"> </span><span class="m">2</span>&gt;/dev/null
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p><strong>one62 / one61 (OnePlus 6 — enchilada):</strong></p>
-<div class="codehilite"><pre><span></span><code>doas<span class="w"> </span>cp<span class="w"> </span>/boot/sdm845-oneplus-enchilada.dtb<span class="w"> </span>/boot/sdm845-oneplus-enchilada.dtb.bak
+      <p><strong>one62 / one61 (OnePlus 6 — enchilada):</strong></p>
+      <div class="codehilite">
+        <pre><span></span><code>doas<span class="w"> </span>cp<span class="w"> </span>/boot/sdm845-oneplus-enchilada.dtb<span class="w"> </span>/boot/sdm845-oneplus-enchilada.dtb.bak
 doas<span class="w"> </span>dtc<span class="w"> </span>-I<span class="w"> </span>dtb<span class="w"> </span>-O<span class="w"> </span>dts<span class="w"> </span>-o<span class="w"> </span>/tmp/enchilada.dts<span class="w"> </span>/boot/sdm845-oneplus-enchilada.dtb<span class="w"> </span><span class="m">2</span>&gt;/dev/null
 doas<span class="w"> </span>sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/voltage-max-design-microvolt = &lt;0x432380&gt;/voltage-max-design-microvolt = &lt;0x39f740&gt;/&#39;</span><span class="w"> </span>/tmp/enchilada.dts
 doas<span class="w"> </span>dtc<span class="w"> </span>-I<span class="w"> </span>dts<span class="w"> </span>-O<span class="w"> </span>dtb<span class="w"> </span>-o<span class="w"> </span>/boot/sdm845-oneplus-enchilada.dtb<span class="w"> </span>/tmp/enchilada.dts<span class="w"> </span><span class="m">2</span>&gt;/dev/null
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>The voltage values: <code>0x432380</code> = 4,399,936 µV (4.4V, 100%) → <code>0x39f740</code> = 3,800,000 µV (3.8V, ~70%).</p>
-<blockquote>
-<p><strong>Important:</strong> If the battery is currently above 3.8V when you reboot with the new device tree, the charger will simply stop charging until it naturally discharges below the threshold. The phone will continue to run on battery power until it reaches the new setpoint, then resume charging to maintain ~70%. This approach is based on <a href="https://github.com/bryansplace/PostmarketOS-limit-battery-voltage">Bry50's PostmarketOS battery voltage limiter</a>.</p>
-</blockquote>
-<p>Verify after reboot:</p>
-<div class="codehilite"><pre><span></span><code>xxd<span class="w"> </span>/sys/firmware/devicetree/base/battery/voltage-max-design-microvolt
+      <p>
+        The voltage values: <code>0x432380</code> = 4,399,936 µV (4.4V, 100%) →
+        <code>0x39f740</code> = 3,800,000 µV (3.8V, ~70%).
+      </p>
+      <blockquote>
+        <p>
+          <strong>Important:</strong> If the battery is currently above 3.8V
+          when you reboot with the new device tree, the charger will simply stop
+          charging until it naturally discharges below the threshold. The phone
+          will continue to run on battery power until it reaches the new
+          setpoint, then resume charging to maintain ~70%. This approach is
+          based on
+          <a
+            href="https://github.com/bryansplace/PostmarketOS-limit-battery-voltage"
+            >Bry50's PostmarketOS battery voltage limiter</a
+          >.
+        </p>
+      </blockquote>
+      <p>Verify after reboot:</p>
+      <div class="codehilite">
+        <pre><span></span><code>xxd<span class="w"> </span>/sys/firmware/devicetree/base/battery/voltage-max-design-microvolt
 <span class="c1"># Should show: 0039 f740</span>
 cat<span class="w"> </span>/sys/class/power_supply/bq27411-0/status
 <span class="c1"># Should show: &quot;Not charging&quot; (until battery drops below 3.8V)</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>1.7 Fix USB MAC Address Randomization</h3>
-<p>postmarketOS randomizes the USB gadget MAC on every boot, which changes the interface name on the laptop side. Fix this by editing the USB gadget setup script on each phone to set a fixed MAC before binding:</p>
-<div class="codehilite"><pre><span></span><code>doas<span class="w"> </span>vi<span class="w"> </span>/usr/local/bin/setup-usb-gadget.sh
-</code></pre></div>
+      <h3>1.7 Fix USB MAC Address Randomization</h3>
+      <p>
+        postmarketOS randomizes the USB gadget MAC on every boot, which changes
+        the interface name on the laptop side. Fix this by editing the USB
+        gadget setup script on each phone to set a fixed MAC before binding:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>doas<span class="w"> </span>vi<span class="w"> </span>/usr/local/bin/setup-usb-gadget.sh
+</code></pre>
+      </div>
 
-<p>Add this block <strong>after</strong> the UDC unbind/detect section, <strong>before</strong> "Ensure NCM function exists":</p>
-<p>For <strong>one6t</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># Set fixed MAC addresses for stable interface naming</span>
+      <p>
+        Add this block <strong>after</strong> the UDC unbind/detect section,
+        <strong>before</strong> "Ensure NCM function exists":
+      </p>
+      <p>For <strong>one6t</strong>:</p>
+      <div class="codehilite">
+        <pre><span></span><code><span class="c1"># Set fixed MAC addresses for stable interface naming</span>
 <span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span><span class="s2">/ncm.usb0&quot;</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
 <span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;16:26:d6:df:e9:bb&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span>/ncm.usb0/host_addr
 <span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;16:26:d6:df:e9:bc&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span>/ncm.usb0/dev_addr
 <span class="k">fi</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>For <strong>one62</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span><span class="s2">/ncm.usb0&quot;</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+      <p>For <strong>one62</strong>:</p>
+      <div class="codehilite">
+        <pre><span></span><code><span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span><span class="s2">/ncm.usb0&quot;</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
 <span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;9a:e8:dd:73:77:5d&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span>/ncm.usb0/host_addr
 <span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;9a:e8:dd:73:77:5e&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span>/ncm.usb0/dev_addr
 <span class="k">fi</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>For <strong>one61</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span><span class="s2">/ncm.usb0&quot;</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+      <p>For <strong>one61</strong>:</p>
+      <div class="codehilite">
+        <pre><span></span><code><span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span><span class="s2">/ncm.usb0&quot;</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
 <span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;f2:1c:05:01:4e:d5&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span>/ncm.usb0/host_addr
 <span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;f2:1c:05:01:4e:d6&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="si">${</span><span class="nv">FUNCTIONS_DIR</span><span class="si">}</span>/ncm.usb0/dev_addr
 <span class="k">fi</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<blockquote>
-<p><strong>Note:</strong> The MAC fix via the gadget script may not take effect if the gadget is pre-initialized by the initramfs. As a more robust alternative, use udev rules on the laptop side (see Step 2.2).</p>
-</blockquote>
-<p>Repeat steps 1.1–1.6 for each phone.</p>
-<hr />
-<h2>Step 2: Configure the Laptop (k3master)</h2>
-<h3>2.1 Identify USB Interfaces</h3>
-<p>Plug in phones one at a time to map which interface corresponds to which phone:</p>
-<div class="codehilite"><pre><span></span><code>ip<span class="w"> </span>link<span class="w"> </span>show<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>enx
-</code></pre></div>
+      <blockquote>
+        <p>
+          <strong>Note:</strong> The MAC fix via the gadget script may not take
+          effect if the gadget is pre-initialized by the initramfs. As a more
+          robust alternative, use udev rules on the laptop side (see Step 2.2).
+        </p>
+      </blockquote>
+      <p>Repeat steps 1.1–1.6 for each phone.</p>
+      <hr />
+      <h2>Step 2: Configure the Laptop (k3master)</h2>
+      <h3>2.1 Identify USB Interfaces</h3>
+      <p>
+        Plug in phones one at a time to map which interface corresponds to which
+        phone:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>ip<span class="w"> </span>link<span class="w"> </span>show<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>enx
+</code></pre>
+      </div>
 
-<p>Map serial consoles for emergency access (critical for the broken-screen phone):</p>
-<div class="codehilite"><pre><span></span><code><span class="k">for</span><span class="w"> </span>tty<span class="w"> </span><span class="k">in</span><span class="w"> </span>/dev/ttyACM*<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+      <p>
+        Map serial consoles for emergency access (critical for the broken-screen
+        phone):
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code><span class="k">for</span><span class="w"> </span>tty<span class="w"> </span><span class="k">in</span><span class="w"> </span>/dev/ttyACM*<span class="p">;</span><span class="w"> </span><span class="k">do</span>
 <span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== </span><span class="nv">$tty</span><span class="s2"> ===&quot;</span>
 <span class="w">  </span>udevadm<span class="w"> </span>info<span class="w"> </span>-q<span class="w"> </span>property<span class="w"> </span><span class="nv">$tty</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;ID_SERIAL|ID_PATH&#39;</span>
 <span class="k">done</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>Serial access: <code>sudo picocom -b 115200 /dev/ttyACMx</code> (Ctrl+A then X to exit)</p>
-<h3>2.2 Stable Interface Naming (udev Rules)</h3>
-<p>USB gadget MACs can randomize on phone reboot. Use udev rules to rename interfaces by USB hub port, so netplan and k3s configs work regardless of MAC:</p>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/udev/rules.d/90-usb-phones.rules<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
+      <p>
+        Serial access: <code>sudo picocom -b 115200 /dev/ttyACMx</code> (Ctrl+A
+        then X to exit)
+      </p>
+      <h3>2.2 Stable Interface Naming (udev Rules)</h3>
+      <p>
+        USB gadget MACs can randomize on phone reboot. Use udev rules to rename
+        interfaces by USB hub port, so netplan and k3s configs work regardless
+        of MAC:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/udev/rules.d/90-usb-phones.rules<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
 <span class="s"># Rename USB phone interfaces — match OnePlus serial to exclude WAN dongle</span>
 <span class="s">SUBSYSTEM==&quot;net&quot;, ACTION==&quot;add&quot;, ENV{ID_PATH}==&quot;pci-0000:00:14.0-usb-0:5.2:1.0&quot;, ENV{ID_SERIAL}==&quot;OnePlus*&quot;, NAME=&quot;usb-one6t&quot;</span>
 <span class="s">SUBSYSTEM==&quot;net&quot;, ACTION==&quot;add&quot;, ENV{ID_PATH}==&quot;pci-0000:00:14.0-usb-0:5.3:1.0&quot;, ENV{ID_SERIAL}==&quot;OnePlus*&quot;, NAME=&quot;usb-one62&quot;</span>
@@ -479,18 +682,26 @@ cat<span class="w"> </span>/sys/class/power_supply/bq27411-0/status
 <span class="s"># WAN dongle — match by MAC for stable naming</span>
 <span class="s">SUBSYSTEM==&quot;net&quot;, ACTION==&quot;add&quot;, ATTR{address}==&quot;c8:4d:44:35:0b:46&quot;, NAME=&quot;wan0&quot;</span>
 <span class="s">EOF</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>The <code>ENV{ID_SERIAL}=="OnePlus*"</code> filter ensures the WAN USB Ethernet dongle (which may share the same hub port path on a different USB bus) doesn't get renamed.</p>
-<p>To find your own USB port paths:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">for</span><span class="w"> </span>iface<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="k">$(</span>ls<span class="w"> </span>/sys/class/net/<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>enx<span class="k">)</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+      <p>
+        The <code>ENV{ID_SERIAL}=="OnePlus*"</code> filter ensures the WAN USB
+        Ethernet dongle (which may share the same hub port path on a different
+        USB bus) doesn't get renamed.
+      </p>
+      <p>To find your own USB port paths:</p>
+      <div class="codehilite">
+        <pre><span></span><code><span class="k">for</span><span class="w"> </span>iface<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="k">$(</span>ls<span class="w"> </span>/sys/class/net/<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>enx<span class="k">)</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
 <span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== </span><span class="nv">$iface</span><span class="s2"> ===&quot;</span>
 <span class="w">  </span>udevadm<span class="w"> </span>info<span class="w"> </span>-q<span class="w"> </span>property<span class="w"> </span>/sys/class/net/<span class="nv">$iface</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;ID_PATH=|ID_SERIAL&#39;</span>
 <span class="k">done</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>2.3 Network Configuration (Netplan)</h3>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/netplan/00-installer-config.yaml<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
+      <h3>2.3 Network Configuration (Netplan)</h3>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/netplan/00-installer-config.yaml<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
 <span class="s">network:</span>
 <span class="s">  version: 2</span>
 <span class="s">  renderer: networkd</span>
@@ -515,28 +726,40 @@ cat<span class="w"> </span>/sys/class/power_supply/bq27411-0/status
 
 sudo<span class="w"> </span>rm<span class="w"> </span>-f<span class="w"> </span>/etc/netplan/50-cloud-init.yaml
 sudo<span class="w"> </span>netplan<span class="w"> </span>apply
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>2.4 Kernel Parameters</h3>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/sysctl.d/90-k3s-network.conf<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
+      <h3>2.4 Kernel Parameters</h3>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/sysctl.d/90-k3s-network.conf<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
 <span class="s">net.ipv4.ip_forward = 1</span>
 <span class="s">net.ipv4.conf.all.rp_filter = 0</span>
 <span class="s">net.ipv4.conf.default.rp_filter = 0</span>
 <span class="s">EOF</span>
 sudo<span class="w"> </span>sysctl<span class="w"> </span>--system
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>2.5 Disable firewalld</h3>
-<p>Ubuntu may ship with firewalld, which runs nftables rules that conflict with k3s iptables chains:</p>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>firewalld<span class="w"> </span><span class="m">2</span>&gt;/dev/null
+      <h3>2.5 Disable firewalld</h3>
+      <p>
+        Ubuntu may ship with firewalld, which runs nftables rules that conflict
+        with k3s iptables chains:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>firewalld<span class="w"> </span><span class="m">2</span>&gt;/dev/null
 sudo<span class="w"> </span>systemctl<span class="w"> </span>disable<span class="w"> </span>firewalld<span class="w"> </span><span class="m">2</span>&gt;/dev/null
 sudo<span class="w"> </span>apt<span class="w"> </span>remove<span class="w"> </span>firewalld<span class="w"> </span>-y<span class="w"> </span><span class="m">2</span>&gt;/dev/null
 sudo<span class="w"> </span>nft<span class="w"> </span>flush<span class="w"> </span>ruleset
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>2.6 NAT for Phone Internet Access</h3>
-<p>Phones have no internet on their own — k3master must NAT their traffic to WAN for container image pulls:</p>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/systemd/system/k3s-nat.service<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
+      <h3>2.6 NAT for Phone Internet Access</h3>
+      <p>
+        Phones have no internet on their own — k3master must NAT their traffic
+        to WAN for container image pulls:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/systemd/system/k3s-nat.service<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
 <span class="s">[Unit]</span>
 <span class="s">Description=NAT for k3s phone nodes</span>
 <span class="s">After=network-online.target k3s.service</span>
@@ -552,10 +775,12 @@ sudo<span class="w"> </span>nft<span class="w"> </span>flush<span class="w"> </s
 <span class="s">WantedBy=multi-user.target</span>
 <span class="s">EOF</span>
 sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>k3s-nat.service
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>2.7 SSH Config</h3>
-<div class="codehilite"><pre><span></span><code>cat<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39; &gt; ~/.ssh/config</span>
+      <h3>2.7 SSH Config</h3>
+      <div class="codehilite">
+        <pre><span></span><code>cat<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39; &gt; ~/.ssh/config</span>
 <span class="s">Host one6t</span>
 <span class="s">  HostName 10.0.1.2</span>
 <span class="s">  User user</span>
@@ -571,19 +796,23 @@ sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">en
 <span class="s">  User user</span>
 <span class="s">  IdentityFile ~/.ssh/id_ed25519</span>
 <span class="s">EOF</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>2.8 Verify Connectivity</h3>
-<div class="codehilite"><pre><span></span><code>ping<span class="w"> </span>-c<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">10</span>.0.1.2<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;one6t OK&quot;</span>
+      <h3>2.8 Verify Connectivity</h3>
+      <div class="codehilite">
+        <pre><span></span><code>ping<span class="w"> </span>-c<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">10</span>.0.1.2<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;one6t OK&quot;</span>
 ping<span class="w"> </span>-c<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">10</span>.0.2.2<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;one62 OK&quot;</span>
 ping<span class="w"> </span>-c<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">10</span>.0.3.2<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;one61 OK&quot;</span>
 ssh<span class="w"> </span>one6t<span class="w"> </span><span class="s2">&quot;ping -c 1 1.1.1.1&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;NAT OK&quot;</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<hr />
-<h2>Step 3: Install k3s</h2>
-<h3>3.1 Server (k3master)</h3>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>/etc/rancher/k3s
+      <hr />
+      <h2>Step 3: Install k3s</h2>
+      <h3>3.1 Server (k3master)</h3>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>/etc/rancher/k3s
 
 sudo<span class="w"> </span>tee<span class="w"> </span>/etc/rancher/k3s/config.yaml<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
 <span class="s">node-ip: &quot;10.0.1.1&quot;</span>
@@ -604,15 +833,22 @@ sudo<span class="w"> </span>tee<span class="w"> </span>/etc/rancher/k3s/config.y
 <span class="s">EOF</span>
 
 curl<span class="w"> </span>-sfL<span class="w"> </span>https://get.k3s.io<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh<span class="w"> </span>-
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>3.2 Get Join Token</h3>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>cat<span class="w"> </span>/var/lib/rancher/k3s/server/node-token
-</code></pre></div>
+      <h3>3.2 Get Join Token</h3>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>cat<span class="w"> </span>/var/lib/rancher/k3s/server/node-token
+</code></pre>
+      </div>
 
-<h3>3.3 Agents (Phones)</h3>
-<p>Phones don't have internet during initial setup, so copy the installer and arm64 binary from k3master:</p>
-<div class="codehilite"><pre><span></span><code>curl<span class="w"> </span>-sfL<span class="w"> </span>https://get.k3s.io<span class="w"> </span>-o<span class="w"> </span>/tmp/k3s-install.sh
+      <h3>3.3 Agents (Phones)</h3>
+      <p>
+        Phones don't have internet during initial setup, so copy the installer
+        and arm64 binary from k3master:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>curl<span class="w"> </span>-sfL<span class="w"> </span>https://get.k3s.io<span class="w"> </span>-o<span class="w"> </span>/tmp/k3s-install.sh
 chmod<span class="w"> </span>+x<span class="w"> </span>/tmp/k3s-install.sh
 curl<span class="w"> </span>-sfL<span class="w"> </span>https://github.com/k3s-io/k3s/releases/latest/download/k3s-arm64<span class="w"> </span>-o<span class="w"> </span>/tmp/k3s-arm64
 
@@ -620,49 +856,75 @@ curl<span class="w"> </span>-sfL<span class="w"> </span>https://github.com/k3s-i
 <span class="w">  </span>scp<span class="w"> </span>/tmp/k3s-install.sh<span class="w"> </span><span class="nv">$phone</span>:/tmp/
 <span class="w">  </span>scp<span class="w"> </span>/tmp/k3s-arm64<span class="w"> </span><span class="nv">$phone</span>:/tmp/
 <span class="k">done</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>Install on each phone (example for one6t — adjust node-ip and node-name for others):</p>
-<div class="codehilite"><pre><span></span><code>ssh<span class="w"> </span>-t<span class="w"> </span>one6t<span class="w"> </span><span class="s2">&quot;doas mkdir -p /etc/rancher/k3s&quot;</span>
+      <p>
+        Install on each phone (example for one6t — adjust node-ip and node-name
+        for others):
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>ssh<span class="w"> </span>-t<span class="w"> </span>one6t<span class="w"> </span><span class="s2">&quot;doas mkdir -p /etc/rancher/k3s&quot;</span>
 ssh<span class="w"> </span>-t<span class="w"> </span>one6t<span class="w"> </span><span class="s2">&quot;echo &#39;server: \&quot;https://10.0.1.1:6443\&quot;</span>
 <span class="s2">node-ip: \&quot;10.0.1.2\&quot;</span>
 <span class="s2">node-name: \&quot;one6t\&quot;</span>
 <span class="s2">flannel-iface: \&quot;usb0\&quot;&#39; | doas tee /etc/rancher/k3s/config.yaml&quot;</span>
 ssh<span class="w"> </span>-t<span class="w"> </span>one6t<span class="w"> </span><span class="s2">&quot;doas cp /tmp/k3s-arm64 /usr/local/bin/k3s &amp;&amp; doas chmod +x /usr/local/bin/k3s&quot;</span>
 ssh<span class="w"> </span>-t<span class="w"> </span>one6t<span class="w"> </span><span class="s2">&quot;doas sh -c &#39;INSTALL_K3S_SKIP_DOWNLOAD=true K3S_TOKEN=&lt;TOKEN&gt; K3S_URL=https://10.0.1.1:6443 /tmp/k3s-install.sh&#39;&quot;</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>Repeat for one62 (node-ip: 10.0.2.2) and one61 (node-ip: 10.0.3.2).</p>
-<blockquote>
-<p><strong>Note:</strong> postmarketOS uses <code>doas</code> instead of <code>sudo</code>. Use <code>doas sh -c 'VAR=val command'</code> to pass environment variables — <code>doas</code> doesn't support the <code>-E</code> flag.</p>
-</blockquote>
-<h3>3.4 Verify</h3>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>nodes<span class="w"> </span>-o<span class="w"> </span>wide
-</code></pre></div>
+      <p>Repeat for one62 (node-ip: 10.0.2.2) and one61 (node-ip: 10.0.3.2).</p>
+      <blockquote>
+        <p>
+          <strong>Note:</strong> postmarketOS uses <code>doas</code> instead of
+          <code>sudo</code>. Use <code>doas sh -c 'VAR=val command'</code> to
+          pass environment variables — <code>doas</code> doesn't support the
+          <code>-E</code> flag.
+        </p>
+      </blockquote>
+      <h3>3.4 Verify</h3>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>nodes<span class="w"> </span>-o<span class="w"> </span>wide
+</code></pre>
+      </div>
 
-<p>All four nodes should show <code>Ready</code>:</p>
-<div class="codehilite"><pre><span></span><code>NAME        STATUS   ROLES           INTERNAL-IP
+      <p>All four nodes should show <code>Ready</code>:</p>
+      <div class="codehilite">
+        <pre><span></span><code>NAME        STATUS   ROLES           INTERNAL-IP
 k3master    Ready    control-plane   10.0.1.1
 one6t       Ready    &lt;none&gt;          10.0.1.2
 one62       Ready    &lt;none&gt;          10.0.2.2
 one61       Ready    &lt;none&gt;          10.0.3.2
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p><img alt="Phone screen showing k3s agent running on postmarketOS" src="../images/phone-k3s-screen.jpg" /></p>
-<hr />
-<h2>Step 4: Validate Pod Networking</h2>
-<p>This is the most important validation — cross-node pod communication is where most USB cluster setups fail.</p>
-<p>Deploy a test pod on every node:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">for</span><span class="w"> </span>node<span class="w"> </span><span class="k">in</span><span class="w"> </span>k3master<span class="w"> </span>one6t<span class="w"> </span>one62<span class="w"> </span>one61<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+      <p>
+        <img
+          alt="Phone screen showing k3s agent running on postmarketOS"
+          src="../images/phone_screen_small.jpg"
+        />
+      </p>
+      <hr />
+      <h2>Step 4: Validate Pod Networking</h2>
+      <p>
+        This is the most important validation — cross-node pod communication is
+        where most USB cluster setups fail.
+      </p>
+      <p>Deploy a test pod on every node:</p>
+      <div class="codehilite">
+        <pre><span></span><code><span class="k">for</span><span class="w"> </span>node<span class="w"> </span><span class="k">in</span><span class="w"> </span>k3master<span class="w"> </span>one6t<span class="w"> </span>one62<span class="w"> </span>one61<span class="p">;</span><span class="w"> </span><span class="k">do</span>
 <span class="w">  </span>sudo<span class="w"> </span>kubectl<span class="w"> </span>run<span class="w"> </span>nettest-<span class="nv">$node</span><span class="w"> </span>--image<span class="o">=</span>alpine:3.20<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--overrides<span class="o">=</span><span class="s2">&quot;{\&quot;spec\&quot;:{\&quot;nodeName\&quot;:\&quot;</span><span class="nv">$node</span><span class="s2">\&quot;}}&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--<span class="w"> </span>sleep<span class="w"> </span><span class="m">3600</span>
 <span class="k">done</span>
 sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-o<span class="w"> </span>wide<span class="w"> </span>-w
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>Run the full connectivity matrix:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">M</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>nettest-k3master<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.podIP}&#39;</span><span class="k">)</span>
+      <p>Run the full connectivity matrix:</p>
+      <div class="codehilite">
+        <pre><span></span><code><span class="nv">M</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>nettest-k3master<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.podIP}&#39;</span><span class="k">)</span>
 <span class="nv">T</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>nettest-one6t<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.podIP}&#39;</span><span class="k">)</span>
 <span class="nv">S</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>nettest-one62<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.podIP}&#39;</span><span class="k">)</span>
 <span class="nv">O</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>nettest-one61<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.podIP}&#39;</span><span class="k">)</span>
@@ -673,28 +935,44 @@ sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> <
 <span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$src</span><span class="s2"> → </span><span class="nv">$dst_ip</span><span class="s2">: </span><span class="k">$(</span><span class="o">[</span><span class="w"> </span><span class="nv">$result</span><span class="w"> </span>-eq<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;✅&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;❌&#39;</span><span class="k">)</span><span class="s2">&quot;</span>
 <span class="w">  </span><span class="k">done</span>
 <span class="k">done</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>All 16 paths (including self) should show ✅.</p>
-<p>Test cluster DNS:</p>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>nettest-k3master<span class="w"> </span>--<span class="w"> </span>nslookup<span class="w"> </span>kubernetes.default.svc.cluster.local
-</code></pre></div>
+      <p>All 16 paths (including self) should show ✅.</p>
+      <p>Test cluster DNS:</p>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>nettest-k3master<span class="w"> </span>--<span class="w"> </span>nslookup<span class="w"> </span>kubernetes.default.svc.cluster.local
+</code></pre>
+      </div>
 
-<p>Clean up:</p>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>delete<span class="w"> </span>pod<span class="w"> </span>nettest-k3master<span class="w"> </span>nettest-one6t<span class="w"> </span>nettest-one62<span class="w"> </span>nettest-one61
-</code></pre></div>
+      <p>Clean up:</p>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>delete<span class="w"> </span>pod<span class="w"> </span>nettest-k3master<span class="w"> </span>nettest-one6t<span class="w"> </span>nettest-one62<span class="w"> </span>nettest-one61
+</code></pre>
+      </div>
 
-<hr />
-<h2>Step 5: MetalLB Load Balancer</h2>
-<p>k3s ships with its own ServiceLB (Klipper) but MetalLB is more capable. We disabled ServiceLB in the k3s config.</p>
-<h3>Install</h3>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
+      <hr />
+      <h2>Step 5: MetalLB Load Balancer</h2>
+      <p>
+        k3s ships with its own ServiceLB (Klipper) but MetalLB is more capable.
+        We disabled ServiceLB in the k3s config.
+      </p>
+      <h3>Install</h3>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
 sudo<span class="w"> </span>kubectl<span class="w"> </span>-n<span class="w"> </span>metallb-system<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>ready<span class="w"> </span>pod<span class="w"> </span>--all<span class="w"> </span>--timeout<span class="o">=</span>120s
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>Configure</h3>
-<p>Allocate a pool of IPs from your LAN subnet and advertise via L2 (ARP) on the WAN interface. The <code>nodeSelectors</code> field is critical — without it, MetalLB's memberlist election may assign IPs to phone speakers, which don't have a WAN interface and can't respond to ARP:</p>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
+      <h3>Configure</h3>
+      <p>
+        Allocate a pool of IPs from your LAN subnet and advertise via L2 (ARP)
+        on the WAN interface. The <code>nodeSelectors</code> field is critical —
+        without it, MetalLB's memberlist election may assign IPs to phone
+        speakers, which don't have a WAN interface and can't respond to ARP:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
 <span class="s">apiVersion: metallb.io/v1beta1</span>
 <span class="s">kind: IPAddressPool</span>
 <span class="s">metadata:</span>
@@ -718,10 +996,12 @@ sudo<span class="w"> </span>kubectl<span class="w"> </span>-n<span class="w"> </
 <span class="s">  - matchLabels:</span>
 <span class="s">      kubernetes.io/hostname: k3master</span>
 <span class="s">EOF</span>
-</code></pre></div>
+</code></pre>
+      </div>
 
-<h3>Test</h3>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>create<span class="w"> </span>deployment<span class="w"> </span>nginx-test<span class="w"> </span>--image<span class="o">=</span>nginx:alpine<span class="w"> </span>--replicas<span class="o">=</span><span class="m">2</span>
+      <h3>Test</h3>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>create<span class="w"> </span>deployment<span class="w"> </span>nginx-test<span class="w"> </span>--image<span class="o">=</span>nginx:alpine<span class="w"> </span>--replicas<span class="o">=</span><span class="m">2</span>
 sudo<span class="w"> </span>kubectl<span class="w"> </span>expose<span class="w"> </span>deployment<span class="w"> </span>nginx-test<span class="w"> </span>--type<span class="o">=</span>LoadBalancer<span class="w"> </span>--port<span class="o">=</span><span class="m">80</span>
 sleep<span class="w"> </span><span class="m">10</span>
 sudo<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>nginx-test
@@ -730,12 +1010,17 @@ curl<span class="w"> </span>http://<span class="k">$(</span>sudo<span class="w">
 <span class="c1"># Clean up</span>
 sudo<span class="w"> </span>kubectl<span class="w"> </span>delete<span class="w"> </span>deploy<span class="w"> </span>nginx-test
 sudo<span class="w"> </span>kubectl<span class="w"> </span>delete<span class="w"> </span>svc<span class="w"> </span>nginx-test
-</code></pre></div>
+</code></pre>
+      </div>
 
-<hr />
-<h2>Step 6: Monitoring with Prometheus + Grafana</h2>
-<p>Pin the monitoring stack to k3master to avoid eating phone RAM. Node exporters still run on every node as a DaemonSet.</p>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>prometheus-community<span class="w"> </span>https://prometheus-community.github.io/helm-charts<span class="w"> </span>--kubeconfig<span class="w"> </span>/etc/rancher/k3s/k3s.yaml
+      <hr />
+      <h2>Step 6: Monitoring with Prometheus + Grafana</h2>
+      <p>
+        Pin the monitoring stack to k3master to avoid eating phone RAM. Node
+        exporters still run on every node as a DaemonSet.
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>prometheus-community<span class="w"> </span>https://prometheus-community.github.io/helm-charts<span class="w"> </span>--kubeconfig<span class="w"> </span>/etc/rancher/k3s/k3s.yaml
 sudo<span class="w"> </span>helm<span class="w"> </span>repo<span class="w"> </span>update<span class="w"> </span>--kubeconfig<span class="w"> </span>/etc/rancher/k3s/k3s.yaml
 
 sudo<span class="w"> </span>kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>monitoring
@@ -758,146 +1043,229 @@ sudo<span class="w"> </span>helm<span class="w"> </span>install<span class="w"> 
 <span class="w">  </span>--set<span class="w"> </span>nodeExporter.resources.limits.memory<span class="o">=</span>64Mi<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--set<span class="w"> </span>prometheus.prometheusSpec.nodeSelector.<span class="s2">&quot;kubernetes\\.io/hostname&quot;</span><span class="o">=</span>k3master<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--set<span class="w"> </span>grafana.nodeSelector.<span class="s2">&quot;kubernetes\\.io/hostname&quot;</span><span class="o">=</span>k3master
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>Expose Grafana via MetalLB:</p>
-<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>-n<span class="w"> </span>monitoring<span class="w"> </span>patch<span class="w"> </span>svc<span class="w"> </span>monitoring-grafana<span class="w"> </span><span class="se">\</span>
+      <p>Expose Grafana via MetalLB:</p>
+      <div class="codehilite">
+        <pre><span></span><code>sudo<span class="w"> </span>kubectl<span class="w"> </span>-n<span class="w"> </span>monitoring<span class="w"> </span>patch<span class="w"> </span>svc<span class="w"> </span>monitoring-grafana<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>-p<span class="w"> </span><span class="s1">&#39;{&quot;spec&quot;: {&quot;type&quot;: &quot;LoadBalancer&quot;}}&#39;</span>
 sudo<span class="w"> </span>kubectl<span class="w"> </span>-n<span class="w"> </span>monitoring<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>monitoring-grafana
-</code></pre></div>
+</code></pre>
+      </div>
 
-<p>Access Grafana at <code>http://&lt;EXTERNAL-IP&gt;</code> with <code>admin</code> / <code>homelab</code>.
-<img src="../images/grafana-dashboard.jpg" alt="Grafana dashboard showing cluster node metrics" style="max-width:100%;border:1px solid #222;margin:1.5rem 0;"></p>
-<hr />
-<h2>What Survives Reboots</h2>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>Persistence Method</th>
-<th>Location</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>k3master network</td>
-<td>Netplan</td>
-<td><code>/etc/netplan/00-installer-config.yaml</code></td>
-</tr>
-<tr>
-<td>Phone network</td>
-<td>NetworkManager</td>
-<td><code>nmcli con</code> (auto-saved)</td>
-</tr>
-<tr>
-<td>Sysctl (all nodes)</td>
-<td>sysctl.d drop-in</td>
-<td><code>/etc/sysctl.d/90-k3s-network.conf</code></td>
-</tr>
-<tr>
-<td>NAT + nft flush</td>
-<td>systemd oneshot service</td>
-<td><code>/etc/systemd/system/k3s-nat.service</code></td>
-</tr>
-<tr>
-<td>nftables disabled (phones)</td>
-<td>Service disabled + config</td>
-<td><code>/etc/nftables.nft</code></td>
-</tr>
-<tr>
-<td>Interface naming</td>
-<td>udev rules</td>
-<td><code>/etc/udev/rules.d/90-usb-phones.rules</code></td>
-</tr>
-<tr>
-<td>k3s server</td>
-<td>systemd (auto-enabled)</td>
-<td><code>k3s.service</code></td>
-</tr>
-<tr>
-<td>k3s agents</td>
-<td>systemd (auto-enabled)</td>
-<td><code>k3s-agent.service</code></td>
-</tr>
-<tr>
-<td>Battery charge limit</td>
-<td>Device tree patch</td>
-<td><code>/boot/sdm845-oneplus-*.dtb</code></td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2>Troubleshooting</h2>
-<p><strong>Pods stuck on ContainerCreating</strong>: Phones can't pull images. Check NAT is active on k3master with <code>sudo iptables -t nat -L POSTROUTING -n -v | grep MASQUERADE</code>. If zero packets matched, re-add the rule. Also verify phones can resolve DNS: <code>ssh one6t "nslookup docker.io"</code>.</p>
-<p><strong>Cross-node pod traffic fails</strong>: Check nftables on phones — <code>doas nft list ruleset</code> should return empty. Check nftables on k3master — if firewalld rules reappeared, flush with <code>sudo nft flush ruleset</code>. Verify the VXLAN interface exists: <code>ip link show flannel.1</code>.</p>
-<p><strong>Worker can't join cluster</strong>: Verify the agent can reach the API server: <code>ssh one6t "curl -k https://10.0.1.1:6443/healthz"</code>. Check agent logs: <code>ssh -t one6t "doas journalctl -u k3s-agent -f"</code>.</p>
-<p><strong>Interface name changed after reboot</strong>: The USB gadget MAC randomized. Verify udev rules are in place and reboot k3master to re-trigger them. Check with <code>ip link show | grep usb-</code>.</p>
-<p><strong>Lost SSH to broken-screen phone</strong>: Use serial console. Identify which ttyACM maps to which phone with <code>udevadm info -q property /dev/ttyACMx | grep ID_PATH</code>, then connect with <code>sudo picocom -b 115200 /dev/ttyACMx</code>.</p>
-<hr />
-<h2>Lessons Learned</h2>
-<ol>
-<li>
-<p><strong>Never use Linux bridges with k3s.</strong> br_netfilter causes packets to be processed by iptables at the bridge layer, creating silent drops between cni0 and physical interfaces that are nearly impossible to debug.</p>
-</li>
-<li>
-<p><strong>postmarketOS nftables is invisible and hostile.</strong> The default forward chain drops everything except <code>usb*</code> and <code>wlan*</code> traffic. Pod interfaces (cni0, flannel.1, veth*) don't match these patterns. The rules don't show up in <code>iptables -L</code>. Always flush nftables on pmOS k3s nodes.</p>
-</li>
-<li>
-<p><strong>Flannel host-gw needs L2 adjacency.</strong> If your nodes aren't on the same broadcast domain, host-gw silently fails to add routes. Use VXLAN for routed networks.</p>
-</li>
-<li>
-<p><strong>USB gadget MACs randomize on pmOS.</strong> This changes the <code>enx...</code> interface name on the host side every reboot. Use udev rules matching by USB port path for stable naming.</p>
-</li>
-<li>
-<p><strong>firewalld on Ubuntu conflicts with k3s.</strong> It uses nftables rules that interfere with k3s iptables chains. Remove it.</p>
-</li>
-<li>
-<p><strong>Phones can't pull images without NAT.</strong> The /30 links don't provide internet. k3master must MASQUERADE phone traffic to WAN.</p>
-</li>
-<li>
-<p><strong>Copy the k3s binary manually.</strong> Phones won't have internet until NAT is configured. Download the arm64 binary on k3master and scp it over.</p>
-</li>
-<li>
-<p><strong>Serial consoles are essential.</strong> Especially for phones with broken screens. Map ttyACM devices by USB port path before making network changes.</p>
-</li>
-<li>
-<p><strong>Always verify before proceeding.</strong> Test SSH, ping, and internet access at each phase. Never cut over to a new network config until the replacement is confirmed working.</p>
-</li>
-<li>
-<p><strong>doas doesn't support <code>-E</code>.</strong> Pass environment variables inline: <code>doas sh -c 'VAR=value command'</code>.</p>
-</li>
-<li>
-<p><strong>MetalLB needs nodeSelectors in mixed clusters.</strong> Without <code>nodeSelectors</code> on the L2Advertisement, MetalLB's memberlist election can assign VIPs to phone nodes that don't have a LAN interface. The phones "win" the election but can't respond to ARP, making services unreachable. Pin advertisements to the node with the WAN interface.</p>
-</li>
-</ol>
+      <p>
+        Access Grafana at <code>http://&lt;EXTERNAL-IP&gt;</code> with
+        <code>admin</code> / <code>homelab</code>.
+        <img
+          src="../images/graffana.JPG"
+          alt="Grafana dashboard showing cluster node metrics"
+          style="max-width: 100%; border: 1px solid #222; margin: 1.5rem 0"
+        />
+      </p>
+      <hr />
+      <h2>What Survives Reboots</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Persistence Method</th>
+            <th>Location</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>k3master network</td>
+            <td>Netplan</td>
+            <td><code>/etc/netplan/00-installer-config.yaml</code></td>
+          </tr>
+          <tr>
+            <td>Phone network</td>
+            <td>NetworkManager</td>
+            <td><code>nmcli con</code> (auto-saved)</td>
+          </tr>
+          <tr>
+            <td>Sysctl (all nodes)</td>
+            <td>sysctl.d drop-in</td>
+            <td><code>/etc/sysctl.d/90-k3s-network.conf</code></td>
+          </tr>
+          <tr>
+            <td>NAT + nft flush</td>
+            <td>systemd oneshot service</td>
+            <td><code>/etc/systemd/system/k3s-nat.service</code></td>
+          </tr>
+          <tr>
+            <td>nftables disabled (phones)</td>
+            <td>Service disabled + config</td>
+            <td><code>/etc/nftables.nft</code></td>
+          </tr>
+          <tr>
+            <td>Interface naming</td>
+            <td>udev rules</td>
+            <td><code>/etc/udev/rules.d/90-usb-phones.rules</code></td>
+          </tr>
+          <tr>
+            <td>k3s server</td>
+            <td>systemd (auto-enabled)</td>
+            <td><code>k3s.service</code></td>
+          </tr>
+          <tr>
+            <td>k3s agents</td>
+            <td>systemd (auto-enabled)</td>
+            <td><code>k3s-agent.service</code></td>
+          </tr>
+          <tr>
+            <td>Battery charge limit</td>
+            <td>Device tree patch</td>
+            <td><code>/boot/sdm845-oneplus-*.dtb</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <hr />
+      <h2>Troubleshooting</h2>
+      <p>
+        <strong>Pods stuck on ContainerCreating</strong>: Phones can't pull
+        images. Check NAT is active on k3master with
+        <code>sudo iptables -t nat -L POSTROUTING -n -v | grep MASQUERADE</code
+        >. If zero packets matched, re-add the rule. Also verify phones can
+        resolve DNS: <code>ssh one6t "nslookup docker.io"</code>.
+      </p>
+      <p>
+        <strong>Cross-node pod traffic fails</strong>: Check nftables on phones
+        — <code>doas nft list ruleset</code> should return empty. Check nftables
+        on k3master — if firewalld rules reappeared, flush with
+        <code>sudo nft flush ruleset</code>. Verify the VXLAN interface exists:
+        <code>ip link show flannel.1</code>.
+      </p>
+      <p>
+        <strong>Worker can't join cluster</strong>: Verify the agent can reach
+        the API server:
+        <code>ssh one6t "curl -k https://10.0.1.1:6443/healthz"</code>. Check
+        agent logs: <code>ssh -t one6t "doas journalctl -u k3s-agent -f"</code>.
+      </p>
+      <p>
+        <strong>Interface name changed after reboot</strong>: The USB gadget MAC
+        randomized. Verify udev rules are in place and reboot k3master to
+        re-trigger them. Check with <code>ip link show | grep usb-</code>.
+      </p>
+      <p>
+        <strong>Lost SSH to broken-screen phone</strong>: Use serial console.
+        Identify which ttyACM maps to which phone with
+        <code>udevadm info -q property /dev/ttyACMx | grep ID_PATH</code>, then
+        connect with <code>sudo picocom -b 115200 /dev/ttyACMx</code>.
+      </p>
+      <hr />
+      <h2>Lessons Learned</h2>
+      <ol>
+        <li>
+          <p>
+            <strong>Never use Linux bridges with k3s.</strong> br_netfilter
+            causes packets to be processed by iptables at the bridge layer,
+            creating silent drops between cni0 and physical interfaces that are
+            nearly impossible to debug.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>postmarketOS nftables is invisible and hostile.</strong> The
+            default forward chain drops everything except <code>usb*</code> and
+            <code>wlan*</code> traffic. Pod interfaces (cni0, flannel.1, veth*)
+            don't match these patterns. The rules don't show up in
+            <code>iptables -L</code>. Always flush nftables on pmOS k3s nodes.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>Flannel host-gw needs L2 adjacency.</strong> If your nodes
+            aren't on the same broadcast domain, host-gw silently fails to add
+            routes. Use VXLAN for routed networks.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>USB gadget MACs randomize on pmOS.</strong> This changes the
+            <code>enx...</code> interface name on the host side every reboot.
+            Use udev rules matching by USB port path for stable naming.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>firewalld on Ubuntu conflicts with k3s.</strong> It uses
+            nftables rules that interfere with k3s iptables chains. Remove it.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>Phones can't pull images without NAT.</strong> The /30 links
+            don't provide internet. k3master must MASQUERADE phone traffic to
+            WAN.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>Copy the k3s binary manually.</strong> Phones won't have
+            internet until NAT is configured. Download the arm64 binary on
+            k3master and scp it over.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>Serial consoles are essential.</strong> Especially for
+            phones with broken screens. Map ttyACM devices by USB port path
+            before making network changes.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>Always verify before proceeding.</strong> Test SSH, ping,
+            and internet access at each phase. Never cut over to a new network
+            config until the replacement is confirmed working.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>doas doesn't support <code>-E</code>.</strong> Pass
+            environment variables inline:
+            <code>doas sh -c 'VAR=value command'</code>.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>MetalLB needs nodeSelectors in mixed clusters.</strong>
+            Without <code>nodeSelectors</code> on the L2Advertisement, MetalLB's
+            memberlist election can assign VIPs to phone nodes that don't have a
+            LAN interface. The phones "win" the election but can't respond to
+            ARP, making services unreachable. Pin advertisements to the node
+            with the WAN interface.
+          </p>
+        </li>
+      </ol>
     </article>
-    <footer>
-        Built with bare HTML and deployed on GitHub Pages.
-    </footer>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
     <script>
-        document.querySelectorAll('article pre').forEach(pre => {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'code-block';
-            pre.parentNode.insertBefore(wrapper, pre);
-            wrapper.appendChild(pre);
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
 
-            const btn = document.createElement('button');
-            btn.className = 'copy-btn';
-            btn.textContent = 'Copy';
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const code = pre.querySelector('code') || pre;
-                navigator.clipboard.writeText(code.textContent).then(() => {
-                    btn.textContent = 'Copied!';
-                    btn.classList.add('copied');
-                    setTimeout(() => {
-                        btn.textContent = 'Copy';
-                        btn.classList.remove('copied');
-                    }, 2000);
-                });
-            });
-            wrapper.appendChild(btn);
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
         });
+        wrapper.appendChild(btn);
+      });
     </script>
-</body>
+  </body>
 </html>
