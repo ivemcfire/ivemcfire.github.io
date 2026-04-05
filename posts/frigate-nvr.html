@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Running Frigate NVR on Kubernetes: IP Cameras, Face Recognition, and a
+      1.8TB Hard Drive — Ivalin's Lab
+    </title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+
+      .code-block {
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+      <h1>
+        Running Frigate NVR on Kubernetes: IP Cameras, Face Recognition, and a
+        1.8TB Hard Drive
+      </h1>
+      <p>
+        <em
+          >Turning nine cheap IP cameras into a self-hosted surveillance system
+          on k3s &mdash; with Cloudflare Tunnel for remote access, nightly backup
+          to a netbook, and lessons learned about why upscaling a 640&times;360
+          stream doesn't magically create detail.</em
+        >
+      </p>
+      <hr />
+
+      <h2>The Problem</h2>
+      <p>
+        I had nine IP cameras &mdash; seven Xiongmai PTZ units, a Reolink 4K,
+        and a Yi Home 720p &mdash; all sitting on the network doing nothing
+        useful. Each one had its own web UI, its own storage settings, its own
+        motion detection that either missed everything or fired constantly.
+        Checking footage meant opening a browser tab per camera, scrubbing
+        through SD card recordings in a clunky firmware interface, and hoping the
+        event I cared about was on the right camera.
+      </p>
+      <p>
+        No unified timeline. No object detection. No way to pull up "show me
+        every time a person was on cam01 last Tuesday" without watching hours of
+        footage manually.
+      </p>
+      <p>
+        What I wanted was a single system that could ingest every camera stream,
+        detect objects in real time, record only when something interesting
+        happens, and let me search by event type.
+        <a href="https://frigate.video/">Frigate NVR</a> does exactly that
+        &mdash; and it runs as a container, which means it fits into the k3s
+        cluster I already have.
+      </p>
+
+      <p>
+        <img
+          alt="Nine IP cameras feeding into a Frigate NVR dashboard with AI object detection overlays"
+          src="../images/ipcamsAI_small.png"
+        />
+      </p>
+      <p class="photo-caption">
+        The camera fleet meets the cluster.
+      </p>
+
+      <hr />
+
+      <h2>The Camera Fleet</h2>
+      <p>
+        Nine cameras, three different manufacturers, three different quirks.
+      </p>
+
+      <h3>Xiongmai (x7) &mdash; cam11 through cam16, cam18</h3>
+      <p>
+        Budget PTZ cameras built on the IPG-50X10PT-S module. ONVIF-compatible,
+        720p main stream, H.264, 25fps. The sub stream runs at
+        704&times;576 but I drop it to 5fps for detection &mdash; Frigate
+        doesn't need more than that for object tracking.
+      </p>
+      <p>The RTSP URLs are verbose:</p>
+      <div class="codehilite">
+        <pre><span></span><code># Main stream
+rtsp://admin:@192.168.100.XX:554/user=admin&amp;password=&amp;channel=1&amp;stream=0.sdp
+
+# Sub stream
+rtsp://admin:@192.168.100.XX:554/user=admin&amp;password=&amp;channel=1&amp;stream=1.sdp</code></pre>
+      </div>
+      <p>
+        The admin password is blank and cannot be changed &mdash; firmware
+        limitation. Security comes from network isolation instead.
+      </p>
+
+      <h3>Reolink (x1) &mdash; cam07</h3>
+      <p>
+        The flagship camera. 4K (3840&times;2160) main stream at 25fps, H.265,
+        6144 kbps with AAC audio. This is the one running face recognition. RTSP
+        over TCP only &mdash; it rejects UDP connections.
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>rtsp://admin:password@192.168.100.17:554/h264Preview_01_main</code></pre>
+      </div>
+      <p>
+        The sub stream caps out at 640&times;360. That number matters &mdash;
+        it's why I ended up feeding the full 4K stream to Frigate and letting it
+        downscale, rather than using the sub stream for detection like every
+        other camera.
+      </p>
+
+      <h3>Yi Home 720p (x1) &mdash; cam08</h3>
+      <p>
+        A Wi-Fi indoor camera running
+        <strong>yi-hack</strong> custom firmware to expose RTSP. No
+        authentication on the stream, telnet wide open on port 23. The one
+        camera that actually needs a valid gateway to function because Wi-Fi
+        association requires it.
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>rtsp://192.168.100.167:554/ch0_0.h264   # Main
+rtsp://192.168.100.167:554/ch0_1.h264   # Sub</code></pre>
+      </div>
+
+      <hr />
+
+      <h2>Network Isolation</h2>
+      <p>
+        These cameras are <strong>LAN-only</strong>. They cannot reach the
+        internet.
+      </p>
+      <p>
+        The trick is simple: set the gateway and DNS to a dead IP address. I use
+        <code>192.168.100.254</code> &mdash; nothing lives there. The cameras
+        can talk to the local subnet (where Frigate lives) but have no route
+        out. No DNS resolution, no cloud callbacks, no firmware phoning home.
+      </p>
+      <p>
+        This matters because the Xiongmai cameras ship with
+        <code>114.114.114.114</code> (ChinaNet public DNS) hardcoded as the
+        default DNS server, and PMS (their peer-to-peer cloud service) enabled
+        out of the box. Left alone, these cameras will happily punch through
+        your firewall via UPnP and phone home to servers in China.
+      </p>
+      <p>Every camera gets the same lockdown:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Setting</th>
+            <th>Status</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>UPnP</td>
+            <td>Disabled</td>
+            <td>Prevents firewall hole-punching</td>
+          </tr>
+          <tr>
+            <td>PMS / Cloud</td>
+            <td>Disabled</td>
+            <td>No phone-home to vendor cloud</td>
+          </tr>
+          <tr>
+            <td>FTP</td>
+            <td>Disabled</td>
+            <td>Frigate handles all recording</td>
+          </tr>
+          <tr>
+            <td>Alarm Center</td>
+            <td>Disabled</td>
+            <td>Frigate handles detection</td>
+          </tr>
+          <tr>
+            <td>High Speed Download</td>
+            <td>Disabled</td>
+            <td>Destabilizes RTSP streams</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        The Yi cam is the exception &mdash; it uses the real router gateway at
+        <code>.1</code> because Wi-Fi association won't complete without it.
+        It's the only camera that could theoretically reach the internet, though
+        firewall rules block it.
+      </p>
+
+      <hr />
+
+      <h2>Frigate on Kubernetes</h2>
+      <p>
+        Frigate 0.17.2 runs on <strong>k3master</strong>, the amd64 laptop that
+        serves as the K3s control plane. It has to run here &mdash; the phone
+        workers (OnePlus 6/6T running postmarketOS) don't have the CPU headroom
+        for real-time video decode of nine camera streams.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Image</td>
+            <td><code>ghcr.io/blakeblackshear/frigate:0.17.1</code></td>
+          </tr>
+          <tr>
+            <td>Namespace</td>
+            <td><code>frigate</code></td>
+          </tr>
+          <tr>
+            <td>MetalLB IP</td>
+            <td>192.168.100.211</td>
+          </tr>
+          <tr>
+            <td>Detection</td>
+            <td>CPU-based TFLite, 2 threads</td>
+          </tr>
+          <tr>
+            <td>MQTT</td>
+            <td>Mosquitto at 192.168.100.207:1883</td>
+          </tr>
+          <tr>
+            <td>Storage</td>
+            <td>1.8TB local HDD (<code>/dev/sda1</code> mounted at <code>/mnt/frigate</code>)</td>
+          </tr>
+          <tr>
+            <td>Retention</td>
+            <td>90 days (clips + snapshots)</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        No Coral TPU. Detection runs on CPU, which is fine for the current
+        camera count. The TFLite model uses standard COCO classes &mdash;
+        person, car, dog, cat, and so on.
+      </p>
+
+      <h3>Camera Configuration in Frigate</h3>
+      <p>
+        Most cameras follow the same pattern: sub stream for detection, main
+        stream for recording. Frigate only needs to run inference on the
+        lower-resolution stream &mdash; when it detects something, it pulls the
+        high-res recording from the main stream.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Camera</th>
+            <th>Detect stream</th>
+            <th>Record stream</th>
+            <th>Face recognition</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>cam01&ndash;cam03 (Xiongmai)</td>
+            <td>Sub 640&times;480 @ 5fps</td>
+            <td>Main 720p @ 25fps</td>
+            <td>No</td>
+          </tr>
+          <tr>
+            <td>cam04&ndash;cam06 (Xiongmai)</td>
+            <td>Disabled</td>
+            <td>Disabled</td>
+            <td>No</td>
+          </tr>
+          <tr>
+            <td>cam07_reolink</td>
+            <td><strong>Main 4K downscaled to 720p @ 10fps</strong></td>
+            <td>Main 4K H.265 @ 25fps</td>
+            <td><strong>Yes</strong></td>
+          </tr>
+          <tr>
+            <td>cam08_yicam (Yi)</td>
+            <td>Sub 640&times;480 @ 5fps</td>
+            <td>Main 720p @ 20fps</td>
+            <td>No</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        cam07 is the outlier. It uses the main stream for <em>both</em> detect
+        and record, because the sub stream is too low-resolution for face
+        recognition.
+      </p>
+
+      <hr />
+
+      <h2>Face Recognition: Why Resolution Matters More Than Settings</h2>
+      <p>
+        Frigate 0.17 ships with built-in face recognition &mdash;
+        <code>facedet.onnx</code> for detection and
+        <code>facenet.tflite</code> for embedding. I enabled it on the Reolink
+        with <code>min_area: 500</code> and expected it to work out of the box
+        on the sub stream.
+      </p>
+      <p>It didn't.</p>
+      <p>
+        The Reolink's sub stream maxes out at 640&times;360. That's the only
+        option &mdash; there's no way to increase it in the camera's settings.
+        At that resolution, faces are typically 20&ndash;30 pixels wide, which
+        is not enough for the embedding model to produce useful vectors.
+      </p>
+      <p>
+        My first instinct was to upscale. I configured go2rtc to transcode the
+        sub stream to 1280&times;720:
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>ffmpeg:cam07#video=h264#width=1280#height=720</code></pre>
+      </div>
+      <p>
+        This was wrong for two reasons. First, upscaling a 640&times;360 source
+        to 720p just stretches the same pixels over a larger area.
+        <strong>No new detail is created.</strong> A blurry face at 30 pixels
+        becomes a blurry face at 60 pixels &mdash; the embedding model still
+        can't find features that aren't there. Second, the go2rtc transcode
+        pinned the CPU at 80&ndash;90%. It was decoding H.265 4K, scaling to
+        720p, and re-encoding to H.264, all in software.
+      </p>
+
+      <p>
+        <img
+          alt="Frigate NVR face recognition pipeline showing the difference between upscaled and downscaled streams"
+          src="../images/ipcamsAI2_small.png"
+        />
+      </p>
+      <p class="photo-caption">
+        Upscaling doesn't add information &mdash; downscaling from native 4K does.
+      </p>
+
+      <p>
+        The solution was counterintuitive: feed the full 4K main stream directly
+        to Frigate and let it downscale to 720p for detection.
+        <strong>Downscaling preserves native pixel detail</strong> &mdash; a
+        face that's 120 pixels wide at 4K becomes 60 pixels at 720p, but those
+        60 pixels contain real high-frequency detail from the original sensor.
+        Much better input for the embedding model than 60 interpolated pixels
+        from an upscaled 360p stream.
+      </p>
+      <p>
+        The CPU cost of decoding 4K H.265 at 10fps is meaningful but manageable
+        &mdash; significantly less than the go2rtc transcode approach, and the
+        detection quality is dramatically better.
+      </p>
+
+      <h3>Lessons the Hard Way</h3>
+      <ol>
+        <li>
+          <strong><code>face</code> is not a valid object class.</strong> The
+          default TFLite model uses COCO classes. Face recognition is a separate
+          pipeline that runs <em>after</em> a <code>person</code> detection
+          &mdash; you don't track faces directly.
+        </li>
+        <li>
+          <strong><code>snapshots</code> is not an ffmpeg input role.</strong>
+          Only <code>record</code>, <code>detect</code>, and
+          <code>audio</code> are valid in Frigate 0.17. I spent time debugging a
+          config that looked right but silently did nothing.
+        </li>
+        <li>
+          <strong>Lowering confidence thresholds doesn't fix bad input.</strong>
+          If the source resolution can't resolve facial features, accepting
+          lower-confidence matches just produces more false positives.
+        </li>
+        <li>
+          <strong>Training data is required.</strong> The models ship ready, but
+          without reference photos uploaded through the Frigate UI, there's
+          nothing to match against. Detection works, but identification needs
+          examples.
+        </li>
+      </ol>
+
+      <hr />
+
+      <h2>Remote Access via Cloudflare Tunnel</h2>
+      <p>
+        Frigate's web UI runs on port 5000 at 192.168.100.211 &mdash; reachable
+        on the LAN but not from outside. I didn't want to port-forward or expose
+        k3master directly, so I set up a
+        <strong>Cloudflare Tunnel</strong>.
+      </p>
+      <p>
+        A <code>cloudflared</code> pod runs in the frigate namespace, pinned to
+        k3master alongside Frigate itself. It establishes an outbound connection
+        to Cloudflare's edge and maps
+        <code>cams.ayurforlife.eu</code> to
+        <code>http://frigate-service:5000</code> inside the cluster.
+      </p>
+      <p>
+        Authentication uses <strong>Cloudflare Access with email OTP</strong>.
+        Sessions expire after 24 hours. No VPN, no open ports, no dynamic DNS.
+      </p>
+      <p>
+        The result: I can pull up the Frigate dashboard from my phone on any
+        network, enter my email, paste the one-time code, and get live streams,
+        event history, and face recognition results &mdash; all through a
+        zero-trust tunnel.
+      </p>
+
+      <hr />
+
+      <h2>Backup Strategy</h2>
+      <p>
+        All Frigate data &mdash; recordings, snapshots, the config database
+        &mdash; lives on a 1.8TB HDD physically attached to k3master. That's a
+        single point of failure.
+      </p>
+      <p>
+        The backup is a Kubernetes CronJob called
+        <code>frigate-backup</code> that runs at 2:00 AM every night. It rsyncs
+        the entire <code>/mnt/frigate</code> directory to a 3.6TB USB drive
+        connected to the jumphost at 192.168.100.152. The jumphost is a netbook
+        that also serves as the SSH bastion for the cluster.
+      </p>
+      <div class="codehilite">
+        <pre><span></span><code>┌──────────────┐    rsync @ 2AM     ┌───────────────────┐
+│  k3master    │ ─────────────────► │  jumphost         │
+│  /mnt/frigate│    (CronJob)       │  /mnt/backup      │
+│  1.8TB HDD   │                    │  3.6TB USB drive  │
+└──────────────┘                    └───────────────────┘</code></pre>
+      </div>
+      <p>
+        The rsync is a mirror &mdash; deletions propagate. If Frigate's
+        retention policy purges a 91-day-old clip, the next backup run removes
+        it from the jumphost too. Both drives stay in sync, and neither grows
+        unbounded.
+      </p>
+      <p>
+        With 90-day retention and event-only recording (5 seconds pre-capture,
+        10 seconds post-capture), storage growth is modest. Continuous 24/7
+        recording from nine cameras would fill the drive in weeks; event-only
+        mode means most of the time, nothing is being written.
+      </p>
+
+      <hr />
+
+      <h2>Things That Went Wrong</h2>
+      <p>
+        <strong>ONVIF PTZ doesn't work on this Reolink.</strong> The camera
+        advertises ONVIF support, but PTZ controls through Frigate's ONVIF
+        integration return errors. Pan and tilt work through the Reolink web UI
+        and app, but not through the standard protocol. I haven't investigated
+        further &mdash; PTZ control from Frigate would be nice but isn't
+        critical.
+      </p>
+      <p>
+        <strong>go2rtc transcode was a trap.</strong> It seemed like the right
+        approach &mdash; use go2rtc as a restream proxy, transcode to a
+        friendlier resolution. But the CPU cost was brutal (80&ndash;90%
+        sustained) and the quality gain was zero because upscaling doesn't add
+        information. Removing the transcode and feeding native 4K directly to
+        Frigate was both cheaper and better.
+      </p>
+      <p>
+        <strong>The Yi cam needs the real gateway.</strong> I initially
+        configured it with the <code>.254</code> dead gateway like every other
+        camera. Wi-Fi association failed silently &mdash; the camera just
+        dropped offline. The Yi needs a valid route to the access point's
+        gateway IP for the Wi-Fi handshake to complete.
+      </p>
+      <p>
+        <strong>Xiongmai "High Speed Download" breaks streams.</strong> This is
+        a firmware feature that sounds helpful but interferes with RTSP
+        stability. With it enabled, streams would drop and reconnect every few
+        minutes. Disabling it fixed the issue immediately.
+      </p>
+
+      <hr />
+
+      <h2>The Payoff</h2>
+      <p>
+        Before Frigate, checking cameras meant nine browser tabs and manual
+        scrubbing. Now I have a single dashboard showing real-time object
+        detection across every active camera, event-based recording with
+        searchable history, face recognition on the 4K camera, and remote access
+        from anywhere through a Cloudflare tunnel &mdash; all running on a
+        Kubernetes cluster where the worker nodes are old phones.
+      </p>
+      <p>
+        The total cost of the camera hardware was well under what a single
+        commercial NVR system would run, and the software is open source. The
+        infrastructure was already there &mdash; k3master had spare CPU, the HDD
+        was sitting unused, and the Cloudflare free tier covers the tunnel.
+      </p>
+      <p>
+        Most importantly, it's <strong>observable</strong>. Frigate publishes
+        events to MQTT, which means I can wire up alerts, dashboards, or
+        automations through the same Mosquitto broker that the HydroFlow IoT
+        project already uses. The cameras went from being nine isolated devices
+        to being part of the cluster.
+      </p>
+
+      <hr />
+
+      <h2>Cluster Context</h2>
+      <p>
+        This runs on the same k3s cluster described in previous posts &mdash; a
+        Lenovo laptop as the control plane and three OnePlus smartphones (6, 6,
+        6T) running postmarketOS as ARM64 workers, connected via USB ethernet.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Role</th>
+            <th>Arch</th>
+            <th>Hardware</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>k3master</td>
+            <td>Control plane + Frigate</td>
+            <td>amd64</td>
+            <td>x86_64 laptop (headless)</td>
+          </tr>
+          <tr>
+            <td>one6t</td>
+            <td>Worker</td>
+            <td>arm64</td>
+            <td>OnePlus 6T (Snapdragon 845, 8GB)</td>
+          </tr>
+          <tr>
+            <td>one62</td>
+            <td>Worker</td>
+            <td>arm64</td>
+            <td>OnePlus 6 (Snapdragon 845, 6GB)</td>
+          </tr>
+          <tr>
+            <td>one61</td>
+            <td>Worker</td>
+            <td>arm64</td>
+            <td>OnePlus 6 (Snapdragon 845, 6GB)</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Frigate is pinned to k3master &mdash; video decode is too CPU-heavy for
+        the phone nodes. Everything else in the cluster (Postgres, Gitea,
+        Mosquitto, application backends) runs on the phones.
+      </p>
+
+      <hr />
+      <p>
+        Previous posts:
+        <a href="k3s-phone-cluster.html">Building the cluster</a> &middot;
+        <a href="guitar-app-deploy.html">Deploying the guitar app</a> &middot;
+        <a href="ollama-local-ai.html">Running Ollama locally</a> &middot;
+        <a href="sidecar-pattern.html">The sidecar pattern</a>
+      </p>
+    </article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>
