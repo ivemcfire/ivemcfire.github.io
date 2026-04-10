@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Running Edge AI on Broken Phones: The Multi-Model Engineering Workflow — Ivalin's Lab
+    </title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+
+      .code-block {
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+      <h1>Running Edge AI on Broken Phones: The Multi-Model Engineering Workflow</h1>
+      <em>From a drawer of shattered OnePlus phones to a decentralized YOLOv8 inference cluster &mdash; with air-gapped networking paradoxes, hallucinated OpenCL drivers, and the realization that AI is no longer a tool, but an entire engineering department.</em>
+
+      <img
+        src="../images/frigate-phones-small.png"
+        alt="Frigate NVR dashboard running alongside the phone cluster"
+      />
+      <p class="photo-caption">The cluster that started it all &mdash; three broken phones doing real work.</p>
+
+      <hr />
+
+      <h2>The Starting Point</h2>
+      <p>
+        I needed to run real-time AI object detection (YOLOv8) for my home security cameras.
+        Frigate handles the core NVR routing, but localized object detection requires dedicated
+        compute. Buying an expensive edge GPU or a Coral TPU for the server felt like an
+        unnecessary capital expenditure.
+      </p>
+      <p>
+        Instead, I had three old OnePlus smartphones with broken screens collecting dust. Running
+        postmarketOS, these devices possess Snapdragon 845 processors &mdash; powerful ARM64 compute
+        sitting completely idle. The goal was to build a decentralized, air-gapped Kubernetes cluster
+        on these recycled devices to intercept Frigate motion alerts via MQTT, run image inference
+        locally on the phones, and publish the results back to the network.
+      </p>
+
+      <hr />
+
+      <h2>Hiring a Multi-Model Engineering Team</h2>
+      <p>
+        Building an air-gapped Kubernetes environment on repurposed mobile hardware is a nightmare
+        of networking constraints, cross-compilation traps, and missing drivers. Attempting this as
+        a solo developer would take weeks of debugging. Hiring a traditional engineering team to
+        build a custom mobile-edge architecture would require a Systems Architect and a Site
+        Reliability Engineer, costing tens of thousands of dollars.
+      </p>
+      <p>
+        Instead, I deployed a multi-model AI workflow. I did not use AI as an autocomplete script;
+        I orchestrated different models as a specialized engineering department.
+      </p>
+
+      <img
+        src="../images/AI-engineer-team-small.png"
+        alt="AI multi-model engineering team concept"
+      />
+      <p class="photo-caption">The AI engineering team: Architect proposes, SRE audits, human deploys.</p>
+
+      <p>
+        <strong>Claude (Opus) acted as the Chief Architect.</strong> It conceptualized the
+        high-level blueprints, drafted the Python inference workers (<code>worker.py</code>), and
+        wrote the baseline Kubernetes manifests required to deploy the containerized workload to the
+        ARM64 edge nodes.
+      </p>
+      <p>
+        <strong>Gemini operated as the Lead SRE.</strong> It rigorously audited the architectural
+        plans against the harsh physical reality of the cluster. It caught hallucinated dependencies,
+        fixed air-gap proxy routing so the phones could pull images without internet access, and
+        translated high-level concepts into safe, strictly verified bash execution steps.
+      </p>
+      <p>
+        My role was human-in-the-loop by design. I reviewed the SRE audits, handled the physical
+        hardware, and executed the verified commands. The AI proposed, the AI audited, and the
+        human deployed.
+      </p>
+
+      <hr />
+
+      <h2>Failures and the Audit Protocol</h2>
+      <p>
+        The brutal truth about large language models is that they operate in a theoretical void.
+        Without an adversarial audit step, they will break your infrastructure.
+      </p>
+      <p>
+        During the build phase, the Architect hallucinated. It instructed the cross-compilation of
+        ONNX Runtime from source using an OpenCL Execution Provider (<code>--use_opencl</code>) to
+        leverage the phones' Adreno GPUs. The SRE auditor caught it immediately: ONNX Runtime does
+        not have a native OpenCL Execution Provider in the mainline repository. The entire
+        compilation strategy was based on fictitious documentation.
+      </p>
+      <p>
+        Gemini halted the execution, purged the failed namespace, and pivoted the architecture to a
+        pre-compiled CPU provider that successfully initialized.
+      </p>
+      <p>
+        Later, the Architect attempted to execute validation commands via interactive SSH using
+        <code>sudo</code>. The SRE rejected the plan again, recognizing that the edge nodes use
+        <code>doas</code> and lack a pseudo-terminal for password entry over automated SSH streams.
+      </p>
+      <p>This internal friction is the feature.</p>
+      <pre><code>&#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;    Proposes Plan   &#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+&#x2502;  Architect    &#x2502; &#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba;&#x25ba; &#x2502;  Lead SRE     &#x2502;
+&#x2502;  (Opus)       &#x2502;    Audits Plan    &#x2502;  (Gemini)      &#x2502;
+&#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518; &#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4;&#x25c4; &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;
+                                           &#x2502;
+                                           &#x25bc;
+                                    &#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+                                    &#x2502;  Human Exec   &#x2502;
+                                    &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;</code></pre>
+
+      <hr />
+
+      <h2>The Payoff</h2>
+      <p>
+        The system is fully operational. When a camera detects motion, Frigate publishes an event.
+        A recycled phone intercepts the MQTT payload, fetches the specific frame snapshot via the
+        local API, runs the YOLOv8 model locally on the Snapdragon chip, and broadcasts the
+        detection result back to the smart home in milliseconds.
+      </p>
+      <p>
+        The hardware cost was zero. By recycling existing components, I avoided generating e-waste.
+        The software cost is limited to the minimal monthly API subscriptions for the frontier AI
+        models. In a single afternoon, this trio built enterprise-grade edge AI infrastructure for
+        pennies, proving that the future of engineering is orchestrating AI agents to execute the
+        impossible.
+      </p>
+
+      <hr />
+
+      <h2>Cluster Context</h2>
+      <p>
+        This runs on the same k3s cluster described in previous posts &mdash; an x86_64 laptop as
+        the control plane and three OnePlus smartphones running postmarketOS as ARM64 workers,
+        connected via USB ethernet.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Role</th>
+            <th>Arch</th>
+            <th>Hardware</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>k3master</td>
+            <td>Control plane + Frigate</td>
+            <td>amd64</td>
+            <td>x86_64 laptop (headless)</td>
+          </tr>
+          <tr>
+            <td>one6t</td>
+            <td>Worker</td>
+            <td>arm64</td>
+            <td>OnePlus 6T (Snapdragon 845, 6GB)</td>
+          </tr>
+          <tr>
+            <td>one62</td>
+            <td>Worker</td>
+            <td>arm64</td>
+            <td>OnePlus 6 (Snapdragon 845, 8GB)</td>
+          </tr>
+          <tr>
+            <td>one61</td>
+            <td>Worker</td>
+            <td>arm64</td>
+            <td>OnePlus 6 (Snapdragon 845, 8GB)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <hr />
+      <p>
+        Previous posts:
+        <a href="frigate-nvr.html">Running Frigate NVR on Kubernetes</a> &middot;
+        <a href="sidecar-pattern.html">The Kubernetes Sidecar Pattern</a> &middot;
+        <a href="k3s-phone-cluster.html">Building the phone cluster</a> &middot;
+        <a href="ollama-local-ai.html">Running Ollama locally</a>
+      </p>
+    </article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>
