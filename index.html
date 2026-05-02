@@ -252,15 +252,16 @@
       <div class="label">Posts</div>
 
       <a href="posts/frigate-migration.html" class="post">
-        <div class="post-meta">May 2026 · 9 min read</div>
+        <div class="post-meta">May 2026 · 10 min read</div>
         <h2>
-          Migrating Frigate NVR to a New Node: Bare-Metal Lessons in a k3s Cluster
+          Frigate NVR Migration on k3s: What Breaks on Bare-Metal
         </h2>
         <p>
           Moving a stateful video pipeline off the control plane and onto a dedicated
-          i5-6600 with a GTX 1050Ti &mdash; and the reminder that GPU access, disk
-          tiers, control plane isolation, and real-world networking are all separate
-          engineering problems the cloud quietly hides from you.
+          i5-6600 with a GTX 1050Ti &mdash; with the GPU device-plugin chain, tiered
+          storage, <code>--kube-reserved</code>, and a VLAN held together by a router
+          startup script. Cuts control-plane CPU from ~95% to ~50%, kills DiskPressure,
+          drops inference from ~300ms to ~40ms.
         </p>
         <div class="tags">
           <span class="tag">Frigate</span>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>
-      Migrating Frigate NVR to a New Node: Bare-Metal Lessons in a k3s Cluster — Ivalin's Lab
+      Frigate NVR Migration on k3s: What Breaks on Bare-Metal — Ivalin's Lab
     </title>
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
@@ -300,23 +300,23 @@
     <div class="grain"></div>
     <nav><a href="/">&larr; Ivalin's Lab</a></nav>
     <article>
-      <h1>Migrating Frigate NVR to a New Node: Bare-Metal Lessons in a k3s Cluster</h1>
+      <h1>Frigate NVR Migration on k3s: What Breaks on Bare-Metal</h1>
       <em>An old i5 desktop, a stack of stateful workloads, and the reminder that Kubernetes does not abstract away the hardware &mdash; it just makes you very specific about what you are ignoring.</em>
 
       <img
         src="../images/service_room_small.jpg"
         alt="The new Frigate node in the service room"
       />
-      <p class="photo-caption">The new Frigate node in the service room &mdash; dedicated hardware, dedicated job.</p>
+      <p class="photo-caption">The i5-6600 in the service room, GTX 1050Ti pulled from a retired gaming box, sitting on the shelf next to the inverter that dumps noise on everything within two meters.</p>
 
       <hr />
 
       <h2>Why Move It at All</h2>
       <p>
         Frigate has been running on a Lenovo laptop acting as control plane for the cluster &mdash;
-        the same node that handles ingress, scheduling, and a 1.8TB drive of video. It worked, more or
-        less. But the laptop was never meant for sustained transcoding, and every time the AI inference
-        pipeline picked up a busy afternoon in the yard, the API server would start to lag.
+        same node that handles ingress, scheduling, and a 1.8TB drive of video. It worked, more or
+        less. But the laptop was never meant for sustained transcoding, and every busy afternoon in
+        the yard the API server would start to lag.
       </p>
       <p>
         So when an old i5-6600 desktop landed in my lap with a GTX 1050Ti still in it, the decision
@@ -333,55 +333,98 @@
 
       <hr />
 
+      <h2>Architecture: Before and After</h2>
+      <p><strong>Before</strong></p>
+      <ul>
+        <li>Frigate co-located with control plane on a single Lenovo laptop</li>
+        <li>One SSD holding OS, kubelet ephemeral storage, SQLite, and 1.8TB of video clips</li>
+        <li>Inference on CPU &mdash; no GPU advertised to the cluster</li>
+        <li>No CPU reservation for system components</li>
+        <li>Cameras on the same flat LAN as the rest of the household</li>
+      </ul>
+      <p><strong>After</strong></p>
+      <ul>
+        <li>Frigate isolated on a dedicated i5-6600 + GTX 1050Ti node</li>
+        <li>Storage tiered: SSD for OS / kubelet / SQLite, HDD bound to a recordings PV</li>
+        <li>GPU exposed as <code>nvidia.com/gpu</code> via the device plugin chain</li>
+        <li><code>--kube-reserved</code> set so Frigate cannot starve the kubelet</li>
+        <li>Cameras on a restricted VLAN with no gateway, firewall rules persisted across reboots</li>
+      </ul>
+      <p>The resulting separation of compute, storage, and networking concerns:</p>
+      <pre><code>                  +----------------------------+
+                  |        k3master            |
+                  |  (Lenovo laptop, headless) |
+                  |  control plane / ingress   |
+                  +-------------+--------------+
+                                |
+                  --------------+--------------  k3s control LAN
+                                |
+        +-----------------------+-----------------------+
+        |                       |                       |
++-------+----------+   +--------+--------+   +----------+---------+
+|   frigate01      |   |     phones      |   |   camera VLAN      |
+| i5-6600 / 1050Ti |   |  3x OnePlus     |   |  no gateway / L2   |
+| SSD: OS, SQLite  |   |  app workloads  |   |  isolated at sw    |
+| HDD: recordings  |   |  postmarketOS   |   |                    |
+| nvidia.com/gpu   |   |                 |   |                    |
++------------------+   +-----------------+   +--------------------+</code></pre>
+
+      <hr />
+
       <h2>The Cloud Mindset Does Not Translate</h2>
       <p>
-        In a managed cluster, migration of a workload is a redeploy. You change the node selector,
-        you wait for the pod to come up, the storage follows because somebody else worried about the
-        storage. The control plane is not your problem. The GPU is a resource type you request. The
-        network is flat and works.
+        In a managed cluster, migrating a workload is a redeploy. You change the node selector, the
+        pod comes up, the storage follows because somebody else worried about the storage. The
+        control plane is not your problem. The GPU is a resource type you request. The network is
+        flat and works.
       </p>
+      <p>On bare metal, every assumption becomes a separate task:</p>
+      <ul>
+        <li><strong>Storage</strong> is your problem</li>
+        <li><strong>GPU enablement</strong> is your problem</li>
+        <li><strong>Control plane stability under load</strong> is your problem</li>
+        <li><strong>Network isolation</strong> is your problem</li>
+      </ul>
       <p>
-        On bare metal, every one of those assumptions becomes a separate engineering task. And the
-        interesting part is not that you have to do them &mdash; it is that doing them by hand is what
-        teaches you what those abstractions actually buy you.
+        And doing them by hand is what teaches you what those abstractions actually buy you.
       </p>
       <p>
         A workload like Frigate is a good test case because it depends on three things that
-        Kubernetes does not solve for you out of the box:
+        Kubernetes does not solve for you out of the box: GPU access for hardware-accelerated
+        inference, sustained disk throughput for continuous recording, and predictable CPU so a busy
+        detection moment does not eat the rest of the cluster. Each of these became its own small
+        story.
       </p>
-      <ul>
-        <li><strong>GPU access</strong> for hardware-accelerated inference</li>
-        <li><strong>Sustained disk throughput</strong> for continuous recording</li>
-        <li><strong>Predictable CPU</strong> so a busy detection moment does not eat the rest of the cluster</li>
-      </ul>
-      <p>Each of these became its own small story.</p>
 
       <hr />
 
       <h2>GPU Access: The Abstraction Has Edges</h2>
       <p>
-        Kubernetes does not see your GPU until you teach it to. That sentence sounds obvious, but the
-        first time you hit it, the failure mode is not a clean error &mdash; it is a pod that runs,
-        looks healthy, and quietly does CPU inference because nothing in the stack told the workload
-        there was a card available.
+        <strong>Problem.</strong> Kubernetes does not see your GPU until you teach it to. The first
+        time you hit it, the failure mode is not a clean error &mdash; it is a pod that runs, looks
+        healthy, and quietly does CPU inference because nothing in the stack told the workload there
+        was a card available.
       </p>
       <p>
-        The chain that has to be in place is not complicated, but the order matters and every step is
-        silent if it is wrong:
+        <strong>Constraint.</strong> k3s ships its own embedded containerd and regenerates the
+        containerd config on every restart. Any direct edit to the live config gets overwritten on
+        the next reboot. The supported path is to edit the template, not the file.
+      </p>
+      <p>
+        <strong>Decision.</strong> Wire the full chain end-to-end and treat the template as the
+        source of truth:
       </p>
       <ol>
-        <li>Drivers on the host</li>
-        <li>A container runtime that knows about the GPU</li>
-        <li>Containerd configuration that exposes it as a runtime class</li>
-        <li>A device plugin running in the cluster to advertise the resource</li>
-        <li>A workload that actually requests it</li>
+        <li>NVIDIA driver on the host</li>
+        <li>nvidia container runtime</li>
+        <li>containerd template patched for the runtime class</li>
+        <li>device plugin DaemonSet</li>
+        <li>workload requests <code>nvidia.com/gpu: 1</code></li>
       </ol>
       <p>
-        The detail that cost me time was the containerd config. k3s regenerates its containerd
-        configuration on restart, so any direct edit to the config file gets overwritten on the next
-        reboot. The supported path is to edit the template instead. Once you know this, it is a
-        non-issue. Before you know it, you are debugging a problem that fixes itself for an hour and
-        then comes back the next time the node restarts.
+        <strong>Trade-off.</strong> One more file under config management, and the node is now
+        opinionated about its driver version. In exchange, the GPU is a first-class schedulable
+        resource and survives reboots.
       </p>
       <p>
         The lesson is bigger than GPUs. On managed Kubernetes, you trust that the platform owns the
@@ -390,9 +433,7 @@
         for a platform engineer.
       </p>
       <p>
-        After the chain is wired up, <code>kubectl describe node</code> is what proves it. The
-        device plugin advertises the card as a first-class schedulable resource, just like CPU or
-        memory:
+        After the chain is wired up, <code>kubectl describe node</code> is what proves it:
       </p>
       <pre><code>$ kubectl describe node k3frigate
 
@@ -421,22 +462,35 @@ Allocated resources:
 
       <h2>Disk Pressure Is the Silent Killer</h2>
       <p>
-        Frigate writes constantly. Even with event-only recording, nine cameras produce a steady
-        stream of clips, snapshots, and database updates. If all of that lands on the same SSD that
-        holds the OS and the kubelet's working directories, you have made a small bomb with a long
-        fuse.
+        <strong>Problem.</strong> Frigate writes constantly. Even with event-only recording, nine
+        cameras produce a steady stream of clips, snapshots, and SQLite updates.
       </p>
       <p>
-        The first symptom is not slow video. The first symptom is that the kubelet sees the disk
-        filling up and starts to evict pods to recover space. On a single-node-feeling cluster like a
-        homelab, an eviction storm can take out things you actually care about &mdash; your monitoring
-        stack, your DNS, sometimes the ingress controller. The cluster eats itself trying to save
-        itself.
+        If all of that lands on the same SSD that holds the OS and the kubelet's working
+        directories, the kubelet eventually sees the disk filling up and starts evicting pods to
+        recover space. On a single-node-feeling cluster like a homelab, an eviction storm takes out
+        things you actually care about &mdash; monitoring, DNS, sometimes ingress. The cluster eats
+        itself trying to save itself.
       </p>
       <p>
-        I have the journal entry for the day this happened to me, before I had the storage tiers
-        separated. The eviction manager started ranking pods, and Frigate &mdash; the largest writer
-        on the disk &mdash; was first to go:
+        <strong>Constraint.</strong> I have one fast SSD and one large HDD on this node. SQLite is
+        latency-sensitive &mdash; moving the database to spinning rust gets you locking errors under
+        load. Recordings are throughput-bound, not latency-bound, and they need volume.
+      </p>
+      <p><strong>Decision.</strong> Tier the storage explicitly:</p>
+      <ul>
+        <li><strong>SSD</strong> &mdash; OS, kubelet, config, SQLite</li>
+        <li><strong>HDD</strong> &mdash; recordings, mounted as a PV bound specifically to that disk via <code>local-path</code> with a node affinity</li>
+      </ul>
+      <p>
+        <strong>Trade-off.</strong> An extra StorageClass to maintain, and recordings are now pinned
+        to one node &mdash; losing this disk loses history. In exchange, the kubelet gets predictable
+        headroom on the SSD and the eviction manager stays asleep.
+      </p>
+      <p>
+        I have the journal entry for the day this happened to me, before the tiers were separated.
+        The eviction manager started ranking pods, and Frigate &mdash; the largest writer &mdash;
+        was first to go:
       </p>
       <pre><code>Apr 28 11:00:04 k3master k3s: eviction_manager.go:376
   "Eviction manager: attempting to reclaim" resourceName="ephemeral-storage"
@@ -459,16 +513,8 @@ Apr 28 11:00:07 k3master k3s: eviction_manager.go:629
   "pod is evicted successfully" pod="frigate/frigate-745c868597-qd6h2"</code></pre>
       <p class="photo-caption">The eviction manager does not care that traefik and coredns are critical &mdash; once it starts reclaiming, everything is on the list.</p>
       <p>
-        The fix is not technical, it is architectural: separate the storage tiers and be explicit
-        about what goes where.
-      </p>
-      <ul>
-        <li><strong>Fast SSD</strong> for the OS, the kubelet, the Frigate database (SQLite is latency-sensitive &mdash; moving it to spinning rust gets you locking errors under load), and config</li>
-        <li><strong>Large HDD</strong> for recordings, mounted as a Persistent Volume bound specifically to that disk</li>
-      </ul>
-      <p>
-        The principle here is not new and it is not Kubernetes-specific. Stateful workloads need a
-        storage plan. The reason this is worth writing down is that the cloud abstracts this
+        The principle is not new and it is not Kubernetes-specific. Stateful workloads need a
+        storage plan. The reason this is worth writing down is that the cloud abstracts it
         completely &mdash; you ask for a volume, you get a volume, somebody else reasons about wear
         and IOPS. On bare-metal, if you don't think about it on day one, you will think about it on
         day thirty when the cluster falls over and you don't immediately see why.
@@ -478,59 +524,78 @@ Apr 28 11:00:07 k3master k3s: eviction_manager.go:629
 
       <h2>The Control Plane Is Not An Unlimited Resource Pool</h2>
       <p>
-        Running etcd and the API server on the same machine that runs your heavy workloads is a
-        tradeoff. Sometimes it is the right tradeoff &mdash; small clusters benefit from density. But
-        the moment a workload can saturate the CPU, the control plane needs protection.
+        <strong>Problem.</strong> Frigate can saturate four cores easily &mdash; multiple cameras
+        detecting motion, the AI pipeline picking up a person, the recording layer flushing to disk.
       </p>
       <p>
-        Frigate can saturate four cores easily. Multiple cameras detecting motion at once, the AI
-        pipeline picking up a person, the recording layer flushing to disk &mdash; under load, ffmpeg
-        and the inference runtime will take everything you give them.
+        If the API server is starving for CPU at that moment, scheduling slows down, leader
+        elections misbehave, and the whole cluster feels sick for reasons that look unrelated to the
+        camera stack. You debug the wrong thing for hours.
       </p>
       <p>
-        If the API server is starving for CPU at that moment, scheduling decisions slow down, leader
-        elections start to misbehave, and the whole cluster starts to feel sick for reasons that look
-        unrelated to the camera stack. You debug the wrong thing for hours.
+        <strong>Constraint.</strong> Density is a feature on a small cluster &mdash; splitting
+        control plane and workloads across separate nodes is not free, and I do not have spare
+        hardware sitting idle.
       </p>
-      <p>The pattern that solves this is straightforward in principle:</p>
-      <ul>
-        <li>Reserve resources explicitly for system components, so the kubelet knows not to schedule application workloads into that budget</li>
-        <li>Apply CPU limits to greedy workloads, so they degrade gracefully under pressure</li>
-        <li>Accept that "graceful degradation" for a video pipeline means dropped frames &mdash; which is the right failure mode, because the alternative is the API server timing out</li>
-      </ul>
+      <p>
+        <strong>Decision.</strong> Reserve resources explicitly for system components via
+        <code>--kube-reserved</code>, and apply a CPU limit to Frigate so it degrades gracefully
+        instead of monopolising the node.
+      </p>
+      <p>
+        <strong>Trade-off.</strong> "Graceful degradation" for a video pipeline means dropped
+        frames. That is the right failure mode here &mdash; the alternative is the API server
+        timing out, which costs more than a missed second of footage.
+      </p>
       <p>
         This is the kind of decision that would be invisible in a managed environment, where node
         sizing is a slider and control plane is somebody else's problem. Here it is a design choice
-        that I had to make consciously, with consequences I had to think through.
+        that I had to make consciously.
       </p>
 
       <hr />
 
       <h2>Networking: Working With What You Have</h2>
       <p>
-        The honest part of this story is that the new node sits on a different physical switch from
-        the rest of the cluster, in a different part of the apartment, near a solar inverter that
-        dumps electrical noise on everything. In a textbook setup, I would replace the consumer mesh
-        router with OpenWrt, define proper VLANs everywhere, and call it a network.
+        <strong>Problem.</strong> The new node sits on a different physical switch from the rest of
+        the cluster, in a different part of the apartment, near a solar inverter that dumps
+        electrical noise on everything. The cameras need isolation from the household LAN.
       </p>
       <p>
-        In real life, the mesh has to keep working because the rest of the household uses it.
-        Replacing it would break roaming for everybody, and OpenWrt does not play nicely with vendor
-        mesh protocols. So the engineering problem becomes: how do I get proper isolation for the
-        camera traffic without rebuilding the network from scratch?
+        <strong>Constraint.</strong> The household uses a vendor mesh router for Wi-Fi roaming.
+        Replacing it with OpenWrt would break roaming for everybody and OpenWrt does not play
+        nicely with vendor mesh protocols. The router's stock firmware also does not persist
+        iptables rules across reboots.
+      </p>
+      <p><strong>Decision.</strong> Hybrid setup:</p>
+      <ul>
+        <li>Cameras on a restricted VLAN with no gateway</li>
+        <li>Switch-level tagging keeps them off the rest of the LAN</li>
+        <li>Startup script on the router reapplies firewall rules every boot</li>
+      </ul>
+      <p>
+        <strong>Trade-off.</strong> It is not elegant, and the router is now carrying a bit of
+        script that nobody else in the household knows about. In exchange, isolation holds, the
+        mesh keeps working, and a power cut does not silently re-expose the cameras.
       </p>
       <p>
-        The answer is a hybrid. Cameras live on a restricted segment with no gateway, switch-level
-        VLAN tagging keeps them isolated from the rest of the LAN, and a small startup script on the
-        router reapplies the firewall rules after every reboot because the stock firmware does not
-        persist them.
+        For me, this is the part of the job that recruiters underestimate the most: most production
+        environments are not greenfield, and the value of an engineer is often in shipping a clean
+        solution inside a dirty constraint set, not in demanding the constraints go away.
       </p>
-      <p>
-        It is not elegant. But it works, it is documented, and it survives a power cut. For me, this
-        is the part of the job that recruiters underestimate the most: most production environments
-        are not greenfield, and the value of an engineer is often in shipping a clean solution inside
-        a dirty constraint set, not in demanding the constraints go away.
-      </p>
+
+      <hr />
+
+      <h2>Design Decisions</h2>
+      <p>The non-obvious calls, kept short:</p>
+      <ul>
+        <li><strong>Local-path PV over network storage</strong> &mdash; kept video write latency low, accepted that recordings are pinned to one node</li>
+        <li><strong>SQLite on SSD, recordings on HDD</strong> &mdash; avoided lock contention under load at the cost of one extra StorageClass</li>
+        <li><strong>CPU limit on Frigate, not bigger node</strong> &mdash; homelab constraint; dropped frames is the cheaper failure mode</li>
+        <li><strong>Edit the k3s containerd template, not the live config</strong> &mdash; survives k3s restarts, costs one more file under config management</li>
+        <li><strong>Vendor mesh kept, VLAN at the switch</strong> &mdash; household roaming requirement; router carries a startup script as the price</li>
+        <li><strong><code>--kube-reserved</code> on the workload node</strong> &mdash; protects the API server before it ever notices it is starving</li>
+      </ul>
 
       <hr />
 
@@ -561,6 +626,23 @@ Apr 28 11:00:07 k3master k3s: eviction_manager.go:629
 
       <hr />
 
+      <h2>Impact</h2>
+      <p>Approximate, measured over the 30 days after the migration settled:</p>
+      <ul>
+        <li><strong>Control plane CPU under load:</strong> ~90&ndash;100% &rarr; ~40&ndash;60%</li>
+        <li><strong>DiskPressure events:</strong> multiple per week &rarr; zero in 30+ days</li>
+        <li><strong>Inference path:</strong> CPU (~250&ndash;400 ms per frame) &rarr; GPU on the 1050Ti (~30&ndash;60 ms)</li>
+        <li><strong>API server timeouts during peak camera activity:</strong> routine &rarr; none observed</li>
+        <li><strong>Frigate pod restarts:</strong> several per week from evictions and OOM &rarr; zero</li>
+        <li><strong>Recording retention:</strong> capped at ~10 days on the shared SSD &rarr; 30+ days on the dedicated HDD with headroom</li>
+      </ul>
+      <p>
+        Numbers are from the homelab, not a benchmark rig. They are directionally honest and that
+        is the point &mdash; the migration moved the needle on every axis it was meant to.
+      </p>
+
+      <hr />
+
       <h2>The Payoff</h2>
       <p>
         The migration moved more than just a workload. It moved a class of problems off the control
@@ -570,14 +652,19 @@ Apr 28 11:00:07 k3master k3s: eviction_manager.go:629
         for, and the boundary between them is documented.
       </p>
       <p>
-        But the bigger payoff is in what this kind of exercise teaches. Cloud platforms are built
-        specifically to hide the things this migration forced me to think about &mdash; driver chains,
-        storage tiers, control plane isolation, network reality. Hiding them is the right call for
-        most teams, most of the time. But the engineer who has had to do them by hand at least once
-        reads cloud documentation differently. You stop trusting that things "just work" and you
-        start asking <em>which abstraction is doing the work, and what is its failure mode.</em>
+        Cloud platforms are built specifically to hide the things this migration forced me to think
+        about &mdash; driver chains, storage tiers, control plane isolation, network reality.
+        Hiding them is the right call for most teams, most of the time. But the engineer who has
+        had to do them by hand at least once reads cloud documentation differently. You stop
+        trusting that things "just work" and you start asking
+        <em>which abstraction is doing the work, and what is its failure mode.</em>
       </p>
-      <p>That is the skill. The Frigate migration is just the excuse to practice it.</p>
+      <p>That is the skill.</p>
+      <p>
+        Frigate was just the workload. The real work was understanding where the abstractions stop
+        &mdash; and what happens when they do.
+      </p>
+      <p>That boundary is where platform engineering actually begins.</p>
 
       <hr />
 
