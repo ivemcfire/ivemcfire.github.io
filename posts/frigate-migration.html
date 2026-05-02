@@ -387,6 +387,33 @@
         regenerates, and which it leaves alone. This kind of distinction is the whole job description
         for a platform engineer.
       </p>
+      <p>
+        After the chain is wired up, <code>kubectl describe node</code> is what proves it. The
+        device plugin advertises the card as a first-class schedulable resource, just like CPU or
+        memory:
+      </p>
+      <pre><code>$ kubectl describe node k3frigate
+
+Labels:             nvidia.com/gpu.present=true
+                    ...
+Capacity:
+  cpu:                4
+  memory:             16333344Ki
+  nvidia.com/gpu:     1
+  pods:               110
+Allocatable:
+  cpu:                4
+  memory:             16333344Ki
+  nvidia.com/gpu:     1
+  pods:               110
+...
+Allocated resources:
+  Resource           Requests       Limits
+  --------           --------       ------
+  cpu                1560m (39%)    200m (5%)
+  memory             10918Mi (68%)  13030Mi (81%)
+  nvidia.com/gpu     1              1</code></pre>
+      <p class="photo-caption">The line <code>nvidia.com/gpu: 1</code> in both Capacity and Allocatable is what proves the chain is alive.</p>
 
       <hr />
 
@@ -404,6 +431,31 @@
         stack, your DNS, sometimes the ingress controller. The cluster eats itself trying to save
         itself.
       </p>
+      <p>
+        I have the journal entry for the day this happened to me, before I had the storage tiers
+        separated. The eviction manager started ranking pods, and Frigate &mdash; the largest writer
+        on the disk &mdash; was first to go:
+      </p>
+      <pre><code>Apr 28 11:00:04 k3master k3s: eviction_manager.go:376
+  "Eviction manager: attempting to reclaim" resourceName="ephemeral-storage"
+
+Apr 28 11:00:05 k3master k3s: eviction_manager.go:387
+  "Eviction manager: must evict pod(s) to reclaim" resourceName="ephemeral-storage"
+
+Apr 28 11:00:05 k3master k3s: eviction_manager.go:405
+  "pods ranked for eviction" pods=[
+    "frigate/frigate-745c868597-qd6h2",
+    "monitoring/prometheus-...",
+    "default/loki-0",
+    "kube-system/coredns-...",
+    "kube-system/traefik-...",
+    "kube-system/local-path-provisioner-...",
+    ...
+  ]
+
+Apr 28 11:00:07 k3master k3s: eviction_manager.go:629
+  "pod is evicted successfully" pod="frigate/frigate-745c868597-qd6h2"</code></pre>
+      <p class="photo-caption">The eviction manager does not care that traefik and coredns are critical &mdash; once it starts reclaiming, everything is on the list.</p>
       <p>
         The fix is not technical, it is architectural: separate the storage tiers and be explicit
         about what goes where.
