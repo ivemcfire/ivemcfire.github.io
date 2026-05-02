@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Hybrid AI on k3s: A Sleeping GPU, Local qwen2.5-coder, and Cloud Only When Asked — Ivalin's Lab
+    </title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+
+      .code-block {
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+      <h1>Hybrid AI on k3s: A Sleeping GPU, Local qwen2.5-coder, and Cloud Only When Asked</h1>
+      <em>A homelab Kubernetes cluster, an RTX 3060 that sleeps until called, and a deliberate rule that the smart cloud model stays out of the loop until I decide otherwise.</em>
+
+      <img
+        src="../images/hybrid_ai_cluster_small.jpg"
+        alt="kubectl get nodes -o wide showing the heterogeneous k3s cluster"
+      />
+      <p class="photo-caption">The substrate. Two amd64 boxes (Ubuntu) and three arm64 phones (postmarketOS) on one cluster. The qwen2.5-coder GPU box lives outside this list, reached on demand.</p>
+
+      <hr />
+
+      <h2>Why Local at All</h2>
+      <p>
+        The default answer for AI in a platform-engineering workflow is to call a cloud model. It is
+        smarter, it is hosted, it is somebody else's GPU. For most teams, most of the time, that is
+        the right call.
+      </p>
+      <p>This homelab is not most teams. The work I do here has three properties that change the trade-off:</p>
+      <ul>
+        <li><strong>It is bursty.</strong> I do not need a GPU on standby for eight hours. I need it for the twenty minutes I am drafting a manifest, then it can sleep.</li>
+        <li><strong>It is sensitive.</strong> The manifests, the kubeconfig, the camera VLAN map, the router scripts &mdash; none of that needs to leave the network for a model to help me edit it.</li>
+        <li><strong>It is cheap to be wrong about.</strong> A homelab can absorb the latency of a wake-up. A production team usually cannot.</li>
+      </ul>
+      <p>
+        So the workflow inverts the default. Local model is the default driver. The cloud model is
+        on call as an auditor &mdash; invoked only when I explicitly ask. This is the kind of
+        trade-off I care about as a platform engineer &mdash; cost, control, and predictable
+        behavior under constraints, not just raw capability. The companion repo with the bridge
+        scripts, the Ollama config, and the WoL helper lives at
+        <a href="https://github.com/ivemcfire/hybrid-ai-k3s">github.com/ivemcfire/hybrid-ai-k3s</a>.
+      </p>
+
+      <hr />
+
+      <h2>Architecture: Before and After</h2>
+      <p><strong>Before</strong></p>
+      <ul>
+        <li>Cloud LLM (Claude, GPT) on every devops task, even the trivial ones</li>
+        <li>Manifests, logs, and kubeconfig fragments routinely sent to a third-party endpoint</li>
+        <li>Monthly API spend dominated by routine k3s work I could have done locally</li>
+        <li>Latency held hostage to provider availability and rate limits</li>
+        <li>No coverage when the home internet went down</li>
+      </ul>
+      <p><strong>After</strong></p>
+      <ul>
+        <li><code>qwen2.5-coder:14b</code> on a Windows desktop with an RTX 3060 12GB, served by Ollama</li>
+        <li>Cluster reaches it through Wake-on-LAN + SSH tunnel; idle by default</li>
+        <li>Cloud model (Gemini 3.1 Pro) reserved for explicit, manual escalation &mdash; audit and second opinion only</li>
+        <li>~85% of routine cluster work stays fully local</li>
+        <li>Network egress for AI traffic drops to near zero unless I escalate</li>
+      </ul>
+      <p>The resulting topology &mdash; three lanes of compute, one of them asleep most of the time:</p>
+      <pre><code>                    +-----------------------------+
+                    |        k3master             |
+                    |  (Lenovo laptop, headless)  |
+                    |  control plane / ingress    |
+                    |  ai-bridge service          |
+                    +--------------+--------------+
+                                   |
+              ---------------------+---------------------
+                                   |
+        +--------------------------+--------------------------+
+        |                          |                          |
++-------+----------+    +----------+----------+    +----------+----------+
+|  windows-gpu     |    |       phones        |    |     frigate01       |
+|  RTX 3060 12GB   |    |  3x OnePlus / pmOS  |    |  i5-6600 / 1050Ti   |
+|  Ollama          |    |  app workloads      |    |  Frigate, recording |
+|  qwen2.5-coder   |    |                     |    |                     |
+|  WoL + SSH only  |    |                     |    |                     |
++--------+---------+    +---------------------+    +---------------------+
+         |
+         | manual escalate (rare)
+         v
++------------------+
+|  Gemini 3.1 Pro  |
+|  cloud auditor   |
+|  on user request |
++------------------+</code></pre>
+
+      <hr />
+
+      <h2>The Local Model: 12GB Is the Constraint That Shapes Everything</h2>
+      <p>
+        <strong>Problem.</strong> A cloud model gives you a 200k-token context and you forget the
+        GPU exists. A 12GB consumer card does not let you forget. Every choice &mdash; model,
+        quantisation, KV cache size, concurrency &mdash; is a negotiation with VRAM.
+      </p>
+      <p>
+        <strong>Constraint.</strong> The 3060 has 12GB. Windows + display takes ~1GB before Ollama
+        touches the card. That leaves ~10&ndash;11GB for the model and its KV cache. A 14B model at
+        FP16 is ~28GB and is not happening. A 7B at FP16 fits but is too weak for code work.
+      </p>
+      <p>
+        <strong>Decision.</strong> <code>qwen2.5-coder:14b</code> quantised to <code>Q4_K_M</code>
+        (~8.8GB on disk, ~9&ndash;10GB resident with active context). Leaves ~1.5GB headroom for
+        KV cache, which puts usable context near 16k tokens &mdash; enough for any single manifest,
+        log block, or Helm values file I edit in one pass. For longer reviews I split the input
+        rather than chase a bigger quant.
+      </p>
+      <p>
+        <strong>Trade-off.</strong> Q4 quantisation costs you a measurable bit of reasoning quality
+        versus FP16. For autocompletion, kubectl recall, and YAML editing it is invisible. For
+        architectural review or "is this design sound", it is not &mdash; and that is exactly the
+        boundary at which I escalate to Gemini.
+      </p>
+      <p>The actual Ollama run configuration reflects that constraint:</p>
+      <pre><code>OLLAMA_KEEP_ALIVE=0 ollama run qwen2.5-coder:14b</code></pre>
+      <p>
+        <code>KEEP_ALIVE=0</code> makes Ollama unload the model from VRAM as soon as the response
+        is done, which lets the GPU drop power state and the box go back to sleep. Without it, the
+        model stays resident and the WoL strategy quietly stops working.
+      </p>
+      <p>
+        The model selection is the load-bearing decision of the whole setup. Everything else
+        &mdash; the bridge, the wake-up, the escalation rule &mdash; is plumbing around it.
+      </p>
+
+      <hr />
+
+      <h2>The Bridge: Kubernetes Does Not Need to Own the GPU</h2>
+      <p>
+        <strong>Problem.</strong> The cluster is k3s on Linux. The GPU box is Windows because the
+        existing CUDA setup, the gaming/VR workload, and the household constraints all live there.
+        Forcing Windows under k3s would mean WSL2, GPU passthrough quirks, and a node that never
+        quite behaves like its Linux peers.
+      </p>
+      <p>
+        <strong>Constraint.</strong> I want the GPU on demand, not in the cluster's permanent
+        topology. And I want one place where the cluster talks to the model &mdash; not every pod
+        knowing about Ollama.
+      </p>
+      <p>
+        <strong>Decision.</strong> The Windows box stays outside the cluster. A small
+        <code>ai-bridge</code> service runs on the control-plane laptop, exposes a
+        Kubernetes-internal endpoint, and on each request: (1) sends a Wake-on-LAN packet if the
+        box is asleep, (2) waits for SSH to come up, (3) forwards the request through an SSH tunnel
+        to Ollama on <code>127.0.0.1:11434</code>, (4) lets Windows go back to sleep when idle.
+      </p>
+      <p>
+        The bridge exposes a simple HTTP endpoint inside the cluster and translates incoming
+        requests to Ollama's REST API over the SSH tunnel. From the consumer's point of view it is
+        just another in-cluster service. The wake-up, the tunnel, and the sleep timer are all
+        behind that one endpoint.
+      </p>
+
+      <img
+        src="../images/hybrid_ai_workloads_small.jpg"
+        alt="kubectl get pods filtered to AI and observability workloads"
+      />
+      <p class="photo-caption">The pods that matter for the AI loop. <code>open-webui</code> on the laptop fronts the bridge that talks to <code>qwen2.5-coder</code> on the Windows GPU box. <code>ollama-gen</code> ran a one-shot ARM Ollama experiment on a phone. <code>loki-canary</code> on every node confirms the cluster is healthy across architectures.</p>
+
+      <p>
+        <strong>Trade-off.</strong> This is not a "real" Kubernetes integration. There is no
+        <code>nvidia.com/gpu</code> advertised on the cluster, no GPU operator, no scheduling. It
+        is a deliberately small bridge that respects an OS boundary. In exchange, the GPU node is
+        not a cluster member, does not need k3s upkeep, and does not pretend to be highly
+        available. It is a sleeping appliance.
+      </p>
+      <p>
+        The lesson here is the one that took me longest to internalise: Kubernetes does not need to
+        own every box on the network. Sometimes the right architectural call is <em>not</em> to
+        force a piece of infrastructure into the cluster, even when you could.
+      </p>
+
+      <hr />
+
+      <h2>Cold Start Is the Tax You Pay for the Power Bill</h2>
+      <p>
+        <strong>Problem.</strong> A sleeping GPU is great for the electricity bill and terrible for
+        first-request latency. Wake-on-LAN, BIOS POST, Windows resume, Ollama warm-up, and KV cache
+        priming for a 14B model add up.
+      </p>
+      <p>
+        <strong>Constraint.</strong> Some tasks tolerate a 10&ndash;15s cold start (drafting a
+        manifest from scratch). Others do not (autocomplete in the IDE while typing). Treating both
+        the same is what makes the workflow feel broken.
+      </p>
+      <p><strong>Decision.</strong> Two-tier behavior in the bridge:</p>
+      <ul>
+        <li><strong>Cold path</strong> &mdash; accept the wake-up. For one-shot tasks I batch the request and absorb the latency.</li>
+        <li><strong>Warm window</strong> &mdash; when I start a focused session, I send a <code>keep-warm</code> ping that tells the bridge to suppress the sleep timer for the next 60 minutes. The box stays awake while I work and goes back to sleep when I am done.</li>
+      </ul>
+      <p>
+        <strong>Trade-off.</strong> The keep-warm window is a manual signal, not an inferred one. I
+        tried auto-detecting active sessions and it kept getting it wrong &mdash; keeping the box
+        awake overnight after one stray request. Manual is uglier and more reliable. This is not
+        ideal, but it is honest.
+      </p>
+      <p>
+        Power numbers from the wattmeter on the UPS branch: the box draws ~3W asleep, ~50W at
+        desktop idle, ~150W under sustained inference. Over a typical week the WoL-managed pattern
+        saves ~25&ndash;30 kWh versus leaving it on. That is roughly the difference between this
+        being a hobby and being something the household notices on the bill.
+      </p>
+
+      <hr />
+
+      <h2>Manual Escalation: Why Gemini Is Not in the Loop By Default</h2>
+      <p>
+        <strong>Problem.</strong> Local models hallucinate confidently. So do cloud models, but
+        cloud models hallucinate <em>better</em> &mdash; closer to plausible, which is sometimes
+        worse. Auto-routing every "hard" question to the cloud is the obvious move. It is also the
+        wrong one.
+      </p>
+      <p>
+        <strong>Constraint.</strong> Auto-routing means a heuristic decides what leaves the
+        network. Heuristics drift. I do not want my kubeconfig or my router script to leave the LAN
+        because a router function got it wrong about the difficulty of a task.
+      </p>
+      <p>
+        <strong>Decision.</strong> Escalation to Gemini 3.1 Pro is <strong>manual only</strong>. I
+        invoke it explicitly, with a sanitised payload, when I want one of two things:
+      </p>
+      <ul>
+        <li><strong>Audit</strong> &mdash; I have a plan from the local model, it looks reasonable, and the change is risky enough that I want a second opinion before I apply it. Gemini gets the plan, the relevant manifests with secrets stripped, and an instruction to look for what is <em>wrong</em>, not what is right.</li>
+        <li><strong>Advisor</strong> &mdash; I am stuck on a design call where the local model is not strong enough. Gemini gets the constraint set and the options I am weighing, and I want it to push back on my framing.</li>
+      </ul>
+      <p>
+        <strong>Trade-off.</strong> I do more typing per escalation. In exchange, I always know
+        which questions left the network, and I have an audit log of every cloud call. The local
+        model handles the fast, cheap, low-stakes work. The cloud model handles the rare,
+        high-stakes work. Each is doing the job it is shaped for.
+      </p>
+      <blockquote><p>The default is: nothing leaves the network unless I decide it is worth leaving.</p></blockquote>
+      <p>
+        This is the part of the workflow that maps most directly to platform engineering: routing
+        decisions across heterogeneous resources, with explicit boundaries and explicit costs. The
+        substrate happens to be language models. The discipline is the same one you apply to
+        multi-region deployments or tiered storage.
+      </p>
+
+      <hr />
+
+      <h2>Design Decisions</h2>
+      <p>The non-obvious calls, kept short:</p>
+      <ul>
+        <li><strong><code>qwen2.5-coder:14b</code> Q4_K_M, not 7B FP16 or 32B at any quant</strong> &mdash; best fit for 12GB; 7B was too weak for k3s YAML, 32B did not fit even at Q3 with usable context</li>
+        <li><strong>Ollama on Windows, not WSL2</strong> &mdash; keeps the existing CUDA path; one less moving part</li>
+        <li><strong>Bridge as a service on the laptop, not a sidecar in every consuming pod</strong> &mdash; single SSH key, single WoL responsibility, single audit point</li>
+        <li><strong>Wake-on-LAN, not always-on</strong> &mdash; power bill is the constraint; cold-start latency is the price</li>
+        <li><strong>Manual <code>keep-warm</code>, not auto-detection</strong> &mdash; heuristics kept the box awake overnight; manual is uglier and more reliable</li>
+        <li><strong>Manual Gemini escalation, not auto-routing</strong> &mdash; sovereignty over what leaves the network beats convenience</li>
+        <li><strong>Sanitisation pass before any cloud call</strong> &mdash; IPs scrubbed to <code>192.168.X.X</code>, hostnames to <code>example.com</code>, secrets stripped; same playbook as the companion repos</li>
+      </ul>
+
+      <hr />
+
+      <h2>Things That Went Wrong</h2>
+      <p>
+        <strong>Wi-Fi NIC ate the WoL packet.</strong> Windows had "Allow this device to wake the
+        computer" disabled for the Realtek NIC after a driver update. The cluster sent perfectly
+        good magic packets into the void for two days before I noticed it was sending requests
+        that never returned. Fix was a checkbox. The lesson was about observability &mdash; the
+        bridge now alerts on consecutive WoL timeouts.
+      </p>
+      <p>
+        <strong>Ollama did not unload the model on idle.</strong> Default Ollama behavior on
+        Windows kept the model resident in VRAM after every request, which meant the GPU never
+        dropped power state, which meant the box never went to sleep. Set
+        <code>OLLAMA_KEEP_ALIVE=0</code> and the model unloads after the response. The wake-up now
+        costs an extra ~3 seconds for the model load on top of the OS resume. Worth it.
+      </p>
+      <p>
+        <strong>SSH key drift after a Windows update.</strong> Windows OpenSSH server reset its
+        host key on a feature update and the bridge started failing strict host-key checks. I had a
+        choice between weakening the check and accepting the breakage. I accepted the breakage and
+        now the bridge logs the host key mismatch loudly instead of silently retrying.
+      </p>
+      <p>
+        <strong>The local model agreed with me too easily.</strong> I drafted an autoscaler config
+        that conflated CPU and memory thresholds, asked the local model to review it, and got back
+        "looks good." Gemini caught it on escalation in one prompt. The local model is fine for
+        <em>what does this do</em>; it is weaker at <em>is this the right thing to do</em>. That is
+        exactly the boundary the escalation rule is meant to respect.
+      </p>
+      <p>
+        <strong>Hallucinated <code>kubectl</code> flag.</strong> <code>qwen2.5-coder</code>
+        confidently produced <code>kubectl edit --all-namespaces</code>, which does not exist.
+        Caught by dry-run before it became a real problem. The fix here is not at the model level
+        &mdash; it is at the workflow level: nothing the AI suggests gets applied without
+        <code>--dry-run=server</code> first. That rule predates the AI and survives it.
+      </p>
+
+      <hr />
+
+      <h2>Impact</h2>
+      <p>Approximate, measured over the 30 days after the workflow stabilised:</p>
+      <ul>
+        <li><strong>Cloud LLM API spend:</strong> ~$80/mo &rarr; ~$5/mo (Gemini calls only, on explicit escalation)</li>
+        <li><strong>Manifests / configs leaving the network:</strong> 100% of AI-assisted work &rarr; ~5% (sanitised escalation payloads only)</li>
+        <li><strong>First-token latency, warm session:</strong> ~600 ms (cloud) &rarr; ~150 ms (local Ollama over LAN)</li>
+        <li><strong>First-token latency, cold start:</strong> N/A &rarr; ~12&ndash;15 s (WoL + resume + model load)</li>
+        <li><strong>Mean time to usable response (warm):</strong> noticeably reduced &mdash; local inference over LAN beats round-tripping to a provider, even on good days</li>
+        <li><strong>Routine k3s tasks fully covered locally:</strong> ~85% (drafting manifests, log triage, kubectl recall, YAML edits)</li>
+        <li><strong>GPU node average power draw:</strong> always-on baseline ~50 W &rarr; WoL-managed ~12 W</li>
+        <li><strong>Estimated power saved:</strong> ~25&ndash;30 kWh/month</li>
+        <li><strong>Offline coverage:</strong> zero AI assistance when WAN was down &rarr; full local coverage</li>
+      </ul>
+      <p>
+        Numbers are from a homelab wattmeter and a small log scraper, not a benchmark rig. They are
+        directionally honest, which is the point &mdash; the workflow earns its complexity on cost,
+        latency, sovereignty, and offline behavior all at once, not on any single one.
+      </p>
+
+      <hr />
+
+      <h2>The Payoff</h2>
+      <p>
+        The workflow moved more than just where inference runs. It moved the <em>defaults</em>. The
+        local model is what answers first. The cloud model is on call. The GPU is asleep until I
+        ask for it. Each piece is doing the work it is shaped for, and the routing rule between
+        them is explicit.
+      </p>
+      <p>
+        Cloud AI is the better model. Local AI is the better default. Knowing where that line sits
+        &mdash; and being deliberate about who crosses it and when &mdash; is the platform
+        engineering.
+      </p>
+      <p>The substrate is a sleeping GPU and a coder model. The skill is the boundary.</p>
+      <p>
+        That boundary is the same one you draw for region failover, storage tiers, or any other
+        heterogeneous resource. The fact that it is language models this time is incidental.
+      </p>
+
+      <hr />
+
+      <h2>Cluster Context</h2>
+      <p>
+        The same k3s cluster from previous posts, plus one external box that the cluster talks to
+        but does not own.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Role</th>
+            <th>Arch</th>
+            <th>Hardware</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>k3master</td>
+            <td>Control plane, ingress, ai-bridge</td>
+            <td>amd64</td>
+            <td>Lenovo laptop, headless</td>
+          </tr>
+          <tr>
+            <td>frigate01</td>
+            <td>Frigate, GPU inference, recording</td>
+            <td>amd64</td>
+            <td>i5-6600, 12GB RAM, GTX 1050Ti, 4TB HDD</td>
+          </tr>
+          <tr>
+            <td>phones</td>
+            <td>Application workloads</td>
+            <td>arm64</td>
+            <td>3x OnePlus on postmarketOS</td>
+          </tr>
+          <tr>
+            <td>windows-gpu</td>
+            <td>AI inference (external, on-demand)</td>
+            <td>amd64</td>
+            <td>Desktop, RTX 3060 12GB, Ollama</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Frigate handles its own GPU on its own node. The phone cluster runs application backends.
+        The control plane brokers AI requests to the Windows box and gets out of the way. Each box
+        has a clear job, the boundaries are documented, and one of them sleeps most of the day.
+      </p>
+
+      <hr />
+      <p>
+        Repo: <a href="https://github.com/ivemcfire/hybrid-ai-k3s">github.com/ivemcfire/hybrid-ai-k3s</a>
+        &mdash; bridge service, WoL helper, Ollama config, sanitisation script, escalation playbook.
+      </p>
+      <p>
+        Previous posts:
+        <a href="frigate-migration.html">Frigate NVR Migration on k3s: What Breaks on Bare-Metal</a> &middot;
+        <a href="edge-ai-phones.html">Running Edge AI on Broken Phones</a> &middot;
+        <a href="sidecar-pattern.html">The Kubernetes Sidecar Pattern</a> &middot;
+        <a href="ollama-local-ai.html">Running a Local AI Model on My Homelab Kubernetes Cluster</a>
+      </p>
+    </article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>

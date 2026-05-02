@@ -251,6 +251,27 @@
       />
       <div class="label">Posts</div>
 
+      <a href="posts/hybrid-ai-k3s.html" class="post">
+        <div class="post-meta">May 2026 · 11 min read</div>
+        <h2>
+          Hybrid AI on k3s: A Sleeping GPU, Local qwen2.5-coder, and Cloud Only When Asked
+        </h2>
+        <p>
+          A homelab AI workflow where <code>qwen2.5-coder:14b</code> on an RTX 3060 12GB is the
+          default driver, the GPU box is asleep until the cluster wakes it on demand via WoL + SSH,
+          and Gemini 3.1 Pro only ever runs on explicit manual escalation. Cloud spend ~$80&rarr;~$5/mo,
+          ~25&ndash;30 kWh/mo saved, ~85% of routine k3s work fully local.
+        </p>
+        <div class="tags">
+          <span class="tag">k3s</span>
+          <span class="tag">Ollama</span>
+          <span class="tag">qwen2.5-coder</span>
+          <span class="tag">Wake-on-LAN</span>
+          <span class="tag">Local AI</span>
+          <span class="tag">Platform Engineering</span>
+        </div>
+      </a>
+
       <a href="posts/frigate-migration.html" class="post">
         <div class="post-meta">May 2026 · 10 min read</div>
         <h2>
