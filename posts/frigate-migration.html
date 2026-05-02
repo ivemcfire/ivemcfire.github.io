@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Migrating Frigate NVR to a New Node: Bare-Metal Lessons in a k3s Cluster — Ivalin's Lab
+    </title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+
+      .code-block {
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+      <h1>Migrating Frigate NVR to a New Node: Bare-Metal Lessons in a k3s Cluster</h1>
+      <em>An old i5 desktop, a stack of stateful workloads, and the reminder that Kubernetes does not abstract away the hardware &mdash; it just makes you very specific about what you are ignoring.</em>
+
+      <img
+        src="../images/service_room_small.jpg"
+        alt="The new Frigate node in the service room"
+      />
+      <p class="photo-caption">The new Frigate node in the service room &mdash; dedicated hardware, dedicated job.</p>
+
+      <hr />
+
+      <h2>Why Move It at All</h2>
+      <p>
+        Frigate has been running on a Lenovo laptop acting as control plane for the cluster &mdash;
+        the same node that handles ingress, scheduling, and a 1.8TB drive of video. It worked, more or
+        less. But the laptop was never meant for sustained transcoding, and every time the AI inference
+        pipeline picked up a busy afternoon in the yard, the API server would start to lag.
+      </p>
+      <p>
+        So when an old i5-6600 desktop landed in my lap with a GTX 1050Ti still in it, the decision
+        was simple: move Frigate to dedicated hardware, free the laptop to be a proper control plane,
+        and use this as an excuse to clean up some shortcuts I was carrying for months.
+      </p>
+      <p>
+        What I thought would be one weekend of work became a small lesson in why bare-metal teaches
+        you things that managed Kubernetes hides. This post is about those lessons &mdash; not about
+        the YAML.
+      </p>
+
+      <hr />
+
+      <h2>The Cloud Mindset Does Not Translate</h2>
+      <p>
+        In a managed cluster, migration of a workload is a redeploy. You change the node selector,
+        you wait for the pod to come up, the storage follows because somebody else worried about the
+        storage. The control plane is not your problem. The GPU is a resource type you request. The
+        network is flat and works.
+      </p>
+      <p>
+        On bare metal, every one of those assumptions becomes a separate engineering task. And the
+        interesting part is not that you have to do them &mdash; it is that doing them by hand is what
+        teaches you what those abstractions actually buy you.
+      </p>
+      <p>
+        A workload like Frigate is a good test case because it depends on three things that
+        Kubernetes does not solve for you out of the box:
+      </p>
+      <ul>
+        <li><strong>GPU access</strong> for hardware-accelerated inference</li>
+        <li><strong>Sustained disk throughput</strong> for continuous recording</li>
+        <li><strong>Predictable CPU</strong> so a busy detection moment does not eat the rest of the cluster</li>
+      </ul>
+      <p>Each of these became its own small story.</p>
+
+      <hr />
+
+      <h2>GPU Access: The Abstraction Has Edges</h2>
+      <p>
+        Kubernetes does not see your GPU until you teach it to. That sentence sounds obvious, but the
+        first time you hit it, the failure mode is not a clean error &mdash; it is a pod that runs,
+        looks healthy, and quietly does CPU inference because nothing in the stack told the workload
+        there was a card available.
+      </p>
+      <p>
+        The chain that has to be in place is not complicated, but the order matters and every step is
+        silent if it is wrong:
+      </p>
+      <ol>
+        <li>Drivers on the host</li>
+        <li>A container runtime that knows about the GPU</li>
+        <li>Containerd configuration that exposes it as a runtime class</li>
+        <li>A device plugin running in the cluster to advertise the resource</li>
+        <li>A workload that actually requests it</li>
+      </ol>
+      <p>
+        The detail that cost me time was the containerd config. k3s regenerates its containerd
+        configuration on restart, so any direct edit to the config file gets overwritten on the next
+        reboot. The supported path is to edit the template instead. Once you know this, it is a
+        non-issue. Before you know it, you are debugging a problem that fixes itself for an hour and
+        then comes back the next time the node restarts.
+      </p>
+      <p>
+        The lesson is bigger than GPUs. On managed Kubernetes, you trust that the platform owns the
+        node configuration. On bare-metal, you have to know which files the platform owns, which it
+        regenerates, and which it leaves alone. This kind of distinction is the whole job description
+        for a platform engineer.
+      </p>
+
+      <hr />
+
+      <h2>Disk Pressure Is the Silent Killer</h2>
+      <p>
+        Frigate writes constantly. Even with event-only recording, nine cameras produce a steady
+        stream of clips, snapshots, and database updates. If all of that lands on the same SSD that
+        holds the OS and the kubelet's working directories, you have made a small bomb with a long
+        fuse.
+      </p>
+      <p>
+        The first symptom is not slow video. The first symptom is that the kubelet sees the disk
+        filling up and starts to evict pods to recover space. On a single-node-feeling cluster like a
+        homelab, an eviction storm can take out things you actually care about &mdash; your monitoring
+        stack, your DNS, sometimes the ingress controller. The cluster eats itself trying to save
+        itself.
+      </p>
+      <p>
+        The fix is not technical, it is architectural: separate the storage tiers and be explicit
+        about what goes where.
+      </p>
+      <ul>
+        <li><strong>Fast SSD</strong> for the OS, the kubelet, the Frigate database (SQLite is latency-sensitive &mdash; moving it to spinning rust gets you locking errors under load), and config</li>
+        <li><strong>Large HDD</strong> for recordings, mounted as a Persistent Volume bound specifically to that disk</li>
+      </ul>
+      <p>
+        The principle here is not new and it is not Kubernetes-specific. Stateful workloads need a
+        storage plan. The reason this is worth writing down is that the cloud abstracts this
+        completely &mdash; you ask for a volume, you get a volume, somebody else reasons about wear
+        and IOPS. On bare-metal, if you don't think about it on day one, you will think about it on
+        day thirty when the cluster falls over and you don't immediately see why.
+      </p>
+
+      <hr />
+
+      <h2>The Control Plane Is Not An Unlimited Resource Pool</h2>
+      <p>
+        Running etcd and the API server on the same machine that runs your heavy workloads is a
+        tradeoff. Sometimes it is the right tradeoff &mdash; small clusters benefit from density. But
+        the moment a workload can saturate the CPU, the control plane needs protection.
+      </p>
+      <p>
+        Frigate can saturate four cores easily. Multiple cameras detecting motion at once, the AI
+        pipeline picking up a person, the recording layer flushing to disk &mdash; under load, ffmpeg
+        and the inference runtime will take everything you give them.
+      </p>
+      <p>
+        If the API server is starving for CPU at that moment, scheduling decisions slow down, leader
+        elections start to misbehave, and the whole cluster starts to feel sick for reasons that look
+        unrelated to the camera stack. You debug the wrong thing for hours.
+      </p>
+      <p>The pattern that solves this is straightforward in principle:</p>
+      <ul>
+        <li>Reserve resources explicitly for system components, so the kubelet knows not to schedule application workloads into that budget</li>
+        <li>Apply CPU limits to greedy workloads, so they degrade gracefully under pressure</li>
+        <li>Accept that "graceful degradation" for a video pipeline means dropped frames &mdash; which is the right failure mode, because the alternative is the API server timing out</li>
+      </ul>
+      <p>
+        This is the kind of decision that would be invisible in a managed environment, where node
+        sizing is a slider and control plane is somebody else's problem. Here it is a design choice
+        that I had to make consciously, with consequences I had to think through.
+      </p>
+
+      <hr />
+
+      <h2>Networking: Working With What You Have</h2>
+      <p>
+        The honest part of this story is that the new node sits on a different physical switch from
+        the rest of the cluster, in a different part of the apartment, near a solar inverter that
+        dumps electrical noise on everything. In a textbook setup, I would replace the consumer mesh
+        router with OpenWrt, define proper VLANs everywhere, and call it a network.
+      </p>
+      <p>
+        In real life, the mesh has to keep working because the rest of the household uses it.
+        Replacing it would break roaming for everybody, and OpenWrt does not play nicely with vendor
+        mesh protocols. So the engineering problem becomes: how do I get proper isolation for the
+        camera traffic without rebuilding the network from scratch?
+      </p>
+      <p>
+        The answer is a hybrid. Cameras live on a restricted segment with no gateway, switch-level
+        VLAN tagging keeps them isolated from the rest of the LAN, and a small startup script on the
+        router reapplies the firewall rules after every reboot because the stock firmware does not
+        persist them.
+      </p>
+      <p>
+        It is not elegant. But it works, it is documented, and it survives a power cut. For me, this
+        is the part of the job that recruiters underestimate the most: most production environments
+        are not greenfield, and the value of an engineer is often in shipping a clean solution inside
+        a dirty constraint set, not in demanding the constraints go away.
+      </p>
+
+      <hr />
+
+      <h2>Things That Went Wrong</h2>
+      <p>
+        <strong>The pod was healthy and the GPU was idle.</strong> Inference was running on CPU
+        because the device plugin was deployed, but containerd had not been pointed at the new
+        runtime class. No error, no warning &mdash; just a silent fallback. Took me longer than I
+        want to admit.
+      </p>
+      <p>
+        <strong>SQLite on the HDD is a trap.</strong> I put the entire <code>/media/frigate</code>
+        mount on the slow disk on the first pass, including the database. The web UI got slow, then
+        locked, then started returning errors that looked like a Frigate bug. It was a storage
+        decision.
+      </p>
+      <p>
+        <strong>The control plane started missing heartbeats during stress tests.</strong> No CPU
+        reservation meant Frigate happily took every core, and the API server sometimes did not get
+        its slice in time. Adding <code>--kube-reserved</code> solved it in one config change, but
+        the symptom was hours of confused log reading first.
+      </p>
+      <p>
+        <strong>The router forgot its rules after a power cut.</strong> The VLAN configuration was
+        correct in the GUI, but the iptables rules were not persisted to flash. After the next
+        reboot, the cameras could see the gateway again. Now there is a startup script.
+      </p>
+
+      <hr />
+
+      <h2>The Payoff</h2>
+      <p>
+        The migration moved more than just a workload. It moved a class of problems off the control
+        plane and gave the cluster headroom it did not have before. The laptop that used to do
+        everything now does scheduling and ingress, which is what control planes are for. The new
+        node does video, which is what it is good at. Each machine is doing the work it is shaped
+        for, and the boundary between them is documented.
+      </p>
+      <p>
+        But the bigger payoff is in what this kind of exercise teaches. Cloud platforms are built
+        specifically to hide the things this migration forced me to think about &mdash; driver chains,
+        storage tiers, control plane isolation, network reality. Hiding them is the right call for
+        most teams, most of the time. But the engineer who has had to do them by hand at least once
+        reads cloud documentation differently. You stop trusting that things "just work" and you
+        start asking <em>which abstraction is doing the work, and what is its failure mode.</em>
+      </p>
+      <p>That is the skill. The Frigate migration is just the excuse to practice it.</p>
+
+      <hr />
+
+      <h2>Cluster Context</h2>
+      <p>
+        This runs on the same k3s cluster described in previous posts &mdash; three nodes, mixed
+        roles, all bare-metal.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Role</th>
+            <th>Hardware</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>k3master</td>
+            <td>Control plane, ingress</td>
+            <td>x86_64 laptop, headless</td>
+          </tr>
+          <tr>
+            <td>frigate01</td>
+            <td>Frigate, GPU inference, recording</td>
+            <td>i5-6600, 12GB RAM, GTX 1050Ti, 4TB HDD</td>
+          </tr>
+          <tr>
+            <td>phones</td>
+            <td>Application workloads</td>
+            <td>Three OnePlus devices on postmarketOS</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Frigate now runs on dedicated hardware. The phone cluster handles application backends. The
+        control plane no longer fights for CPU with a video pipeline. Each node has a clear job, and
+        the cluster as a whole is calmer for it.
+      </p>
+
+      <hr />
+      <p>
+        Previous posts:
+        <a href="edge-ai-phones.html">Running Edge AI on Broken Phones</a> &middot;
+        <a href="sidecar-pattern.html">The Kubernetes Sidecar Pattern</a> &middot;
+        <a href="frigate-nvr.html">Running Frigate NVR on Kubernetes</a> &middot;
+        <a href="k3s-phone-cluster.html">Building the phone cluster</a>
+      </p>
+    </article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>
