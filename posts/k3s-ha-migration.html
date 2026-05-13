@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      What broke during a k3s sqlite to embedded etcd HA migration &mdash; Ivalin's Lab
+    </title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+
+      .code-block {
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+      <h1>What broke during a k3s sqlite to embedded etcd HA migration</h1>
+      <em>There is no in-place migration. Everything else in this post flows from that one sentence.</em>
+
+      <img
+        src="../images/k3s-ha-migration_small.jpg"
+        alt="Mixed-arch k3s cluster: amd64 control plane and arm64 phone agents"
+      />
+      <p class="photo-caption">Mixed-arch cluster: amd64 control plane plus arm64 phone agents, post-migration.</p>
+
+      <hr />
+
+      <p>
+        I run a small Kubernetes cluster at home. Five nodes when I started this work &mdash; one
+        laptop as control plane, three OnePlus 6 phones as worker agents, and an i5 mini-PC with a
+        GTX 1050Ti for Frigate NVR. The control plane was a single k3s server with the default
+        sqlite datastore. One node down meant the whole cluster down.
+      </p>
+      <p>
+        I wanted real HA: three control-plane nodes, embedded etcd, and quorum that survives node
+        loss.
+      </p>
+      <p>This is the honest part of the story.</p>
+
+      <hr />
+
+      <h2>Architecture, before and after</h2>
+      <p><strong>Before:</strong></p>
+      <ul>
+        <li><code>k3master</code> (.52) &mdash; laptop, sole control-plane, sqlite datastore</li>
+        <li><code>k3frigate</code> (.56) &mdash; agent only, GPU node for Frigate</li>
+        <li><code>one6t / one61 / one62</code> &mdash; phone agents on USB tether</li>
+      </ul>
+      <p><strong>After:</strong></p>
+      <ul>
+        <li><code>k3master</code> (.52) &mdash; control-plane, etcd member</li>
+        <li><code>k3frigate</code> (.56) &mdash; control-plane, etcd member, GPU node</li>
+        <li><code>k3sp4</code> (.53) &mdash; Surface Pro 4, new control-plane, etcd member</li>
+        <li><code>one6t / one61 / one62</code> &mdash; agents, rejoined on new PKI</li>
+      </ul>
+
+      <pre><code>            LAN 192.168.100.0/24
+                     |
+       +-------+-----+-------+-------+
+       |       |             |       |
+    k3master k3frigate     k3sp4   gitea LB
+      .52      .56          .53     .206
+   (CP+etcd)(CP+etcd)    (CP+etcd)
+       |       |             |
+       +---USB tether---+    |
+       |                |    |
+      one6t  one61   one62 (agents, 10.0.X.2)</code></pre>
+
+      <p>
+        The two new things on the right are <code>k3sp4</code> and gitea. Everything else moved
+        roles.
+      </p>
+
+      <img
+        src="../images/k3s-ha-migration_nodes.png"
+        alt="kubectl get nodes -o wide showing six Ready nodes across amd64 and arm64"
+      />
+      <p class="photo-caption">All six nodes Ready after the migration. The postmarketOS lines are the surprising thing &mdash; k3s control plane on amd64, worker agents on Snapdragon 845 phones.</p>
+
+      <p>
+        Kubernetes reconciliation is not stateless. Every layer carries memory of the cluster it
+        came from &mdash; and that is the part of this migration that ate the most hours.
+      </p>
+
+      <hr />
+
+      <h2>There is no in-place migration</h2>
+      <p>
+        k3s does not turn a sqlite single-master into an embedded etcd cluster. You uninstall it,
+        reinstall with <code>--cluster-init</code>, and reconcile the workloads from a backup.
+      </p>
+      <p>
+        I took ten minutes to confirm this in the docs and another twenty to accept it. The thing
+        the docs are very polite about is that <em>the cost of HA was a planned outage long enough
+        to rebuild the control plane from scratch.</em> Plan accordingly.
+      </p>
+      <p>The decision came down to two things:</p>
+      <ul>
+        <li>
+          Embedded etcd over external Postgres: fewer moving pieces, no extra SPOF, ships with
+          k3s. Trade-off: one node losing its disk means etcd has to be rebuilt from a snapshot.
+        </li>
+        <li>
+          Migration window in one shot: backup, rebuild, restore. Trade-off: long single outage
+          instead of a phased move, but the alternative (running parallel clusters with workload
+          migration) was much more complex for a homelab with stateful workloads.
+        </li>
+      </ul>
+      <p>
+        So I built a backup script. Then another one for the destructive part. Then a third for
+        the restore. The clean version of any of these lives in <code>~/homelab-config/</code> now.
+        The first attempts did not.
+      </p>
+
+      <h2>Backup is more than <code>kubectl get all -A</code></h2>
+      <p>
+        I learned this the hard way. The first instinct is to dump everything with <code>kubectl
+        get all -A -o yaml</code> and call it a backup. It is not.
+      </p>
+      <p>The things <code>kubectl get all</code> does not capture:</p>
+      <ul>
+        <li>CRDs (they are cluster-scoped and not in <code>all</code>)</li>
+        <li>ConfigMaps and Secrets</li>
+        <li>PersistentVolumes (the cluster-side claim record)</li>
+        <li>Helm release metadata in the <code>kube-system</code> <code>sh.helm.release.v1.*</code> secrets</li>
+        <li>The raw etcd / sqlite database</li>
+        <li>Local-path PV data that lives in <code>/var/lib/rancher/k3s/storage/</code></li>
+      </ul>
+      <p>
+        A complete backup walks every API resource by kind, dumps each separately, tars the sqlite
+        db, and rsyncs the hostPath PV data away from the disk that is about to be wiped. About
+        336 MiB total in my case. Most of that was Loki chunks I did not actually want to keep.
+      </p>
+      <p>
+        The restore script reads each per-kind yaml back in a deliberate order &mdash; CRDs first,
+        then namespaces, then ServiceAccounts, then RBAC, then ConfigMaps and Secrets, then PVs,
+        then PVCs, then workloads, then Services. Every yaml gets stripped of
+        <code>metadata.resourceVersion</code>, <code>metadata.uid</code>,
+        <code>metadata.creationTimestamp</code>, <code>metadata.managedFields</code>, and
+        <code>status:</code> before <code>kubectl apply</code>. Without that strip step, half the
+        resources error out with "field is immutable" or just refuse to bind.
+      </p>
+
+      <h2>PVs remember the cluster they came from</h2>
+      <p>
+        The first instinct is to apply the backup PV yaml and trust the PVCs to rebind to their
+        old volumes. It almost works.
+      </p>
+      <p>
+        The hostPath PVs come back fine &mdash; five of them with <code>STATUS: Released</code>.
+        Looks like a normal recovery state. Bound to their old claims.
+      </p>
+      <p>Then the new PVCs sit in <code>Pending</code>. Forever.</p>
+      <p>
+        The reveal, an hour later: a backup-dumped PV carries its old <code>claimRef.uid</code>
+        &mdash; the UID of the PVC that was bound to it <em>in the previous cluster</em>. The
+        recreated PVC has a fresh UID. The PV's <code>claimRef</code> still points at the dead
+        one. K8s refuses to rebind because the PV thinks it is already claimed by someone else.
+      </p>
+      <p>The fix is one <code>kubectl patch</code> per PV:</p>
+      <pre><code>kubectl patch pv chickenflow-postgres-pv \
+  --type=json -p='[{"op":"remove","path":"/spec/claimRef"}]'</code></pre>
+      <p>
+        That removes the stale claimRef and lets the PV transition back to <code>Available</code>.
+        The matching PVC then binds within seconds.
+      </p>
+      <p>I had five PVs to patch. I have it scripted now.</p>
+
+      <h2>CRDs are not just YAML</h2>
+      <p>Here is where the backup file fought me back.</p>
+      <p>
+        <code>kubectl get crd -o yaml &gt; crds.yaml</code> produces a file that Python's
+        <code>yaml.safe_load_all</code> will refuse to parse. Somewhere in the dump kubectl emits
+        a YAML 1.1 tag that the parser does not have a constructor for &mdash;
+        <code>tag:yaml.org,2002:value</code>. I tried <code>yaml.full_load</code>, I tried
+        sed-stripping the offending tag, neither was clean.
+      </p>
+      <p>
+        The pragmatic path was different: identify which CRD groups were in the cluster (MetalLB,
+        Prometheus operator, Traefik, plus k3s defaults), then reinstall each from the upstream
+        manifest matching the version that was already running. The image tag in the backed-up
+        Deployment yaml told me which version. MetalLB v0.14.9 native manifest, Prometheus
+        operator v0.89.0 CRD bundle, applied with <code>--server-side</code> because the
+        prom-operator CRDs are too large for client-side apply.
+      </p>
+      <p>
+        Custom CRDs that weren't from upstream charts I would have lost. I got lucky &mdash; I
+        didn't have any.
+      </p>
+      <p>
+        This was probably the worst surprise of the migration. A backup file that fails to
+        deserialize is the kind of thing you discover at exactly the wrong moment.
+      </p>
+
+      <h2>A Surface Pro 4 as Kubernetes control plane</h2>
+      <p>
+        The third control plane is a Surface Pro 4 &mdash; a touchscreen tablet from 2015, 8 GB
+        RAM, 256 GB SSD, gigabit through the Surface Dock. Already in the house. The decision was
+        cost, not specs.
+      </p>
+      <p>Two things bite you when you turn a Surface into a 24/7 server:</p>
+      <ul>
+        <li>
+          The default systemd-logind config suspends the machine when you close the lid, no
+          matter what the BIOS says. Mask
+          <code>sleep.target suspend.target hibernate.target hybrid-sleep.target</code> and set
+          <code>HandleLidSwitch*=ignore</code> in <code>/etc/systemd/logind.conf</code> before
+          joining the cluster.
+        </li>
+        <li>
+          The Surface Dock USB-Ethernet sometimes negotiates with NIC power-save quirks that show
+          up as 1.2-second ICMP RTT. Watch ping latency for a minute before trusting it for
+          cluster traffic.
+        </li>
+      </ul>
+
+      <h2>Phones are not headless</h2>
+      <p>
+        Memory I had filed away from previous work: <em>the OnePlus 6 phones run postmarketOS
+        with OpenRC, headless.</em>
+      </p>
+      <p>
+        Wrong. They run <strong>systemd</strong> with the <strong>phosh</strong> desktop
+        environment on tty1, with the full <code>gsd-*</code> daemon stack, feedbackd, UPower,
+        libcanberra. They are k3s worker nodes <em>and</em> full phone userspace at the same time.
+        <code>doas</code> requires a password.
+      </p>
+      <p>
+        After the .52 reroll the phones needed to be re-onboarded with new PKI. The non-obvious
+        bit: phones reach the API server through their <strong>USB-tether peer IP</strong>
+        (<code>10.0.X.1</code>), not the LAN address of <code>.52</code>. They cannot route to the
+        LAN. The install command had to use the per-phone gadget endpoint:
+      </p>
+      <pre><code>INSTALL_K3S_EXEC='agent --node-ip 10.0.1.2 \
+  --node-name one6t --flannel-iface usb0'</code></pre>
+      <p>
+        The first version of the rejoin script also got eaten by outer-shell quoting &mdash;
+        variables expanded on my laptop instead of on the phone, install ran with empty env. The
+        script-file-then-scp pattern is the only reliable way to ship multi-host shell to
+        interactive doas. Inline heredocs in chat lose to copy-paste mangling, em-dash typos, and
+        TTY allocation breaking auth at the second hop.
+      </p>
+
+      <img
+        src="../images/k3s-ha-migration_workloads.png"
+        alt="kubectl get pods filtered to the three phone agents, showing real production workloads"
+      />
+      <p class="photo-caption">Real workloads on the phone agents &mdash; mqtt-inference-worker, hydroflow-backend, the arm64 buildkit, loki-chunks-cache. Not demo pods.</p>
+
+      <h2>The registry that wasn't</h2>
+      <p>
+        Gitea was running on <code>emptyDir</code>. Pre-migration the pod never restarted, so
+        nobody noticed. The reroll moved it onto a different node with a fresh
+        <code>emptyDir</code>, and the registry was empty. Two workloads
+        (<code>hydroflow-backend</code>, <code>mqtt-inference-worker</code>) immediately broke
+        because their images referenced the registry.
+      </p>
+      <p>
+        Migrating Gitea to a real PVC was its own task: hostPath on <code>/mnt/frigate/gitea</code>,
+        20 GiB, owned by UID 1000, pinned to <code>k3frigate</code>. New namespace
+        <code>gitea</code>. Init the wizard, create a CI user, generate a personal access token
+        with <code>write:package</code> scope.
+      </p>
+      <p>Then rebuild the images that had been wiped. That is the next surprise.</p>
+
+      <h2>qemu cross-compile is the wrong tool</h2>
+      <p>
+        Build times for arm64 images went from thirty-plus minutes to under ninety seconds. About
+        a thirty-fold speedup. The change was architectural &mdash; stop emulating arm64 on an
+        amd64 host, and use the cluster itself to do native per-arch builds.
+      </p>
+      <p>
+        The first attempt used <code>docker buildx</code> on the jumphost with
+        <code>tonistiigi/binfmt</code> registered for <code>linux/arm64</code>. The amd64 host
+        emulates arm64 via QEMU to produce a multi-arch manifest. It works. It is also miserable
+        &mdash; a single Python image with compiled dependencies took thirty minutes on a Debian
+        13 host, CPU pegged at 100% the whole time.
+      </p>
+      <p>
+        The fix was the <strong>buildx kubernetes driver</strong>. It provisions buildkitd pods
+        inside the cluster, one per architecture, scheduled onto a node of that architecture via
+        <code>nodeSelector</code>. <code>linux/amd64</code> pod on <code>k3sp4</code>.
+        <code>linux/arm64</code> pod on one of the phones. No emulation &mdash; native CPU on
+        each arch.
+      </p>
+      <pre><code>docker buildx create --bootstrap --name=k3 --driver=kubernetes \
+  --platform=linux/amd64 --node=builder-amd64 \
+  --driver-opt=namespace=buildkit,nodeselector="kubernetes.io/arch=amd64"
+
+docker buildx create --append --bootstrap --name=k3 --driver=kubernetes \
+  --platform=linux/arm64 --node=builder-arm64 \
+  --driver-opt=namespace=buildkit,nodeselector="kubernetes.io/arch=arm64"</code></pre>
+      <p>
+        This is also where the homelab phones earn their keep &mdash; they are not just kubelet
+        hosts, they are the only native arm64 build infrastructure I have.
+      </p>
+      <p>Two real gotchas with the k8s driver:</p>
+      <ul>
+        <li>
+          The auto-generated ConfigMap for <code>buildkitd.toml</code> rewrites double-quoted TOML
+          registry keys to single quotes, which buildkit then misparses. Workaround:
+          <code>kubectl patch cm</code> to fix the quoting, then <code>rollout restart</code>.
+        </li>
+        <li>
+          buildkit's resolver does not apply <code>http=true</code> for IP-only registry hosts.
+          So pushing to <code>192.168.100.206</code> over HTTP fails even with the mirror config.
+          I added a <code>/etc/hosts</code> entry on the build host mapping
+          <code>gitea.gitea.svc.cluster.local</code> to <code>192.168.100.206</code>, used that
+          hostname for pushes. Cluster nodes do not need this &mdash; they use a different code
+          path.
+        </li>
+      </ul>
+      <p>Each abstraction was doing its job correctly.</p>
+      <p>The failure was in the assumptions between layers.</p>
+
+      <h2>The k3s 1.35 hosts.toml synthesis bug</h2>
+      <p>This one is the most fun of the failures because it is silent.</p>
+      <p>
+        After all five-and-a-half hours of migration, with workloads restored and image-rebuilds
+        pushed to Gitea, the two phone-pinned pods were still in <code>ImagePullBackOff</code>.
+        Kubelet on the phones was trying <code>https://192.168.100.206:443</code> &mdash; Gitea
+        has no HTTPS listener. "No route to host."
+      </p>
+      <p>
+        I wrote <code>/etc/rancher/k3s/registries.yaml</code> with the standard k3s format
+        pointing the mirror at <code>http://192.168.100.206</code>. Restarted
+        <code>k3s-agent</code>. Confirmed the rendered containerd <code>config.toml</code> was
+        regenerated.
+      </p>
+      <p>It was. The mirror block was missing.</p>
+      <p>
+        The reveal, after a sub-agent dug into the k3s source: k3s 1.35 reads
+        <code>endpoint: ["http://..."]</code> from <code>registries.yaml</code> correctly, but
+        synthesizes
+        <code>/var/lib/rancher/k3s/agent/etc/containerd/certs.d/&lt;host&gt;/hosts.toml</code>
+        with <code>server = "https://&lt;host&gt;/v2"</code> &mdash; defaulted to HTTPS regardless
+        of the scheme in your endpoint. Containerd then silently ignores the
+        <code>[host."http://..."]</code> block in the same file because the top-level
+        <code>server</code> line wins.
+      </p>
+      <p>
+        The fix is a small shell script (<code>/usr/local/bin/fix-gitea-hosts.sh</code>) that
+        overwrites <code>hosts.toml</code> after k3s renders it, plus a systemd drop-in:
+      </p>
+      <pre><code>[Service]
+ExecStartPost=/usr/local/bin/fix-gitea-hosts.sh</code></pre>
+      <p>
+        Applied on the three phones first. Then preemptively on the three control-plane nodes
+        &mdash; because they have the same latent bug, just hidden by the fact that nothing
+        scheduled on them was pulling from Gitea yet.
+      </p>
+      <p>
+        This is not ideal. It is a workaround for what looks like an upstream bug worth filing.
+        It is also the only reasonable thing to do at midnight after a long migration.
+      </p>
+
+      <h2>Things that went wrong</h2>
+      <p>
+        <strong>Yaml constructor on the CRD backup.</strong> <code>kubectl get crd -o yaml</code>
+        emits a tag that Python <code>yaml.safe_load_all</code> rejects. Reinstalled CRDs from
+        upstream manifests at matching versions instead.
+      </p>
+      <p>
+        <strong>Phone install script lost env vars.</strong> First rejoin script used outer SSH
+        double-quoted heredocs. Variables expanded on the laptop, sent empty to the phone. Fix:
+        write script locally, scp to .52 in single-quoted form, run there.
+      </p>
+      <p>
+        <strong>Helm release metadata gone after yaml restore.</strong> Loki was a helm release.
+        Pure-yaml restore brought the pods back but did not recreate the
+        <code>sh.helm.release.v1.loki.v1</code> secret. <code>helm list</code> showed no release.
+        Future <code>helm upgrade</code> would have failed. Fixed by
+        <code>helm install --replace</code> from the backed-up values.yaml.
+      </p>
+      <p>
+        <strong>nvidia-device-plugin DaemonSet had <code>DESIRED=0</code> post-restore.</strong>
+        Selector wanted <code>nvidia.com/gpu.present=true</code>. The label was on
+        <code>k3frigate</code> pre-reroll but the node object was rebuilt fresh during the
+        agent-to-server reroll. Manually relabeled. Then the DS scheduled and Frigate started
+        pulling GPU.
+      </p>
+      <p>
+        <strong>Hydroflow-backend health probe pointed at <code>/health</code>.</strong> App
+        actually exposes <code>/healthz</code> (200) and <code>/readyz</code> (with DB check).
+        Probe was a guess in the original manifest, not based on the running code. Fixed.
+      </p>
+
+      <h2>Impact</h2>
+      <p>Numbers, approximate but honest:</p>
+      <ul>
+        <li>
+          <strong>Control-plane resilience:</strong> 1-node SPOF &rarr; 3-member etcd quorum. Can
+          lose any single node and keep accepting writes.
+        </li>
+        <li>
+          <strong>Build performance:</strong> 30+ min arm64 builds on qemu &rarr; ~70 seconds on
+          buildx k8s driver. About 30x.
+        </li>
+        <li>
+          <strong>Recovery maturity:</strong> manual rebuild &rarr; scripted backup + stripped-yaml
+          restore + PV-rebind handling, committed to IaC.
+        </li>
+        <li>
+          <strong>Namespace hygiene:</strong> 13 squatting workloads in <code>default</code>
+          &rarr; 0. Everything in a proper namespace now.
+        </li>
+        <li>
+          <strong>Image-locality failures:</strong> 4 pods stuck &rarr; 0 (after registry
+          recovery + k3s 1.35 workaround + DB env fix on hydroflow-backend).
+        </li>
+        <li><strong>Cluster size:</strong> 5 &rarr; 6 nodes (added Surface Pro 4 as CP3).</li>
+        <li>
+          Destructive window: ~1 hour outage. Restore + cleanup: ~3 hours. 4 IaC commits pushed,
+          including a 22-file reverse-engineering pass to bring previously-undocumented workloads
+          into git.
+        </li>
+      </ul>
+      <p>
+        The HA part is the headline. More importantly, recovery is now scripted, repeatable, and
+        stored as infrastructure code instead of tribal memory. Every silent assumption that
+        broke during the migration is now either documented or fixed in code.
+      </p>
+
+      <h2>Design decisions worth naming</h2>
+      <ul>
+        <li>
+          <strong>Embedded etcd over external Postgres.</strong> Fewer moving parts. The trade-off
+          is etcd snapshot restore complexity if a node loses its disk. Acceptable for the scale.
+        </li>
+        <li>
+          <strong>Surface Pro 4 as CP3.</strong> Cheap (already owned). Trade-off: lid-switch /
+          sleep / NIC power-save quirks to mask. Documented now.
+        </li>
+        <li>
+          <strong>Re-pin mosquitto from a phone to k3frigate during the reroll.</strong> The MQTT
+          broker is critical for hydroflow + chickenflow + Frigate events. Phones are not
+          reliable enough to host critical brokers. Trade-off: the phones lose one workload,
+          k3frigate gains a hostPath PV at <code>/mnt/frigate/mosquitto</code>.
+        </li>
+        <li>
+          <strong>buildx kubernetes driver over remote-SSH-to-phone.</strong> No doas-passwordless
+          setup needed for the build path itself &mdash; buildkitd runs as a pod, kubelet handles
+          privilege. Trade-off: must keep the cluster up to do builds.
+        </li>
+        <li>
+          <strong>Gitea on a hostPath PVC pinned to <code>k3frigate</code>.</strong> Persistence
+          over portability. Trade-off: gitea cannot be drained off <code>k3frigate</code>.
+          Acceptable &mdash; <code>k3frigate</code> is the most stable node.
+        </li>
+      </ul>
+
+      <h2>The payoff</h2>
+      <p>
+        The artefact is a 3-node HA control plane that survives single-node loss. The honest part
+        is what got built around it: a stripped-yaml restore script that handles re-binding of
+        stale PVs, a containerd-mirror workaround for a k3s 1.35 bug, a buildx kubernetes driver
+        that turns my phones into a multi-arch build farm, a registry that survives pod restarts.
+      </p>
+      <p>
+        The skill the work taught is not "Kubernetes." It is recognising that every component in
+        the cluster remembers more about the old cluster than I expected. PVs remember their
+        claimants. ConfigMaps remember their resourceVersion. Helm remembers its release metadata
+        in a secret. CRDs remember their schema. The kubelet remembers its CA certificate. Each
+        of these became a small, isolated bug during the migration.
+      </p>
+      <p>
+        The migration forced me to treat the homelab as production infrastructure instead of a
+        collection of running containers.
+      </p>
+      <p>The cluster is the artefact. The understanding is the deliverable.</p>
+
+      <hr />
+
+      <h2>Cluster context</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Hardware</th>
+            <th>OS</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>k3master</code> (.52)</td>
+            <td>Lenovo IdeaPad Flex 5, Intel i5</td>
+            <td>Ubuntu 24.04</td>
+            <td>Control-plane, etcd</td>
+          </tr>
+          <tr>
+            <td><code>k3frigate</code> (.56)</td>
+            <td>i5-6600, GTX 1050Ti, 2 TB SATA</td>
+            <td>Ubuntu 24.04</td>
+            <td>Control-plane, etcd, GPU node (Frigate, face recognition, mosquitto)</td>
+          </tr>
+          <tr>
+            <td><code>k3sp4</code> (.53)</td>
+            <td>Surface Pro 4, Intel m3, 8 GB</td>
+            <td>Ubuntu 24.04 + Surface kernel</td>
+            <td>Control-plane, etcd</td>
+          </tr>
+          <tr>
+            <td><code>one6t</code> / <code>one61</code> / <code>one62</code></td>
+            <td>OnePlus 6/6T, Snapdragon 845, 4 GB</td>
+            <td>postmarketOS (systemd + phosh)</td>
+            <td>Agents &mdash; gitea, gpu-inference, hydroflow-backend, postgres</td>
+          </tr>
+          <tr>
+            <td><code>jumphost</code> (.62)</td>
+            <td>Mini-PC</td>
+            <td>Debian 13</td>
+            <td>SSH bastion, backup target</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        k3s <code>v1.35.0+k3s3</code> across the cluster. CNI: flannel + VXLAN. LB: MetalLB ARP
+        mode. Registry: self-hosted Gitea OCI at <code>192.168.100.206</code>.
+      </p>
+
+      <hr />
+
+      <p>
+        The manifests, scripts, and notes live at
+        <a href="https://github.com/ivemcfire/homelab-config">github.com/ivemcfire/homelab-config</a>
+        in the <code>apps/</code>, <code>cluster/containerd-mirrors/</code>, and
+        <code>network/</code> subdirectories.
+      </p>
+
+      <p>
+        <em>Previous posts:
+          <a href="frigate-migration.html">Frigate NVR migration on k3s</a> &middot;
+          <a href="k3s-phone-cluster.html">k3s phone cluster build</a> &middot;
+          <a href="sidecar-pattern.html">Sidecar config-sync pattern</a>
+        </em>
+      </p>
+    </article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>

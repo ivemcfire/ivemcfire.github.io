@@ -251,6 +251,29 @@
       />
       <div class="label">Posts</div>
 
+      <a href="posts/k3s-ha-migration.html" class="post">
+        <div class="post-meta">May 2026 · 12 min read</div>
+        <h2>
+          What broke during a k3s sqlite to embedded etcd HA migration
+        </h2>
+        <p>
+          Migrating a homelab k3s cluster from single-master sqlite to embedded etcd HA on six
+          mixed-arch nodes &mdash; three control planes and three phone agents on USB tether.
+          The part the docs leave out is how every component remembers more about the old
+          cluster than you expected: PVs keep stale claimRefs, CRD backups refuse to deserialize,
+          Helm release metadata vanishes, and a silent k3s 1.35 <code>hosts.toml</code> bug
+          ignores the registry mirror.
+        </p>
+        <div class="tags">
+          <span class="tag">k3s</span>
+          <span class="tag">etcd-ha</span>
+          <span class="tag">kubernetes-migration</span>
+          <span class="tag">homelab</span>
+          <span class="tag">multi-arch-builds</span>
+          <span class="tag">disaster-recovery</span>
+        </div>
+      </a>
+
       <a href="posts/hybrid-ai-k3s.html" class="post">
         <div class="post-meta">May 2026 · 11 min read</div>
         <h2>
