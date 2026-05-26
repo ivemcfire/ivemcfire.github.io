@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      The Tunnel Was Up. The Cameras Were 502. &mdash; Ivalin's Lab
+    </title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+
+      .code-block {
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+      <h1>The Tunnel Was Up. The Cameras Were 502.</h1>
+      <em>A single <code>cloudflared</code> pod, pinned to a single node, was enough to take every Cloudflare-fronted service down with it. The fix is one Deployment edit. The deeper fix is admitting the jumphost was not really a jumphost.</em>
+
+      <img
+        src="../images/cloudflared-ha-and-oob_small.jpg"
+        alt="A 502 error and the Tailscale mesh that would have saved me"
+      />
+      <p class="photo-caption">The 502 on the left is what the public saw. The mesh on the right is what I should have had behind it.</p>
+
+      <hr />
+
+      <h2>The Starting Point</h2>
+      <p>
+        I was away from the house. I went to check the doorbell camera and the page returned 502. Then <code>monitor.ayurforlife.eu</code> did the same. Both hostnames are fronted by a Cloudflare tunnel into my k3s cluster.
+      </p>
+      <p>
+        So I tried to SSH in to look. The only path I had from the public internet was a router port-forward to a "jumphost" at <code>192.168.100.62</code>. That box did not answer either.
+      </p>
+      <p>
+        By the time I got back to the house the cluster had healed itself. Pods Running, hostnames 302-ing through Cloudflare Access, everything looked fine. The honest part of this story is that nothing was fine. The cluster had revealed two single points of failure at the same time, and the only reason it did not stay broken longer was luck.
+      </p>
+      <p>
+        This post is the fix. Two layers, one afternoon.
+      </p>
+
+      <hr />
+
+      <h2>Architecture Before / After</h2>
+      <p><strong>Before</strong></p>
+      <ul>
+        <li><code>cloudflared</code> Deployment in the <code>frigate</code> namespace: <code>replicas: 1</code>, pinned to <code>k3master</code> via <code>nodeSelector: kubernetes.io/hostname: k3master</code></li>
+        <li>One connector serving every <code>*.ayurforlife.eu</code> hostname</li>
+        <li>No <code>PodDisruptionBudget</code>, no liveness or readiness probes, no resource requests</li>
+        <li>One "jumphost" at <code>.62</code> whose only external surface was a router port-forward to its sshd</li>
+        <li>No out-of-band path into the LAN if either node hiccuped</li>
+      </ul>
+      <p><strong>After</strong></p>
+      <ul>
+        <li><code>cloudflared</code> Deployment: <code>replicas: 3</code>, one pod per control-plane node, enforced (not requested)</li>
+        <li><code>PodDisruptionBudget</code> with <code>minAvailable: 2</code></li>
+        <li>Liveness and readiness probes on <code>/ready:2000</code></li>
+        <li>Tailscale mesh across <code>.52</code>, <code>.56</code>, <code>.53</code>, <code>.62</code>, and the laptop, with <code>.52</code> and <code>.62</code> both advertising <code>192.168.100.0/24</code> as redundant subnet routers</li>
+        <li>MagicDNS, so <code>ssh user@k3master</code> works from anywhere</li>
+      </ul>
+
+      <pre><code>Before:
+  internet ──► Cloudflare edge ──► [cloudflared @ k3master only] ──► svc
+                                          (one connector, one node)
+  me away ──► home router :22 ──► jumphost .62 sshd  (untested, alone)
+
+After:
+  internet ──► Cloudflare edge ──► [cloudflared x3: k3master / k3frigate / k3sp4]
+                                          (three connectors, same tunnel UUID)
+                                          PDB minAvailable: 2
+  me away ──► Tailscale ──► tailnet ──► subnet router (.52 OR .62) ──► 192.168.100.0/24
+                                          MagicDNS, short names from anywhere</code></pre>
+
+      <hr />
+
+      <h2>The Almost-Works Trap</h2>
+      <p>
+        Looking at the manifest the first instinct is to say <em>the tunnel was fine.</em> The Cloudflare dashboard shows the tunnel as Healthy. The Deployment exists. The Secret is mounted, the ConfigMap is correct, the pod is <code>1/1 Running</code>. Production traffic is flowing.
+      </p>
+      <p>
+        It almost works. Cloudflare named tunnels do support high availability. The credentials are tunnel-scoped, not connector-scoped. Multiple <code>cloudflared</code> processes can connect to the same tunnel ID, and the edge will load-balance across them and survive any one of them disappearing.
+      </p>
+      <p>
+        And then one node has its moment, and every public hostname returns 502.
+      </p>
+      <p>
+        The reveal, half an hour into the postmortem: I had run <em>a connector</em>, not <em>a tunnel</em>. The Deployment was <code>replicas: 1</code>. The <code>nodeSelector</code> pinned that one pod to one host. Cloudflare's edge had exactly one healthy connector for the entire tunnel, and when <code>k3master</code> blipped the edge had nowhere to send traffic. The tunnel UUID was up. The connector serving it was not.
+      </p>
+      <p>
+        Same facts as the dashboard showed. The difference is whether <em>the protocol's HA</em> was actually wired into <em>the Deployment's HA</em>. It was not.
+      </p>
+
+      <hr />
+
+      <h2>Making cloudflared HA</h2>
+      <p><strong>Problem.</strong> A single pod, pinned to a single node, was the public ingress for every Cloudflare-fronted service in the cluster.</p>
+      <p><strong>Constraint.</strong> The cluster has three control-plane nodes on wired ethernet (<code>k3master</code>, <code>k3frigate</code>, <code>k3sp4</code>) and three worker nodes that are OnePlus phones on USB tether (<code>one61</code>, <code>one62</code>, <code>one6t</code>). The USB tether to <code>k3master</code> flaps for tens of seconds at a time whenever the kernel renegotiates the RNDIS link. I do not want a public ingress riding on something that flaps. The HA pool needs to live on the wired CP nodes only.</p>
+      <p><strong>Decision.</strong> Scale to three replicas, one per CP node, with the placement enforced &mdash; not preferred &mdash; and a PDB that protects against draining more than one at a time.</p>
+
+      <pre><code>spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: In
+                values: ["true"]
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels: { app: cloudflared }
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: cloudflared
+        args: ["tunnel", "--metrics", "0.0.0.0:2000",
+               "--config", "/etc/cloudflared/config.yaml", "run"]
+        livenessProbe:
+          httpGet: { path: /ready, port: 2000 }
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet: { path: /ready, port: 2000 }
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests: { cpu: 50m,  memory: 64Mi }
+          limits:   { cpu: 200m, memory: 128Mi }</code></pre>
+
+      <p>Plus a PDB:</p>
+
+      <pre><code>apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: cloudflared, namespace: frigate }
+spec:
+  minAvailable: 2
+  selector: { matchLabels: { app: cloudflared } }</code></pre>
+
+      <p><strong>Trade-off.</strong> Three pods now sit idle most of the time. The cost is roughly 150m CPU and 192Mi memory across the cluster &mdash; more or less half a percent of the available capacity. The benefit is that a single node going away can no longer black-hole the public surface. The <code>minAvailable: 2</code> PDB means a <code>kubectl drain</code> of any one CP node is allowed; a second drain blocks until the first replica reschedules.</p>
+
+      <p>After the rollout:</p>
+
+      <pre><code>$ kubectl -n frigate get pods -l app=cloudflared -o wide
+NAME                           READY   STATUS    NODE
+cloudflared-6997fb4449-fcspw   1/1     Running   k3master
+cloudflared-6997fb4449-jvpkp   1/1     Running   k3frigate
+cloudflared-6997fb4449-xqcc6   1/1     Running   k3sp4
+
+$ kubectl -n frigate get pdb cloudflared
+NAME          MIN AVAILABLE   ALLOWED DISRUPTIONS
+cloudflared   2               1
+
+$ curl -sI https://cams.ayurforlife.eu | head -1
+HTTP/2 302</code></pre>
+
+      <p>
+        The 302 is the Cloudflare Access auth redirect. That is healthy &mdash; it means the edge reached a connector, which reached the upstream Frigate Service, which returned its login. The Cloudflare side needed zero changes. Same tunnel UUID <code>&lt;TUNNEL-UUID&gt;</code>, same DNS records, same ConfigMap, same Secret. Three connectors registered against one tunnel. The protocol always supported this. The Deployment did not.
+      </p>
+
+      <hr />
+
+      <h2>Why Phone Workers Are Not in the HA Pool</h2>
+      <p>
+        The obvious next move is <code>replicas: 6</code> and let one land on each phone worker too. More replicas, more resilience.
+      </p>
+      <p>
+        In real life the USB tether between a OnePlus 6T and the host laptop drops the link for tens of seconds when the bus renegotiates. If <code>cloudflared</code> rode that link, the connector would flap, the edge would mark it unhealthy, and every flap would briefly send traffic into a black hole while the load balancer rebalanced. The phone workers run jobs that tolerate restarts. Public ingress does not.
+      </p>
+      <p>
+        So the <code>nodeAffinity</code> is <code>requiredDuringSchedulingIgnoredDuringExecution</code> against the <code>control-plane</code> role label, not a <code>preferred</code> soft hint. Three CP nodes, three replicas, exact mapping. This is not ideal: I lose the option to ride out an outage of all three CP nodes at once. But all three CP nodes failing at once is a quorum loss for etcd anyway, at which point public ingress is the third-most-broken thing.
+      </p>
+
+      <hr />
+
+      <h2>Tailscale as the Out-Of-Band Plane</h2>
+      <p><strong>Problem.</strong> While I was away, my only path back into the LAN was the same internet path the production services rode. If Cloudflare's edge was down, or the home router was down, or the public IP changed &mdash; I had nothing.</p>
+      <p><strong>Constraint.</strong> I did not want to run a second Cloudflare tunnel just for sshd on the jumphost. That stacks two failure modes of the same provider into the same recovery path. I want a path that does not share fate with the production ingress.</p>
+      <p><strong>Decision.</strong> Tailscale mesh across <code>k3master</code>, <code>k3frigate</code>, <code>k3sp4</code>, the jumphost, and the laptop. Five nodes. Free Personal tier, SSO. Both <code>k3master</code> and the jumphost advertise <code>192.168.100.0/24</code> as approved subnet routers, so either one can carry traffic into the LAN.</p>
+
+      <p>From the laptop after <code>tailscale up --accept-routes --accept-dns</code>:</p>
+
+      <pre><code>$ tailscale status
+100.x.x.10   acer16     ive@   linux   -
+100.x.x.20   k3master   ive@   linux   active; offers routes
+100.x.x.21   k3frigate  ive@   linux   active
+100.x.x.22   k3sp4      ive@   linux   active
+100.x.x.23   jumphost   ive@   linux   active; offers routes</code></pre>
+
+      <p>
+        And the test that matters &mdash; the Frigate web UI lives at <code>192.168.100.209:5000</code>, a MetalLB VIP that has no public address and no Tailscale IP of its own. Reaching it via a subnet router is the whole point of this layer:
+      </p>
+
+      <pre><code>$ tailscale ping 192.168.100.209
+pong from k3master (100.x.x.20) via 192.168.100.52:41641 in 3ms</code></pre>
+
+      <p>
+        3ms from the laptop to an IP that does not exist on the internet, via a subnet route advertised by <code>k3master</code>. MagicDNS resolves the short names too &mdash; <code>ssh user@k3master</code> from a hotel Wi-Fi works the same way it works on the LAN.
+      </p>
+
+      <p>
+        <strong>Trade-off.</strong> Tailscale is a third party. If the coordination server is down, new key exchanges fail (existing peer sessions keep working &mdash; that is the design). The phones were deliberately left out: their USB tether links are too intermittent to host a useful node, and a flapping subnet router is worse than no subnet router. Defense in depth costs almost nothing when the layers do not share fate.
+      </p>
+
+      <hr />
+
+      <h2>What Makes a Jumphost a Jumphost</h2>
+      <p>
+        The box at <code>192.168.100.62</code> had been sitting in the rack for 87 days running sshd and Uptime Kuma. I called it a jumphost. It was not a jumphost.
+      </p>
+      <p>
+        A jumphost is not a jumphost if nothing jumps through it from outside. Its only external surface was a router port-forward to port 22 that I had never tested from outside the LAN. The first time I needed that path it did not work, and I cannot tell you exactly why because I had no second path to diagnose with. Maybe the router rebooted. Maybe <code>.62</code> had its own moment. Maybe sshd was healthy and the port-forward had been silently dropped at the router. The mystery is the point &mdash; without a second path, you do not even get to know what failed.
+      </p>
+      <p>
+        Now <code>.62</code> runs <code>tailscaled</code>, advertises the LAN as a subnet router, and is the redundant pair to <code>k3master</code>. The router port-forward is still there as a third path, more or less for sentimental reasons. The layers do not share fate.
+      </p>
+
+      <hr />
+
+      <h2>Design Decisions</h2>
+      <p>The non-obvious choices, listed:</p>
+      <ul>
+        <li><strong>PDB <code>minAvailable: 2</code>, not <code>1</code>.</strong> With three replicas, <code>minAvailable: 1</code> would permit two simultaneous drains. Two nodes down means one connector left, and one connector is exactly the configuration that got me into this mess.</li>
+        <li><strong><code>nodeAffinity</code> requires control-plane role, not preferred.</strong> A hard guarantee that no replica lands on a phone worker. A flapping connector is worse than a missing one.</li>
+        <li><strong>Both Tailscale and Cloudflare, not either/or.</strong> Cloudflare carries the production hostnames. Tailscale carries me. Same LAN, two planes, two providers, two failure modes.</li>
+        <li><strong>Two subnet routers, not one.</strong> <code>k3master</code> and <code>jumphost</code> both advertise <code>192.168.100.0/24</code>. Either alone is enough. Together they survive each other.</li>
+        <li><strong>Phones excluded from the mesh.</strong> Adding three intermittent nodes to a five-node tailnet would not improve coverage and would generate noise in <code>tailscale status</code>. Some things do not need HA.</li>
+        <li><strong>Same tunnel UUID, not a new one.</strong> Re-using <code>&lt;TUNNEL-UUID&gt;</code> means zero changes on the Cloudflare side. The fix is purely on the Deployment side, which is where the bug lived.</li>
+        <li><strong>Resources set on the cloudflared pods.</strong> The old manifest had <code>resources: {}</code>. A pod with no requests can be evicted under any node pressure. Public ingress should not get evicted because a build job needed memory.</li>
+      </ul>
+
+      <hr />
+
+      <h2>Things That Went Wrong</h2>
+      <p>
+        <strong>The Helm apt repo blocked <code>apt update</code> on the jumphost.</strong> Installing <code>tailscaled</code> on <code>.62</code> failed because <code>apt update</code> itself errored out on a malformed signature from <code>baltocdn.com/helm/stable/debian</code> &mdash; <code>Clearsigned file isn't valid, got 'NOSPLIT'</code>. The Helm repo had not been touched in months and broke on its own. Workaround: moved <code>/etc/apt/sources.list.d/helm-stable-debian.list</code> aside, ran the Tailscale installer, restored the file. The proper fix &mdash; refresh the keyring or migrate to OCI Helm &mdash; is queued. Helpful reminder that an unrelated third-party repo can block your fast path on the day you need it.
+      </p>
+      <p>
+        <strong>The k3sp4 username drift.</strong> Trying to lateral-SSH from <code>k3master</code> to <code>k3sp4</code> for the recon failed with <code>Permission denied (publickey,password)</code>. Turned out k3sp4 &mdash; the Surface Pro 4 &mdash; was bootstrapped with <code>ivalin</code> as the primary user, while every other node uses <code>user</code>. The pubkey was already in <code>/home/ivalin/.ssh/authorized_keys</code>, installed weeks ago; the username was the part that drifted. I learned this because the recovery pod that mounted <code>/etc/passwd</code> from the host kept printing <code>host user uid:gid = MISSING</code> until I read what it was actually telling me. Added an SSH <code>Host k3sp4 / User ivalin</code> block in <code>~/.ssh/config</code> on <code>k3master</code>. The deeper fix &mdash; unify usernames across nodes &mdash; is also queued.
+      </p>
+      <p>
+        <strong>My own heredoc bug while writing the recovery pod.</strong> First attempt to write the install Pod YAML on <code>.52</code> was a bash heredoc piped over SSH. The YAML contained a shell expansion like <code>$UID_GID=$(awk ... /etc/passwd)</code>, and the local shell on the laptop consumed the <code>$UID_GID</code> before the heredoc ever made it across. The variable was empty by the time the Pod ran on the cluster. Switched to writing the YAML as a normal file and <code>scp</code>-ing it across. Recursive shell expansion across SSH is the kind of footgun I will keep stepping on every six months because the failure looks exactly like the success.
+      </p>
+      <p>
+        <strong>Cluster-internal LAN connectivity is flaky right now.</strong> During this very session, <code>ssh user@192.168.100.62</code> from <code>.52</code> timed out, and so did <code>ssh user@192.168.100.53</code> from the laptop, while the Tailscale IPs of both nodes responded immediately. Something on the home LAN is gremlin-ing &mdash; possibly the switch, possibly a router quirk. The Tailscale layer carried the entire recovery work, which is more or less the proof that it earns its place.
+      </p>
+
+      <hr />
+
+      <h2>Impact</h2>
+      <p>Numbers, before and after:</p>
+      <ul>
+        <li>Cloudflare-fronted tunnel connectors: <strong>1 &rarr; 3</strong> (n-1 tolerance)</li>
+        <li>PodDisruptionBudget allowed voluntary disruptions: <strong>undefined &rarr; 1</strong></li>
+        <li><code>cloudflared</code> resource floor: <strong>0 / 0 &rarr; 150m CPU / 192Mi RAM</strong> across the cluster (~0.5% of total)</li>
+        <li>Liveness / readiness probes: <strong>none &rarr; <code>/ready:2000</code> on every replica</strong></li>
+        <li>Public hostnames exposed: <strong>2 &rarr; 2</strong> (no change &mdash; that was never the issue)</li>
+        <li>Admin paths from outside the LAN: <strong>1 (router port-forward, untested) &rarr; 2 subnet routers + 1 port-forward</strong></li>
+        <li>Tailscale RTT from laptop to LAN-only Frigate VIP: <strong>3 ms</strong></li>
+        <li>Recovery time for the original 502 incident: <strong>minutes</strong> (the cluster self-healed; I just had no way to see it from the train)</li>
+        <li>Single-node-blip blast radius on public ingress: <strong>total outage &rarr; zero</strong></li>
+      </ul>
+
+      <hr />
+
+      <h2>The Payoff</h2>
+      <p>
+        The artefact is three pods where there used to be one, and a tailnet where there used to be a port-forward. Eighty lines of YAML and a <code>tailscale up</code>. Nothing exotic.
+      </p>
+      <p>
+        The skill is noticing the gap between <em>the protocol supports HA</em> and <em>my Deployment uses HA</em>. Cloudflare named tunnels have allowed multiple connectors per tunnel for years. The reason I never wired it up was that the single connector kept working. High availability stops being a feature you add &mdash; and becomes the absence of a habit you keep.
+      </p>
+      <p>
+        The next blip on <code>k3master</code> will be a non-event.
+      </p>
+
+      <hr />
+
+      <h2>Cluster Context</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Role</th>
+            <th>Hardware</th>
+            <th>LAN IP</th>
+            <th>OS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>k3master</td>
+            <td>control-plane / etcd</td>
+            <td>mini PC, Intel i5-1035G1</td>
+            <td>192.168.100.52</td>
+            <td>Ubuntu 24.04 LTS</td>
+          </tr>
+          <tr>
+            <td>k3frigate</td>
+            <td>control-plane / etcd</td>
+            <td>mini-ITX, Intel i5-6600K, GeForce GTX 1050 Ti</td>
+            <td>192.168.100.56</td>
+            <td>Ubuntu 24.04 LTS</td>
+          </tr>
+          <tr>
+            <td>k3sp4</td>
+            <td>control-plane / etcd</td>
+            <td>Surface Pro 4, Intel i5-6300U</td>
+            <td>192.168.100.53</td>
+            <td>Ubuntu 24.04 LTS (surface kernel)</td>
+          </tr>
+          <tr>
+            <td>one61</td>
+            <td>worker (arm64)</td>
+            <td>OnePlus 6, Adreno 630</td>
+            <td>USB tether to .52</td>
+            <td>postmarketOS</td>
+          </tr>
+          <tr>
+            <td>one62</td>
+            <td>worker (arm64)</td>
+            <td>OnePlus 6, Adreno 630</td>
+            <td>USB tether to .52</td>
+            <td>postmarketOS</td>
+          </tr>
+          <tr>
+            <td>one6t</td>
+            <td>worker (arm64)</td>
+            <td>OnePlus 6T, Adreno 630</td>
+            <td>USB tether to .52</td>
+            <td>postmarketOS</td>
+          </tr>
+          <tr>
+            <td>jumphost</td>
+            <td>OOB / subnet router</td>
+            <td>mini PC, x86_64</td>
+            <td>192.168.100.62</td>
+            <td>Debian 13 (trixie)</td>
+          </tr>
+          <tr>
+            <td>laptop</td>
+            <td>workstation</td>
+            <td>Acer 16, x86_64</td>
+            <td>DHCP</td>
+            <td>Fedora 44</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        k3s v1.35.0+k3s3, etcd HA across the three control-plane nodes, MetalLB L2 pool on <code>192.168.100.200&ndash;230</code>. GPU inference for the chickenCoop pipeline runs on the OnePlus workers via Adreno OpenCL &mdash; separate post.
+      </p>
+
+      <hr />
+
+      <p>
+        Manifests live in the standing repo: <a href="https://github.com/ivemcfire/homelab-config/tree/main/apps/cloudflared">homelab-config/apps/cloudflared/</a> (HA Deployment + PDB), and the Tailscale subnet-router notes are queued for <a href="https://github.com/ivemcfire/homelab-config/tree/main/remote-access/tailscale">homelab-config/remote-access/tailscale/</a>.
+      </p>
+
+      <hr />
+
+      <p>
+        Previous posts:
+        <a href="k3s-ha-migration.html">What broke during a k3s sqlite to etcd HA migration</a> &middot;
+        <a href="frigate-migration.html">Frigate NVR Migration on k3s</a> &middot;
+        <a href="hybrid-ai-k3s.html">Hybrid AI on k3s</a>
+      </p>
+    </article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>
