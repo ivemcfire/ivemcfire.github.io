@@ -252,24 +252,25 @@
       <div class="label">Posts</div>
 
       <a href="posts/cloudflared-ha-and-oob.html" class="post">
-        <div class="post-meta">May 2026 · 11 min read</div>
+        <div class="post-meta">May 2026 · 14 min read</div>
         <h2>
           The Tunnel Was Up. The Cameras Were 502.
         </h2>
         <p>
-          A single <code>cloudflared</code> pod, pinned to a single node, was enough to
-          take every Cloudflare-fronted service down with it while I was away from the
-          house. The fix is one Deployment edit &mdash; three replicas, a PDB,
-          <code>podAntiAffinity</code>. The deeper fix is a Tailscale mesh that does not
-          share fate with the production ingress, and admitting the jumphost was not
-          really a jumphost.
+          A single <code>cloudflared</code> pod was enough to take every
+          Cloudflare-fronted service down while I was away. The first fix is one
+          Deployment edit &mdash; three replicas, a PDB, <code>podAntiAffinity</code>.
+          The next day&rsquo;s fixes &mdash; Tailscale&rsquo;s silent route hijack, a
+          <code>coredns</code> Corefile forwarding into a black hole, a Frigate pod about
+          to eat its own node &mdash; took longer to find because they all hid behind a
+          green dashboard.
         </p>
         <div class="tags">
           <span class="tag">Cloudflare Tunnel</span>
           <span class="tag">Tailscale</span>
-          <span class="tag">High Availability</span>
-          <span class="tag">PodDisruptionBudget</span>
-          <span class="tag">Out-of-Band</span>
+          <span class="tag">coredns</span>
+          <span class="tag">Frigate</span>
+          <span class="tag">Multi-fault Diagnosis</span>
           <span class="tag">k3s</span>
         </div>
       </a>

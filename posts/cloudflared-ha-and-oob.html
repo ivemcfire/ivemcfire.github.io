@@ -4,8 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>
-      The Tunnel Was Up. The Cameras Were 502. &mdash; Ivalin's Lab
-    </title>
+      The Tunnel Was Up. The Cameras Were 502. &mdash; Ivalin's Lab</title>
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
       rel="stylesheet"
@@ -300,52 +299,41 @@
     <div class="grain"></div>
     <nav><a href="/">&larr; Ivalin's Lab</a></nav>
     <article>
-      <h1>The Tunnel Was Up. The Cameras Were 502.</h1>
-      <em>A single <code>cloudflared</code> pod, pinned to a single node, was enough to take every Cloudflare-fronted service down with it. The fix is one Deployment edit. The deeper fix is admitting the jumphost was not really a jumphost.</em>
+<h1>The Tunnel Was Up. The Cameras Were 502.</h1>
+<em>A single <code>cloudflared</code> pod was enough to take every Cloudflare-fronted service down with it. Then everything else underneath decided to demonstrate its own version of "almost works" — Tailscale's silent route hijack, coredns forwarding into a black hole, a Frigate pod about to eat its own node.</em>
 
-      <img
-        src="../images/cloudflared-ha-and-oob_small.jpg"
-        alt="A 502 error and the Tailscale mesh that would have saved me"
-      />
-      <p class="photo-caption">The 502 on the left is what the public saw. The mesh on the right is what I should have had behind it.</p>
-
-      <hr />
-
-      <h2>The Starting Point</h2>
-      <p>
-        I was away from the house. I went to check the doorbell camera and the page returned 502. Then <code>monitor.ayurforlife.eu</code> did the same. Both hostnames are fronted by a Cloudflare tunnel into my k3s cluster.
-      </p>
-      <p>
-        So I tried to SSH in to look. The only path I had from the public internet was a router port-forward to a "jumphost" at <code>192.168.100.62</code>. That box did not answer either.
-      </p>
-      <p>
-        By the time I got back to the house the cluster had healed itself. Pods Running, hostnames 302-ing through Cloudflare Access, everything looked fine. The honest part of this story is that nothing was fine. The cluster had revealed two single points of failure at the same time, and the only reason it did not stay broken longer was luck.
-      </p>
-      <p>
-        This post is the fix. Two layers, one afternoon.
-      </p>
-
-      <hr />
-
-      <h2>Architecture Before / After</h2>
-      <p><strong>Before</strong></p>
-      <ul>
-        <li><code>cloudflared</code> Deployment in the <code>frigate</code> namespace: <code>replicas: 1</code>, pinned to <code>k3master</code> via <code>nodeSelector: kubernetes.io/hostname: k3master</code></li>
-        <li>One connector serving every <code>*.ayurforlife.eu</code> hostname</li>
-        <li>No <code>PodDisruptionBudget</code>, no liveness or readiness probes, no resource requests</li>
-        <li>One "jumphost" at <code>.62</code> whose only external surface was a router port-forward to its sshd</li>
-        <li>No out-of-band path into the LAN if either node hiccuped</li>
-      </ul>
-      <p><strong>After</strong></p>
-      <ul>
-        <li><code>cloudflared</code> Deployment: <code>replicas: 3</code>, one pod per control-plane node, enforced (not requested)</li>
-        <li><code>PodDisruptionBudget</code> with <code>minAvailable: 2</code></li>
-        <li>Liveness and readiness probes on <code>/ready:2000</code></li>
-        <li>Tailscale mesh across <code>.52</code>, <code>.56</code>, <code>.53</code>, <code>.62</code>, and the laptop, with <code>.52</code> and <code>.62</code> both advertising <code>192.168.100.0/24</code> as redundant subnet routers</li>
-        <li>MagicDNS, so <code>ssh user@k3master</code> works from anywhere</li>
-      </ul>
-
-      <pre><code>Before:
+<p><img alt="A 502 error and the Tailscale mesh that would have saved me" src="../images/cloudflared-ha-and-oob_small.jpg" /></p>
+<p><em>The 502 on the left is what the public saw. The mesh on the right is what I should have had behind it.</em></p>
+<hr />
+<h2>The Starting Point</h2>
+<p>I was away from the house. I went to check the doorbell camera and the page returned 502. Then <code>monitor.ayurforlife.eu</code> did the same. Both hostnames are fronted by a Cloudflare tunnel into my k3s cluster.</p>
+<p>So I tried to SSH in to look. The only path I had from the public internet was a router port-forward to a "jumphost" at <code>192.168.100.62</code>. That box did not answer either.</p>
+<p>By the time I got back to the house the cluster had healed itself. Pods Running, hostnames 302-ing through Cloudflare Access, everything looked fine. The honest part of this story is that nothing was fine. The cluster had revealed two single points of failure at the same time, and the only reason it did not stay broken longer was luck.</p>
+<p>This post is the fix. Two layers the first afternoon, three more layers the next day, after the network discovered new ways to lie to me.</p>
+<h2>Architecture Before / After</h2>
+<p><strong>Before</strong></p>
+<ul>
+<li><code>cloudflared</code> Deployment in the <code>frigate</code> namespace: <code>replicas: 1</code>, pinned to <code>k3master</code> via <code>nodeSelector: kubernetes.io/hostname: k3master</code></li>
+<li>One connector serving every <code>*.ayurforlife.eu</code> hostname</li>
+<li>No <code>PodDisruptionBudget</code>, no liveness or readiness probes, no resource requests</li>
+<li>One "jumphost" at <code>.62</code> whose only external surface was a router port-forward to its sshd</li>
+<li>No out-of-band path into the LAN if either node hiccuped</li>
+<li>Frigate pod with <code>requests.cpu: 1</code>, no CPU limit, <code>swap = 0</code> on the node</li>
+<li>coredns Corefile forwarding upstream queries via <code>/etc/resolv.conf</code></li>
+</ul>
+<p><strong>After</strong></p>
+<ul>
+<li><code>cloudflared</code> Deployment: <code>replicas: 3</code>, one pod per control-plane node, enforced (not requested)</li>
+<li><code>PodDisruptionBudget</code> with <code>minAvailable: 2</code></li>
+<li>Liveness and readiness probes on <code>/ready:2000</code></li>
+<li>Tailscale mesh across <code>.52</code>, <code>.56</code>, <code>.53</code>, <code>.62</code>, and the laptop, with <code>.52</code> and <code>.62</code> both advertising <code>192.168.100.0/24</code> as redundant subnet routers</li>
+<li><code>--accept-routes=false</code> on every node that is itself <em>on</em> the advertised LAN (including the routers)</li>
+<li>coredns Corefile forwards to <code>1.1.1.1 8.8.8.8</code> — hardcoded, not host-derived</li>
+<li>Frigate pod capped at 3 CPU / 6 Gi memory; node has <code>kube-reserved</code> + <code>system-reserved</code> + 4 GB zram</li>
+<li>MagicDNS, so <code>ssh user@k3master</code> works from anywhere</li>
+</ul>
+<pre><code>
+Before:
   internet ──► Cloudflare edge ──► [cloudflared @ k3master only] ──► svc
                                           (one connector, one node)
   me away ──► home router :22 ──► jumphost .62 sshd  (untested, alone)
@@ -355,35 +343,20 @@ After:
                                           (three connectors, same tunnel UUID)
                                           PDB minAvailable: 2
   me away ──► Tailscale ──► tailnet ──► subnet router (.52 OR .62) ──► 192.168.100.0/24
-                                          MagicDNS, short names from anywhere</code></pre>
+                                          MagicDNS, short names from anywhere
+</code></pre>
 
-      <hr />
-
-      <h2>The Almost-Works Trap</h2>
-      <p>
-        Looking at the manifest the first instinct is to say <em>the tunnel was fine.</em> The Cloudflare dashboard shows the tunnel as Healthy. The Deployment exists. The Secret is mounted, the ConfigMap is correct, the pod is <code>1/1 Running</code>. Production traffic is flowing.
-      </p>
-      <p>
-        It almost works. Cloudflare named tunnels do support high availability. The credentials are tunnel-scoped, not connector-scoped. Multiple <code>cloudflared</code> processes can connect to the same tunnel ID, and the edge will load-balance across them and survive any one of them disappearing.
-      </p>
-      <p>
-        And then one node has its moment, and every public hostname returns 502.
-      </p>
-      <p>
-        The reveal, half an hour into the postmortem: I had run <em>a connector</em>, not <em>a tunnel</em>. The Deployment was <code>replicas: 1</code>. The <code>nodeSelector</code> pinned that one pod to one host. Cloudflare's edge had exactly one healthy connector for the entire tunnel, and when <code>k3master</code> blipped the edge had nowhere to send traffic. The tunnel UUID was up. The connector serving it was not.
-      </p>
-      <p>
-        Same facts as the dashboard showed. The difference is whether <em>the protocol's HA</em> was actually wired into <em>the Deployment's HA</em>. It was not.
-      </p>
-
-      <hr />
-
-      <h2>Making cloudflared HA</h2>
-      <p><strong>Problem.</strong> A single pod, pinned to a single node, was the public ingress for every Cloudflare-fronted service in the cluster.</p>
-      <p><strong>Constraint.</strong> The cluster has three control-plane nodes on wired ethernet (<code>k3master</code>, <code>k3frigate</code>, <code>k3sp4</code>) and three worker nodes that are OnePlus phones on USB tether (<code>one61</code>, <code>one62</code>, <code>one6t</code>). The USB tether to <code>k3master</code> flaps for tens of seconds at a time whenever the kernel renegotiates the RNDIS link. I do not want a public ingress riding on something that flaps. The HA pool needs to live on the wired CP nodes only.</p>
-      <p><strong>Decision.</strong> Scale to three replicas, one per CP node, with the placement enforced &mdash; not preferred &mdash; and a PDB that protects against draining more than one at a time.</p>
-
-      <pre><code>spec:
+<h2>The Almost-Works Trap</h2>
+<p>Looking at the manifest the first instinct is to say <em>the tunnel was fine.</em> The Cloudflare dashboard shows the tunnel as Healthy. The Deployment exists. The Secret is mounted, the ConfigMap is correct, the pod is <code>1/1 Running</code>. Production traffic is flowing.</p>
+<p>It almost works. Cloudflare named tunnels do support high availability. The credentials are tunnel-scoped, not connector-scoped. Multiple <code>cloudflared</code> processes can connect to the same tunnel ID, and the edge will load-balance across them and survive any one of them disappearing.</p>
+<p>And then one node has its moment, and every public hostname returns 502.</p>
+<p>The reveal, half an hour into the postmortem: I had run <em>a connector</em>, not <em>a tunnel</em>. The Deployment was <code>replicas: 1</code>. The <code>nodeSelector</code> pinned that one pod to one host. Cloudflare's edge had exactly one healthy connector for the entire tunnel, and when <code>k3master</code> blipped the edge had nowhere to send traffic. The tunnel UUID was up. The connector serving it was not.</p>
+<p>Same facts as the dashboard showed. The difference is whether <em>the protocol's HA</em> was actually wired into <em>the Deployment's HA.</em> It was not.</p>
+<h2>Making cloudflared HA</h2>
+<p><strong>Problem.</strong> A single pod, pinned to a single node, was the public ingress for every Cloudflare-fronted service in the cluster.</p>
+<p><strong>Constraint.</strong> The cluster has three control-plane nodes on wired ethernet (<code>k3master</code>, <code>k3frigate</code>, <code>k3sp4</code>) and three worker nodes that are OnePlus phones on USB tether (<code>one61</code>, <code>one62</code>, <code>one6t</code>). The USB tether to <code>k3master</code> flaps for tens of seconds at a time whenever the kernel renegotiates the RNDIS link. I do not want a public ingress riding on something that flaps. The HA pool needs to live on the wired CP nodes only.</p>
+<p><strong>Decision.</strong> Scale to three replicas, one per CP node, with the placement enforced — not preferred — and a PDB that protects against draining more than one at a time.</p>
+<pre><code class="language-yaml">spec:
   replicas: 3
   strategy:
     type: RollingUpdate
@@ -399,7 +372,7 @@ After:
             - matchExpressions:
               - key: node-role.kubernetes.io/control-plane
                 operator: In
-                values: ["true"]
+                values: [&quot;true&quot;]
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - topologyKey: kubernetes.io/hostname
@@ -411,8 +384,8 @@ After:
         effect: NoSchedule
       containers:
       - name: cloudflared
-        args: ["tunnel", "--metrics", "0.0.0.0:2000",
-               "--config", "/etc/cloudflared/config.yaml", "run"]
+        args: [&quot;tunnel&quot;, &quot;--metrics&quot;, &quot;0.0.0.0:2000&quot;,
+               &quot;--config&quot;, &quot;/etc/cloudflared/config.yaml&quot;, &quot;run&quot;]
         livenessProbe:
           httpGet: { path: /ready, port: 2000 }
           initialDelaySeconds: 10
@@ -423,22 +396,20 @@ After:
           periodSeconds: 10
         resources:
           requests: { cpu: 50m,  memory: 64Mi }
-          limits:   { cpu: 200m, memory: 128Mi }</code></pre>
-
-      <p>Plus a PDB:</p>
-
-      <pre><code>apiVersion: policy/v1
+          limits:   { cpu: 200m, memory: 128Mi }
+</code></pre>
+<p>Plus a PDB:</p>
+<pre><code class="language-yaml">apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata: { name: cloudflared, namespace: frigate }
 spec:
   minAvailable: 2
-  selector: { matchLabels: { app: cloudflared } }</code></pre>
-
-      <p><strong>Trade-off.</strong> Three pods now sit idle most of the time. The cost is roughly 150m CPU and 192Mi memory across the cluster &mdash; more or less half a percent of the available capacity. The benefit is that a single node going away can no longer black-hole the public surface. The <code>minAvailable: 2</code> PDB means a <code>kubectl drain</code> of any one CP node is allowed; a second drain blocks until the first replica reschedules.</p>
-
-      <p>After the rollout:</p>
-
-      <pre><code>$ kubectl -n frigate get pods -l app=cloudflared -o wide
+  selector: { matchLabels: { app: cloudflared } }
+</code></pre>
+<p><strong>Trade-off.</strong> Three pods now sit idle most of the time. The cost is roughly 150m CPU and 192Mi memory across the cluster — more or less half a percent of the available capacity. The benefit is that a single node going away can no longer black-hole the public surface. The <code>minAvailable: 2</code> PDB means a <code>kubectl drain</code> of any one CP node is allowed; a second drain blocks until the first replica reschedules.</p>
+<p>After the rollout:</p>
+<pre><code>
+$ kubectl -n frigate get pods -l app=cloudflared -o wide
 NAME                           READY   STATUS    NODE
 cloudflared-6997fb4449-fcspw   1/1     Running   k3master
 cloudflared-6997fb4449-jvpkp   1/1     Running   k3frigate
@@ -449,219 +420,224 @@ NAME          MIN AVAILABLE   ALLOWED DISRUPTIONS
 cloudflared   2               1
 
 $ curl -sI https://cams.ayurforlife.eu | head -1
-HTTP/2 302</code></pre>
+HTTP/2 302
+</code></pre>
 
-      <p>
-        The 302 is the Cloudflare Access auth redirect. That is healthy &mdash; it means the edge reached a connector, which reached the upstream Frigate Service, which returned its login. The Cloudflare side needed zero changes. Same tunnel UUID <code>&lt;TUNNEL-UUID&gt;</code>, same DNS records, same ConfigMap, same Secret. Three connectors registered against one tunnel. The protocol always supported this. The Deployment did not.
-      </p>
-
-      <hr />
-
-      <h2>Why Phone Workers Are Not in the HA Pool</h2>
-      <p>
-        The obvious next move is <code>replicas: 6</code> and let one land on each phone worker too. More replicas, more resilience.
-      </p>
-      <p>
-        In real life the USB tether between a OnePlus 6T and the host laptop drops the link for tens of seconds when the bus renegotiates. If <code>cloudflared</code> rode that link, the connector would flap, the edge would mark it unhealthy, and every flap would briefly send traffic into a black hole while the load balancer rebalanced. The phone workers run jobs that tolerate restarts. Public ingress does not.
-      </p>
-      <p>
-        So the <code>nodeAffinity</code> is <code>requiredDuringSchedulingIgnoredDuringExecution</code> against the <code>control-plane</code> role label, not a <code>preferred</code> soft hint. Three CP nodes, three replicas, exact mapping. This is not ideal: I lose the option to ride out an outage of all three CP nodes at once. But all three CP nodes failing at once is a quorum loss for etcd anyway, at which point public ingress is the third-most-broken thing.
-      </p>
-
-      <hr />
-
-      <h2>Tailscale as the Out-Of-Band Plane</h2>
-      <p><strong>Problem.</strong> While I was away, my only path back into the LAN was the same internet path the production services rode. If Cloudflare's edge was down, or the home router was down, or the public IP changed &mdash; I had nothing.</p>
-      <p><strong>Constraint.</strong> I did not want to run a second Cloudflare tunnel just for sshd on the jumphost. That stacks two failure modes of the same provider into the same recovery path. I want a path that does not share fate with the production ingress.</p>
-      <p><strong>Decision.</strong> Tailscale mesh across <code>k3master</code>, <code>k3frigate</code>, <code>k3sp4</code>, the jumphost, and the laptop. Five nodes. Free Personal tier, SSO. Both <code>k3master</code> and the jumphost advertise <code>192.168.100.0/24</code> as approved subnet routers, so either one can carry traffic into the LAN.</p>
-
-      <p>From the laptop after <code>tailscale up --accept-routes --accept-dns</code>:</p>
-
-      <pre><code>$ tailscale status
+<p>The 302 is the Cloudflare Access auth redirect. That is healthy — it means the edge reached a connector, which reached the upstream Frigate Service, which returned its login. The Cloudflare side needed zero changes. Same tunnel UUID <code>&lt;TUNNEL-UUID&gt;</code>, same DNS records, same ConfigMap, same Secret. Three connectors registered against one tunnel. The protocol always supported this. The Deployment did not.</p>
+<h2>Why Phone Workers Are Not in the HA Pool</h2>
+<p>The obvious next move is <code>replicas: 6</code> and let one land on each phone worker too. More replicas, more resilience.</p>
+<p>In real life the USB tether between a OnePlus 6T and the host laptop drops the link for tens of seconds when the bus renegotiates. If <code>cloudflared</code> rode that link, the connector would flap, the edge would mark it unhealthy, and every flap would briefly send traffic into a black hole while the load balancer rebalanced. The phone workers run jobs that tolerate restarts. Public ingress does not.</p>
+<p>So the <code>nodeAffinity</code> is <code>requiredDuringSchedulingIgnoredDuringExecution</code> against the <code>control-plane</code> role label, not a <code>preferred</code> soft hint. Three CP nodes, three replicas, exact mapping. This is not ideal: I lose the option to ride out an outage of all three CP nodes at once. But all three CP nodes failing at once is a quorum loss for etcd anyway, at which point public ingress is the third-most-broken thing.</p>
+<h2>Tailscale as the Out-Of-Band Plane</h2>
+<p><strong>Problem.</strong> While I was away, my only path back into the LAN was the same internet path the production services rode. If Cloudflare's edge was down, or the home router was down, or the public IP changed — I had nothing.</p>
+<p><strong>Constraint.</strong> I did not want to run a second Cloudflare tunnel just for sshd on the jumphost. That stacks two failure modes of the same provider into the same recovery path. I want a path that does not share fate with the production ingress.</p>
+<p><strong>Decision.</strong> Tailscale mesh across <code>k3master</code>, <code>k3frigate</code>, <code>k3sp4</code>, the jumphost, and the laptop. Five nodes. Free Personal tier, SSO. Both <code>k3master</code> and the jumphost advertise <code>192.168.100.0/24</code> as approved subnet routers, so either one can carry traffic into the LAN.</p>
+<p>From the laptop after <code>tailscale up --accept-routes --accept-dns</code>:</p>
+<pre><code>
+$ tailscale status
 100.x.x.10   acer16     ive@   linux   -
 100.x.x.20   k3master   ive@   linux   active; offers routes
 100.x.x.21   k3frigate  ive@   linux   active
 100.x.x.22   k3sp4      ive@   linux   active
-100.x.x.23   jumphost   ive@   linux   active; offers routes</code></pre>
+100.x.x.23   jumphost   ive@   linux   active; offers routes
+</code></pre>
 
-      <p>
-        And the test that matters &mdash; the Frigate web UI lives at <code>192.168.100.209:5000</code>, a MetalLB VIP that has no public address and no Tailscale IP of its own. Reaching it via a subnet router is the whole point of this layer:
-      </p>
+<p>And the test that matters — the Frigate web UI lives at <code>192.168.100.209:5000</code>, a MetalLB VIP that has no public address and no Tailscale IP of its own. Reaching it via a subnet router is the whole point of this layer:</p>
+<pre><code>
+$ tailscale ping 192.168.100.209
+pong from k3master (100.x.x.20) via 192.168.100.52:41641 in 3ms
+</code></pre>
 
-      <pre><code>$ tailscale ping 192.168.100.209
-pong from k3master (100.x.x.20) via 192.168.100.52:41641 in 3ms</code></pre>
+<p>3ms from the laptop to an IP that does not exist on the internet, via a subnet route advertised by <code>k3master</code>. MagicDNS resolves the short names too — <code>ssh user@k3master</code> from a hotel Wi-Fi works the same way it works on the LAN.</p>
+<p><strong>Trade-off.</strong> Tailscale is a third party. If the coordination server is down, new key exchanges fail (existing peer sessions keep working — that is the design). The phones were deliberately left out: their USB tether links are too intermittent to host a useful node, and a flapping subnet router is worse than no subnet router. Defense in depth costs almost nothing when the layers do not share fate.</p>
+<h2>What Makes a Jumphost a Jumphost</h2>
+<p>The box at <code>192.168.100.62</code> had been sitting in the rack for 87 days running sshd and Uptime Kuma. I called it a jumphost. It was not a jumphost.</p>
+<p>A jumphost is not a jumphost if nothing jumps through it from outside. Its only external surface was a router port-forward to port 22 that I had never tested from outside the LAN. The first time I needed that path it did not work, and I cannot tell you exactly why because I had no second path to diagnose with. Maybe the router rebooted. Maybe <code>.62</code> had its own moment. Maybe sshd was healthy and the port-forward had been silently dropped at the router. The mystery is the point — without a second path, you do not even get to know what failed.</p>
+<p>Now <code>.62</code> runs <code>tailscaled</code>, advertises the LAN as a subnet router, and is the redundant pair to <code>k3master</code>. The router port-forward is still there as a third path, more or less for sentimental reasons. The layers do not share fate.</p>
+<h2>The Install That Almost Worked</h2>
+<p>Tailscale on the homelab nodes was supposed to be a five-minute layer add. It mostly was. Five <code>apt install</code>s, five <code>tailscale up</code>s, a Login URL each, and the mesh came up. <code>tailscale status</code> from the laptop showed every node green. <code>tailscale ping 192.168.100.209</code> worked. The post above was already half-written.</p>
+<p>Twenty-four hours later the cluster ate itself.</p>
+<p>The first symptom was the <code>cloudflared</code> replica on <code>k3master</code> going <code>CrashLoopBackOff</code>. Then <code>kubectl get pods -A</code> started looking like a crime scene — <code>ImagePullBackOff</code> here, <code>CrashLoopBackOff</code> there, an <code>Init:ContainerStatusUnknown</code> ghost from a recovery attempt that had not actually recovered. Three different pods, three different nodes, three different stuck states.</p>
+<p>The fast-and-wrong reaction was <em>the switch is dying</em>. The slow-and-right one was to read the three logs together:</p>
+<pre><code>
+cloudflared-…fcspw   on k3master   "lookup registry-1.docker.io: Try again"
+frigate-exporter     on k3master   "Temporary failure in name resolution"
+cloudflared-…jvpkp   on k3frigate  "Couldn't resolve SRV record region1.v2.argotunnel.com
+                                    on 10.43.0.10:53: server misbehaving"
+</code></pre>
 
-      <p>
-        3ms from the laptop to an IP that does not exist on the internet, via a subnet route advertised by <code>k3master</code>. MagicDNS resolves the short names too &mdash; <code>ssh user@k3master</code> from a hotel Wi-Fi works the same way it works on the LAN.
-      </p>
-
-      <p>
-        <strong>Trade-off.</strong> Tailscale is a third party. If the coordination server is down, new key exchanges fail (existing peer sessions keep working &mdash; that is the design). The phones were deliberately left out: their USB tether links are too intermittent to host a useful node, and a flapping subnet router is worse than no subnet router. Defense in depth costs almost nothing when the layers do not share fate.
-      </p>
-
-      <hr />
-
-      <h2>What Makes a Jumphost a Jumphost</h2>
-      <p>
-        The box at <code>192.168.100.62</code> had been sitting in the rack for 87 days running sshd and Uptime Kuma. I called it a jumphost. It was not a jumphost.
-      </p>
-      <p>
-        A jumphost is not a jumphost if nothing jumps through it from outside. Its only external surface was a router port-forward to port 22 that I had never tested from outside the LAN. The first time I needed that path it did not work, and I cannot tell you exactly why because I had no second path to diagnose with. Maybe the router rebooted. Maybe <code>.62</code> had its own moment. Maybe sshd was healthy and the port-forward had been silently dropped at the router. The mystery is the point &mdash; without a second path, you do not even get to know what failed.
-      </p>
-      <p>
-        Now <code>.62</code> runs <code>tailscaled</code>, advertises the LAN as a subnet router, and is the redundant pair to <code>k3master</code>. The router port-forward is still there as a third path, more or less for sentimental reasons. The layers do not share fate.
-      </p>
-
-      <hr />
-
-      <h2>Design Decisions</h2>
-      <p>The non-obvious choices, listed:</p>
-      <ul>
-        <li><strong>PDB <code>minAvailable: 2</code>, not <code>1</code>.</strong> With three replicas, <code>minAvailable: 1</code> would permit two simultaneous drains. Two nodes down means one connector left, and one connector is exactly the configuration that got me into this mess.</li>
-        <li><strong><code>nodeAffinity</code> requires control-plane role, not preferred.</strong> A hard guarantee that no replica lands on a phone worker. A flapping connector is worse than a missing one.</li>
-        <li><strong>Both Tailscale and Cloudflare, not either/or.</strong> Cloudflare carries the production hostnames. Tailscale carries me. Same LAN, two planes, two providers, two failure modes.</li>
-        <li><strong>Two subnet routers, not one.</strong> <code>k3master</code> and <code>jumphost</code> both advertise <code>192.168.100.0/24</code>. Either alone is enough. Together they survive each other.</li>
-        <li><strong>Phones excluded from the mesh.</strong> Adding three intermittent nodes to a five-node tailnet would not improve coverage and would generate noise in <code>tailscale status</code>. Some things do not need HA.</li>
-        <li><strong>Same tunnel UUID, not a new one.</strong> Re-using <code>&lt;TUNNEL-UUID&gt;</code> means zero changes on the Cloudflare side. The fix is purely on the Deployment side, which is where the bug lived.</li>
-        <li><strong>Resources set on the cloudflared pods.</strong> The old manifest had <code>resources: {}</code>. A pod with no requests can be evicted under any node pressure. Public ingress should not get evicted because a build job needed memory.</li>
-      </ul>
-
-      <hr />
-
-      <h2>Things That Went Wrong</h2>
-      <p>
-        <strong>The Helm apt repo blocked <code>apt update</code> on the jumphost.</strong> Installing <code>tailscaled</code> on <code>.62</code> failed because <code>apt update</code> itself errored out on a malformed signature from <code>baltocdn.com/helm/stable/debian</code> &mdash; <code>Clearsigned file isn't valid, got 'NOSPLIT'</code>. The Helm repo had not been touched in months and broke on its own. Workaround: moved <code>/etc/apt/sources.list.d/helm-stable-debian.list</code> aside, ran the Tailscale installer, restored the file. The proper fix &mdash; refresh the keyring or migrate to OCI Helm &mdash; is queued. Helpful reminder that an unrelated third-party repo can block your fast path on the day you need it.
-      </p>
-      <p>
-        <strong>The k3sp4 username drift.</strong> Trying to lateral-SSH from <code>k3master</code> to <code>k3sp4</code> for the recon failed with <code>Permission denied (publickey,password)</code>. Turned out k3sp4 &mdash; the Surface Pro 4 &mdash; was bootstrapped with <code>ivalin</code> as the primary user, while every other node uses <code>user</code>. The pubkey was already in <code>/home/ivalin/.ssh/authorized_keys</code>, installed weeks ago; the username was the part that drifted. I learned this because the recovery pod that mounted <code>/etc/passwd</code> from the host kept printing <code>host user uid:gid = MISSING</code> until I read what it was actually telling me. Added an SSH <code>Host k3sp4 / User ivalin</code> block in <code>~/.ssh/config</code> on <code>k3master</code>. The deeper fix &mdash; unify usernames across nodes &mdash; is also queued.
-      </p>
-      <p>
-        <strong>My own heredoc bug while writing the recovery pod.</strong> First attempt to write the install Pod YAML on <code>.52</code> was a bash heredoc piped over SSH. The YAML contained a shell expansion like <code>$UID_GID=$(awk ... /etc/passwd)</code>, and the local shell on the laptop consumed the <code>$UID_GID</code> before the heredoc ever made it across. The variable was empty by the time the Pod ran on the cluster. Switched to writing the YAML as a normal file and <code>scp</code>-ing it across. Recursive shell expansion across SSH is the kind of footgun I will keep stepping on every six months because the failure looks exactly like the success.
-      </p>
-      <p>
-        <strong>Cluster-internal LAN connectivity is flaky right now.</strong> During this very session, <code>ssh user@192.168.100.62</code> from <code>.52</code> timed out, and so did <code>ssh user@192.168.100.53</code> from the laptop, while the Tailscale IPs of both nodes responded immediately. Something on the home LAN is gremlin-ing &mdash; possibly the switch, possibly a router quirk. The Tailscale layer carried the entire recovery work, which is more or less the proof that it earns its place.
-      </p>
-
-      <hr />
-
-      <h2>Impact</h2>
-      <p>Numbers, before and after:</p>
-      <ul>
-        <li>Cloudflare-fronted tunnel connectors: <strong>1 &rarr; 3</strong> (n-1 tolerance)</li>
-        <li>PodDisruptionBudget allowed voluntary disruptions: <strong>undefined &rarr; 1</strong></li>
-        <li><code>cloudflared</code> resource floor: <strong>0 / 0 &rarr; 150m CPU / 192Mi RAM</strong> across the cluster (~0.5% of total)</li>
-        <li>Liveness / readiness probes: <strong>none &rarr; <code>/ready:2000</code> on every replica</strong></li>
-        <li>Public hostnames exposed: <strong>2 &rarr; 2</strong> (no change &mdash; that was never the issue)</li>
-        <li>Admin paths from outside the LAN: <strong>1 (router port-forward, untested) &rarr; 2 subnet routers + 1 port-forward</strong></li>
-        <li>Tailscale RTT from laptop to LAN-only Frigate VIP: <strong>3 ms</strong></li>
-        <li>Recovery time for the original 502 incident: <strong>minutes</strong> (the cluster self-healed; I just had no way to see it from the train)</li>
-        <li>Single-node-blip blast radius on public ingress: <strong>total outage &rarr; zero</strong></li>
-      </ul>
-
-      <hr />
-
-      <h2>The Payoff</h2>
-      <p>
-        The artefact is three pods where there used to be one, and a tailnet where there used to be a port-forward. Eighty lines of YAML and a <code>tailscale up</code>. Nothing exotic.
-      </p>
-      <p>
-        The skill is noticing the gap between <em>the protocol supports HA</em> and <em>my Deployment uses HA</em>. Cloudflare named tunnels have allowed multiple connectors per tunnel for years. The reason I never wired it up was that the single connector kept working. High availability stops being a feature you add &mdash; and becomes the absence of a habit you keep.
-      </p>
-      <p>
-        The next blip on <code>k3master</code> will be a non-event.
-      </p>
-
-      <hr />
-
-      <h2>Cluster Context</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Node</th>
-            <th>Role</th>
-            <th>Hardware</th>
-            <th>LAN IP</th>
-            <th>OS</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>k3master</td>
-            <td>control-plane / etcd</td>
-            <td>mini PC, Intel i5-1035G1</td>
-            <td>192.168.100.52</td>
-            <td>Ubuntu 24.04 LTS</td>
-          </tr>
-          <tr>
-            <td>k3frigate</td>
-            <td>control-plane / etcd</td>
-            <td>mini-ITX, Intel i5-6600K, GeForce GTX 1050 Ti</td>
-            <td>192.168.100.56</td>
-            <td>Ubuntu 24.04 LTS</td>
-          </tr>
-          <tr>
-            <td>k3sp4</td>
-            <td>control-plane / etcd</td>
-            <td>Surface Pro 4, Intel i5-6300U</td>
-            <td>192.168.100.53</td>
-            <td>Ubuntu 24.04 LTS (surface kernel)</td>
-          </tr>
-          <tr>
-            <td>one61</td>
-            <td>worker (arm64)</td>
-            <td>OnePlus 6, Adreno 630</td>
-            <td>USB tether to .52</td>
-            <td>postmarketOS</td>
-          </tr>
-          <tr>
-            <td>one62</td>
-            <td>worker (arm64)</td>
-            <td>OnePlus 6, Adreno 630</td>
-            <td>USB tether to .52</td>
-            <td>postmarketOS</td>
-          </tr>
-          <tr>
-            <td>one6t</td>
-            <td>worker (arm64)</td>
-            <td>OnePlus 6T, Adreno 630</td>
-            <td>USB tether to .52</td>
-            <td>postmarketOS</td>
-          </tr>
-          <tr>
-            <td>jumphost</td>
-            <td>OOB / subnet router</td>
-            <td>mini PC, x86_64</td>
-            <td>192.168.100.62</td>
-            <td>Debian 13 (trixie)</td>
-          </tr>
-          <tr>
-            <td>laptop</td>
-            <td>workstation</td>
-            <td>Acer 16, x86_64</td>
-            <td>DHCP</td>
-            <td>Fedora 44</td>
-          </tr>
-        </tbody>
-      </table>
-      <p>
-        k3s v1.35.0+k3s3, etcd HA across the three control-plane nodes, MetalLB L2 pool on <code>192.168.100.200&ndash;230</code>. GPU inference for the chickenCoop pipeline runs on the OnePlus workers via Adreno OpenCL &mdash; separate post.
-      </p>
-
-      <hr />
-
-      <p>
-        Manifests live in the standing repo: <a href="https://github.com/ivemcfire/homelab-config/tree/main/apps/cloudflared">homelab-config/apps/cloudflared/</a> (HA Deployment + PDB), and the Tailscale subnet-router notes are queued for <a href="https://github.com/ivemcfire/homelab-config/tree/main/remote-access/tailscale">homelab-config/remote-access/tailscale/</a>.
-      </p>
-
-      <hr />
-
-      <p>
-        Previous posts:
-        <a href="k3s-ha-migration.html">What broke during a k3s sqlite to etcd HA migration</a> &middot;
-        <a href="frigate-migration.html">Frigate NVR Migration on k3s</a> &middot;
-        <a href="hybrid-ai-k3s.html">Hybrid AI on k3s</a>
-      </p>
-    </article>
+<p>Three pods, three different nodes, one missing dependency: external DNS from inside any pod. That number — <code>10.43.0.10</code> — is the k3s coredns ClusterIP. The pods were reaching it. coredns was answering. coredns was answering <em>wrong</em>, for everything outside <code>cluster.local</code>.</p>
+<p>The reveal lived in the default k3s Corefile:</p>
+<pre><code>.:53 {
+    ...
+    forward . /etc/resolv.conf
+}
+</code></pre>
+<p><code>forward . /etc/resolv.conf</code> tells coredns to forward upstream queries to whatever name servers that file lists. On the host the file lists <code>127.0.0.53</code> — the systemd-resolved stub. systemd-resolved was pulled in as a dependency of Tailscale the day before. The host resolves fine because <code>127.0.0.53</code> is a real listener in the host's net namespace. From inside the coredns pod, <code>127.0.0.53</code> is <em>the pod's own loopback</em>, where nothing is listening at all.</p>
+<p>coredns was forwarding into a black hole. Every pod's external DNS was broken. The host was fine because the host could reach <code>127.0.0.53</code>. The coredns pod could not. That asymmetry is the kind of failure you can stare at for hours.</p>
+<p>The fix was one ConfigMap edit:</p>
+<pre><code>forward . 1.1.1.1 8.8.8.8
+</code></pre>
+<p><code>kubectl rollout restart deployment/coredns -n kube-system</code> and external DNS came back in under a minute. There was a separate moment of comedy where the rescheduler picked one of the phone workers for the replacement pod, and the new coredns could not pull its own image because — DNS — but that one was a quick <code>kubectl cordon</code> away from a story.</p>
+<h2>The Subnet Router That Lost Its Default Route</h2>
+<p>coredns was downstream of a deeper problem. The host-level DNS on <code>.52</code> was also broken. <code>getent hosts cloudflare.com</code> from the host itself hung. <code>resolvectl status</code> showed every interface with <code>Current Scopes: none</code>. The <code>[Resolve]</code> section of <code>/etc/systemd/resolved.conf</code> was empty.</p>
+<p><code>.52</code> had also lost its default route. <code>ip route</code> showed local subnet entries only, no <code>default via …</code>. Pinging <code>1.1.1.1</code> returned <code>Network is unreachable</code>. The host could not reach the internet at all — except for traffic that already had a route (LAN peers, Tailscale tunnel destinations).</p>
+<p>This is where the cascading-fault pattern earned its name. Every individual symptom looked like its own bug. <em>The switch must be dying. coredns must be broken. .52 must be misconfigured.</em> The shared cause was that the Tailscale install on <code>.52</code> had left the host's DNS and routing settings in an inconsistent state, and the visible part of "is the network up" stayed green because the <em>mesh</em> kept working. <code>ping 100.x.x.x</code> was fine across all five nodes. The tunnel was the green light on the dashboard. The dashboard was lying.</p>
+<p>Fix on <code>.52</code>:</p>
+<pre><code>sudo tailscale set --accept-routes=false
+sudo ip route add default via 192.168.100.1 dev wan0
+# /etc/systemd/resolved.conf:
+#   [Resolve]
+#   DNS=1.1.1.1 8.8.8.8 192.168.100.1
+sudo systemctl restart systemd-resolved
+sudo netplan apply
+</code></pre>
+<p>The <code>--accept-routes=false</code> is the rule that should be applied to every node that is itself <em>on</em> the LAN advertised by Tailscale subnet routers. <code>.52</code> and <code>.62</code> advertise <code>192.168.100.0/24</code>. <code>.52</code>, <code>.53</code>, and <code>.56</code> all sit on that LAN. Without <code>accept-routes=false</code> on those three, the kernel installs <code>192.168.100.0/24 dev tailscale0</code>, LAN traffic gets pulled into the tunnel, and you have a mesh routing its own peers through DERP instead of the ethernet cable between them. We had set this on <code>.53</code> and <code>.56</code> during install. We had not set it on <code>.52</code> — because surely the router does not need to accept its own routes? The router does, when it is also a peer on the LAN it advertises. That sentence is the entire failure mode.</p>
+<h2>What "No CPU Limit" Means When the Cameras All Move at Once</h2>
+<p>While the Tailscale aftermath was being chased, Frigate on <code>k3frigate</code> started crashing the node it ran on. Not the pod — the whole node. <code>kubectl get nodes</code> would briefly show <code>k3frigate NotReady</code>, then the box would come back, then the Frigate pod would restart cleanly. Twice in 48 hours.</p>
+<p><strong>Problem.</strong> A storm rolled through. Wind moves trees. Eight cameras all detect motion at the same time. Each camera triggers Frigate's detect-and-record path: ffmpeg decode, ONNX inference on the 1050 Ti, recording to disk. All eight, concurrently.</p>
+<p><strong>Constraint.</strong> The Frigate pod manifest had <code>requests.cpu: 1</code> and no CPU limit. The node is an i5-6600K — 4 cores, no hyperthreading. Under storm load, Frigate's worker threads absorbed all 4 cores. There was no headroom left for the kubelet heartbeat, the etcd peer, or systemd itself. The node went silent at the CPU layer. No kernel OOM lines because RAM was fine. k3s cold-restarted when systemd noticed the kubelet had not pinged in five minutes.</p>
+<p><strong>Decision.</strong> Cap the pod at 3 cores. Reserve the fourth, explicitly, for the OS and kubelet.</p>
+<pre><code class="language-yaml">resources:
+  requests:
+    cpu: &quot;1&quot;
+    memory: 4Gi
+    nvidia.com/gpu: 1
+  limits:
+    cpu: &quot;3&quot;
+    memory: 6Gi
+    nvidia.com/gpu: 1
+</code></pre>
+<p>And on <code>k3frigate</code>'s kubelet:</p>
+<pre><code class="language-yaml">kubelet-arg:
+  - &quot;kube-reserved=cpu=500m,memory=512Mi&quot;
+  - &quot;system-reserved=cpu=250m,memory=256Mi&quot;
+  - &quot;eviction-hard=memory.available&lt;200Mi,nodefs.available&lt;10%&quot;
+</code></pre>
+<p>Plus 4 GB of zram (zstd, priority 100) on the node — the kernel had been running with <code>swap = 0</code>, which means no compression-backed pressure relief either.</p>
+<p>The Frigate config itself had two free wins. <code>cam21</code> and <code>cam22</code> were running detect at 1280×720. The model inference is 320×320. Anything past 640×360 on the input stream is wasted decode and resize. Dropped both to 640×360. <code>cam19</code> had a single RTSP input used for both <code>detect</code> and <code>record</code>, which forces an internal decode-and-re-encode cycle inside Frigate; splitting that to a separate <code>cam19_sub</code> for detect saves the encode entirely.</p>
+<p><strong>Trade-off.</strong> The pod can no longer use the full machine even when the machine is idle. In exchange, the machine can no longer be deprived of itself by its own pod.</p>
+<h2>Design Decisions</h2>
+<p>The non-obvious choices, listed:</p>
+<ul>
+<li><strong>PDB <code>minAvailable: 2</code>, not <code>1</code>.</strong> With three replicas, <code>minAvailable: 1</code> would permit two simultaneous drains. Two nodes down means one connector left, and one connector is exactly the configuration that got me into this mess.</li>
+<li><strong><code>nodeAffinity</code> requires control-plane role, not preferred.</strong> A hard guarantee that no replica lands on a phone worker. A flapping connector is worse than a missing one.</li>
+<li><strong>Both Tailscale and Cloudflare, not either/or.</strong> Cloudflare carries the production hostnames. Tailscale carries me. Same LAN, two planes, two providers, two failure modes.</li>
+<li><strong>Two subnet routers, not one.</strong> <code>k3master</code> and <code>jumphost</code> both advertise <code>192.168.100.0/24</code>. Either alone is enough. Together they survive each other.</li>
+<li><strong><code>--accept-routes=false</code> on every LAN-resident node, including the subnet routers themselves.</strong> Subnet routers advertising the LAN they sit on must not accept the route back. The router does, because it is also a peer on the LAN it advertises.</li>
+<li><strong>coredns upstream is hardcoded, not <code>/etc/resolv.conf</code>-derived.</strong> <code>forward . 1.1.1.1 8.8.8.8</code> bypasses the host's stub resolver entirely. The host's resolver works because it has access to <code>127.0.0.53</code> in its own netns. The pod's resolver does not. The simpler primitive wins.</li>
+<li><strong>Hard CPU limits on Frigate, not soft requests.</strong> A pod with no limit can starve the kubelet. Eviction cannot help if the kubelet is not running to evict.</li>
+<li><strong>zram instead of disk swap on <code>k3frigate</code>.</strong> The disk is recordings-only; adding swap there would mix latencies. Compressed RAM costs about a quarter of itself in overhead but never competes with Frigate I/O.</li>
+<li><strong>Phones excluded from the mesh.</strong> Adding three intermittent nodes to a five-node tailnet would not improve coverage and would generate noise. Some things do not need HA.</li>
+<li><strong>Same tunnel UUID, not a new one.</strong> Re-using <code>&lt;TUNNEL-UUID&gt;</code> means zero changes on the Cloudflare side. The fix is purely on the Deployment side, which is where the bug lived.</li>
+</ul>
+<h2>Things That Went Wrong</h2>
+<p><strong>The Helm apt repo blocked <code>apt update</code> on the jumphost.</strong> Installing <code>tailscaled</code> on <code>.62</code> failed because <code>apt update</code> itself errored out on a malformed signature from <code>baltocdn.com/helm/stable/debian</code> — <code>Clearsigned file isn't valid, got 'NOSPLIT'</code>. The Helm repo had not been touched in months and broke on its own. Workaround: moved <code>/etc/apt/sources.list.d/helm-stable-debian.list</code> aside, ran the Tailscale installer, restored the file. The proper fix — refresh the keyring or migrate to OCI Helm — is queued.</p>
+<p><strong>coredns rescheduled itself onto a phone worker during the DNS fix.</strong> I bounced the coredns deployment to pick up the new Corefile. The scheduler picked <code>one6t</code> for the replacement pod. <code>one6t</code> did not have the coredns image cached. To pull it, kubelet had to resolve <code>registry-1.docker.io</code>. To resolve that, the pod needed coredns — which was the pod that had just been deleted. Deadlock until I cordoned the three phone nodes and the scheduler picked a CP node where the image already lived. The cluster's own scheduling can deadlock on its own broken DNS. System-critical pods belong on nodes that always have their images.</p>
+<p><strong>The Frigate hostPath and the git ConfigMap had silently drifted by weeks.</strong> Frigate runs with a <code>config-sync</code> sidecar that watches <code>/mnt/frigate/config/config.yml</code> on the host and writes changes back to the cluster's ConfigMap. The git-tracked <code>configmap.yaml</code> is a downstream backup, not the source. The git copy was missing <code>cam21</code> and <code>cam22</code> entirely — added through the Frigate UI weeks ago and never resynced. The hostPath is the source of truth, the ConfigMap is the snapshot, the git file is the snapshot's last commit. Renaming the file in the repo to reflect that.</p>
+<p><strong>Cluster-internal LAN connectivity was the misleading symptom.</strong> Early in the diagnosis I noticed <code>ssh user@192.168.100.62</code> from <code>.52</code> timed out while the Tailscale IPs of both nodes responded immediately. That looked like a switch fault. It was not. It was <code>.52</code> accepting its own advertised subnet route over Tailscale because <code>--accept-routes=false</code> had never been applied to <code>.52</code> itself. Every LAN-to-LAN packet on that node was being shovelled into the tunnel and DERP-relayed back out. The Tailscale layer was working hard to mask a problem that was, in fact, the Tailscale layer.</p>
+<h2>Impact</h2>
+<p>Numbers, before and after:</p>
+<ul>
+<li>Cloudflare-fronted tunnel connectors: <strong>1 → 3</strong> (n-1 tolerance)</li>
+<li>PodDisruptionBudget allowed voluntary disruptions: <strong>undefined → 1</strong></li>
+<li><code>cloudflared</code> resource floor: <strong>0 / 0 → 150m CPU / 192Mi RAM</strong> across the cluster (~0.5% of total)</li>
+<li>Admin paths from outside the LAN: <strong>1 (router port-forward, untested) → 2 subnet routers + 1 port-forward</strong></li>
+<li>Tailscale RTT from laptop to LAN-only Frigate VIP: <strong>3 ms</strong></li>
+<li>Frigate pod CPU limit: <strong>undefined → 3 cores</strong> (1 core reserved for OS + kubelet)</li>
+<li>Frigate pod memory: requests <strong>1 Gi → 4 Gi</strong>, limits <strong>3 Gi → 6 Gi</strong></li>
+<li><code>k3frigate</code> kubelet reservations: <strong>undefined → 750m CPU / 768Mi RAM</strong> combined</li>
+<li><code>k3frigate</code> swap: <strong>0 → 4 GB zram (zstd, priority 100)</strong></li>
+<li>Frigate detect resolution on <code>cam21</code> / <code>cam22</code>: <strong>1280×720 → 640×360</strong></li>
+<li>External DNS from inside a pod: <strong><code>Try again</code> (resolver-level timeout) → instant resolve</strong></li>
+<li>Default route on <code>.52</code>: <strong>missing → <code>via 192.168.100.1</code></strong></li>
+<li>Full-node lockup events on <code>k3frigate</code>: <strong>2 in 48 h → 0 since hardening</strong></li>
+<li>Single-node-blip blast radius on public ingress: <strong>total outage → zero</strong></li>
+</ul>
+<h2>The Payoff</h2>
+<p>The artefact is three connectors where there used to be one, a tailnet where there used to be a port-forward, a Frigate pod that no longer eats its node, and a coredns that can resolve the internet again. None of these are exotic. None of them needed new hardware.</p>
+<p>The skill that runs through all of them is reading symptoms together rather than chasing each one alone. Cloudflare's protocol supported HA. My Deployment did not. Tailscale's tunnel was up. The host's DNS was empty. Frigate's pod was running. The node it ran on was about to lock up. Each layer was claiming "fine" against a different definition of fine, and the gap between those definitions is where outages live.</p>
+<p>High availability stops being a feature you add — and becomes the absence of the habit of trusting your own dashboards.</p>
+<h2>Cluster Context</h2>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Role</th>
+<th>Hardware</th>
+<th>LAN IP</th>
+<th>OS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>k3master</td>
+<td>control-plane / etcd</td>
+<td>mini PC, Intel i5-1035G1</td>
+<td>192.168.100.52</td>
+<td>Ubuntu 24.04 LTS</td>
+</tr>
+<tr>
+<td>k3frigate</td>
+<td>control-plane / etcd</td>
+<td>mini-ITX, Intel i5-6600K, GeForce GTX 1050 Ti</td>
+<td>192.168.100.56</td>
+<td>Ubuntu 24.04 LTS</td>
+</tr>
+<tr>
+<td>k3sp4</td>
+<td>control-plane / etcd</td>
+<td>Surface Pro 4, Intel i5-6300U</td>
+<td>192.168.100.53</td>
+<td>Ubuntu 24.04 LTS (surface kernel)</td>
+</tr>
+<tr>
+<td>one61</td>
+<td>worker (arm64)</td>
+<td>OnePlus 6, Adreno 630</td>
+<td>USB tether to .52</td>
+<td>postmarketOS</td>
+</tr>
+<tr>
+<td>one62</td>
+<td>worker (arm64)</td>
+<td>OnePlus 6, Adreno 630</td>
+<td>USB tether to .52</td>
+<td>postmarketOS</td>
+</tr>
+<tr>
+<td>one6t</td>
+<td>worker (arm64)</td>
+<td>OnePlus 6T, Adreno 630</td>
+<td>USB tether to .52</td>
+<td>postmarketOS</td>
+</tr>
+<tr>
+<td>jumphost</td>
+<td>OOB / subnet router</td>
+<td>mini PC, x86_64</td>
+<td>192.168.100.62</td>
+<td>Debian 13 (trixie)</td>
+</tr>
+<tr>
+<td>laptop</td>
+<td>workstation</td>
+<td>Acer 16, x86_64</td>
+<td>DHCP</td>
+<td>Fedora 44</td>
+</tr>
+</tbody>
+</table>
+<p>k3s v1.35.0+k3s3, etcd HA across the three control-plane nodes, MetalLB L2 pool on <code>192.168.100.200–230</code>. GPU inference for the chickenCoop pipeline runs on the OnePlus workers via Adreno OpenCL — separate post.</p>
+<hr />
+<p>Manifests:</p>
+<ul>
+<li><a href="https://github.com/ivemcfire/homelab-config/tree/main/apps/cloudflared"><code>homelab-config/apps/cloudflared/</code></a> — HA Deployment, PDB, ConfigMap template</li>
+<li><a href="https://github.com/ivemcfire/homelab-config/tree/main/network"><code>homelab-config/network/</code></a> — Tailscale subnet router notes, <code>--accept-routes=false</code> rule, coredns Corefile patch, <code>.52</code> systemd-resolved + netplan entries</li>
+<li><a href="https://github.com/ivemcfire/homelab-config/tree/main/apps/frigate"><code>homelab-config/apps/frigate/</code></a> — pod resource limits, <code>k3frigate</code> kubelet args, zram config, Frigate <code>config.yml</code> snippets</li>
+</ul>
+<p><em>Previous: · <a href="#">Frigate NVR Migration on k3s</a> · <a href="#">Three Phones, One Switchless Cluster</a></em></p>
+</article>
     <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
     <button
       class="back-to-top"
