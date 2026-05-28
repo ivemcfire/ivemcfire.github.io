@@ -251,6 +251,34 @@
       />
       <div class="label">Posts</div>
 
+      <a href="posts/every-light-was-green.html" class="post">
+        <div class="post-meta">May 2026 · 11 min read</div>
+        <h2>
+          Every Light Was Green. The Cluster Was Dead.
+        </h2>
+        <p>
+          Every layer of the observability stack was a tenant of the thing it
+          was supposed to observe &mdash; Grafana pinned to a control-plane pod,
+          Uptime Kuma watching the cluster it lived in, Alertmanager paging
+          Telegram through the cluster&rsquo;s outbound network. The
+          remediation moved the watcher onto the jumphost, swapped Telegram for
+          Gmail SMTP, and uncovered four smaller failures along the way that
+          all share the same shape &mdash; a sibling of the Tailscale
+          subnet-route hijack, a phone-node CNI that fails closed on DNS, a
+          <code>CPUThrottlingHigh</code> alert that was the chart talking
+          rather than the workload, and a Grafana release that does not fit a
+          2011 netbook CPU.
+        </p>
+        <div class="tags">
+          <span class="tag">Observability</span>
+          <span class="tag">Grafana</span>
+          <span class="tag">Alertmanager</span>
+          <span class="tag">Cloudflare Access</span>
+          <span class="tag">Tailscale</span>
+          <span class="tag">k3s</span>
+        </div>
+      </a>
+
       <a href="posts/cloudflared-ha-and-oob.html" class="post">
         <div class="post-meta">May 2026 · 14 min read</div>
         <h2>
@@ -378,28 +406,6 @@
           <span class="tag">IP Cameras</span>
           <span class="tag">Face Recognition</span>
           <span class="tag">Cloudflare</span>
-          <span class="tag">k3s</span>
-        </div>
-      </a>
-
-      <a href="posts/sidecar-pattern.html" class="post">
-        <div class="post-meta">February 2026 · 10 min read</div>
-        <h2>
-          The Kubernetes Sidecar Pattern: Building Real Observability on a Phone
-          Cluster
-        </h2>
-        <p>
-          Adding structured logging and metrics to a FastAPI app using Fluent
-          Bit, Loki, and a shared emptyDir volume — without touching the
-          application code. Three simultaneous outputs, inotify-based tailing,
-          and lessons from five things that went wrong.
-        </p>
-        <div class="tags">
-          <span class="tag">Kubernetes</span>
-          <span class="tag">Fluent Bit</span>
-          <span class="tag">Loki</span>
-          <span class="tag">Grafana</span>
-          <span class="tag">Observability</span>
           <span class="tag">k3s</span>
         </div>
       </a>

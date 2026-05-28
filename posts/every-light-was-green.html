@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Every Light Was Green. The Cluster Was Dead. &mdash; Ivalin's Lab</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+
+      .code-block {
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+<h1>Every Light Was Green. The Cluster Was Dead.</h1>
+<p><em>Posted May 2026 — Part 4 of the HomeLab series</em></p>
+<p><em>The Grafana ran in the cluster. The Uptime Kuma ran in the cluster. The Alertmanager paged Telegram through the cluster's network. When the cluster fell over, nothing was watching — and the dashboards that should have told me said everything was fine.</em></p>
+<hr />
+<p><img alt="A green dashboard inside a dead cluster, and the OOB watcher that would have caught it" src="../images/cloudflared-ha-and-oob_small.jpg" /></p>
+<p><em>Last time the lesson was about high-availability ingress. This time it is about high-availability seeing.</em></p>
+<hr />
+<p>The original version of this post was about one Fluent Bit sidecar shipping logs from one application pod. The pattern was correct and the manifest still works. But it was a single technique in service of a story I had not yet had the bruise to tell. The seven-hour cluster outage covered in the previous post supplied the bruise. This post is what the bruise taught.</p>
+<p>The diagnostic moment was small: I checked Grafana to find out what was happening to the cluster, and Grafana was a pod inside the cluster. The Uptime Kuma that was supposed to ping me was a pod inside the cluster. The Alertmanager whose job was to escalate was a pod inside the cluster, and its only notification path was a Telegram bot reachable through the cluster's outbound network. Every layer of the observability stack was a tenant of the thing it was supposed to observe. There was no outside.</p>
+<p>This post is the remediation: moving the watcher out, picking a notification channel that does not co-fail with what it watches, and discovering a small back-catalogue of bugs along the way that all share the same shape — every layer claiming "fine" against its own definition of fine while the gap between definitions ate the system.</p>
+<h2>Architecture Before</h2>
+<pre><code>                  ┌─────────────────────────────────────────┐
+   internet ──→ CF tunnel ──→ monitor.ayurforlife.eu        │
+                                  (Grafana's own login,     │
+                                   200 OK to anyone)        │
+                                          │                 │
+                                          ▼                 │
+                       ┌──────────────────────────────────┐ │
+                       │           k3s cluster            │ │
+                       │  ┌────────────────────────────┐  │ │
+                       │  │ monitoring/                │  │ │
+                       │  │   prometheus               │  │ │
+                       │  │   grafana  ⇠ pinned to .52 │  │ │
+                       │  │   alertmanager ──→ Telegram│──┼─┼─→ via cluster egress
+                       │  │   uptime-kuma ⇠ tenant of  │  │ │   (cluster has to be up)
+                       │  │                 what it    │  │ │
+                       │  │                 watches    │  │ │
+                       │  └────────────────────────────┘  │ │
+                       │   .52  .53  .56  one61/62/6t     │ │
+                       └──────────────────────────────────┘ │
+                                                            │
+                       jumphost .62                         │
+                       ┌──────────────────────────────────┐ │
+                       │  uptime-kuma (Docker) :3001      │ │
+                       │  LAN only, idle, doing nothing   │ │
+                       └──────────────────────────────────┘ │
+</code></pre>
+<ul>
+<li><code>kube-prometheus-stack</code> deployed into the <code>monitoring</code> namespace — Prometheus, Alertmanager, Grafana, node-exporter, kube-state-metrics. The Helm release record had quietly disappeared at some point; <code>helm list -n monitoring</code> showed only <code>loki</code>, but every other component was still running, untracked. Drift in plain sight.</li>
+<li>Grafana pinned to <code>k3master</code> via <code>nodeSelector: kubernetes.io/hostname: k3master</code>. A <code>.52</code> outage = no Grafana.</li>
+<li>A second Uptime Kuma running inside <code>monitoring/</code>, watching the same cluster it lived in. LoadBalancer at <code>192.168.100.205</code>. Plus an unrelated Docker Uptime Kuma running on the jumphost at <code>.62:3001</code>, never exposed externally, doing nothing useful.</li>
+<li>A standalone Alertmanager Deployment (separate from the kube-prometheus-stack one) routing critical + warning alerts to a Telegram bot whose token was reachable from cluster pods only when the cluster's outbound network was healthy — which is when alerts are least needed.</li>
+<li><code>monitor.ayurforlife.eu</code> fronted by the cluster's cloudflared tunnel → Grafana's own login form. No SSO. A 200 OK to any visitor, please-type-your-password.</li>
+<li>The original Fluent Bit sidecar pattern from the prior version of this post — correctly ferrying structured logs from one application pod to Loki with Prometheus exporter and stdout fanout. Architecturally fine; orthogonal to the rest of this story.</li>
+</ul>
+<h2>The Watcher Moved Out</h2>
+<p>The corrective sentence is one line: the host of the dashboard should not be the host of the things on the dashboard.</p>
+<p>Practically: Grafana migrated to a Docker container on the jumphost (<code>.62</code>). Bind-mounted <code>/var/lib/grafana</code> for persistence across restarts. Provisioning files at <code>~/grafana/provisioning/</code> declare a single datasource pointed at a new LoadBalancer service <code>monitoring/prometheus-lan</code> at <code>192.168.100.202:9090</code>. Prometheus itself stays in the cluster — it has to, it scrapes cluster targets — but the <em>reading</em> of it now happens from a process whose fate is no longer tied to the cluster's.</p>
+<p>Two source-controlled dashboards land with the migration, both at <code>homelab-config/jumphost/grafana-dashboards/</code>:</p>
+<ul>
+<li><code>homelab-overview</code> — seven coloured square tiles, one per node, dark green for UP, red for DOWN, each tile a clickable link into the per-node detail dashboard. Below them a 7-day state-timeline strip showing every node's up/down history as merged coloured segments. Below that, 24-hour time series overlaying all seven nodes for CPU %, memory used %, root disk used %, and load average.</li>
+<li><code>node-detail</code> — one node at a time via a <code>$instance</code> Grafana variable, with per-core CPU, a stacked memory area chart broken into used / cached / buffers / available, disk usage per mountpoint, and network bytes-per-second per interface (filtered to exclude <code>lo</code>, <code>veth*</code>, <code>cni*</code>, <code>flannel*</code>, <code>docker*</code>, <code>tailscale*</code> so the legend stays readable).</li>
+</ul>
+<p>The in-cluster Uptime Kuma deployment was deleted; its LoadBalancer IP <code>192.168.100.205</code> returned to the MetalLB pool. The Docker Kuma on <code>.62</code> — already running, already healthy, two months of uptime — was given a public hostname <code>uptime.ayurforlife.eu</code> through the existing cloudflared tunnel by adding one ingress rule and one Cloudflare DNS CNAME. It is now both the dashboard a stranger can hit for a green/red status page and the dashboard I check when the cluster's own dashboards are unreachable. The fact that those two roles can be served by the same instance, because the instance lives outside what it watches, is the entire point.</p>
+<p><code>monitor.ayurforlife.eu</code> was put behind Cloudflare Access with the same SSO gate that <code>cams.ayurforlife.eu</code> has had since day one. A <code>curl -I</code> against it now returns a 302 to <code>cloudflareaccess.com</code> instead of Grafana's bare login form. The unauthenticated surface is closed.</p>
+<h2>The Hardware Lesson</h2>
+<p>The first install on <code>.62</code> used <code>grafana/grafana:latest</code>. The host is a 2011 AMD C-50 netbook board: two cores at 1.0 GHz, no SMT, 9-watt TDP, 1.5 GiB of RAM. Within thirty minutes the container had hit its 384 MiB memory cap, was thrashing into 396 MiB of swap, and every panel request was timing out at 47 seconds with <code>apiserver was unable to write a JSON response: http: Handler timeout</code> in the logs.</p>
+<p>Grafana 12 ships an internal Kubernetes-style apiserver — <em>unified storage</em> — that backs dashboards and other resources through a Kubernetes-API-shaped layer instead of the old SQLite-backed store. On a real machine, this is a sensible direction. On a C-50, it is the difference between a working dashboard and no dashboard at all.</p>
+<p>The fix was to pin the image to <code>grafana/grafana:11.5.2</code>. Idle now sits at ~210 MiB and 5–25 % CPU. Query latency <code>200 ms → 130 ms</code>. The dashboards that had been saved into G12's unified storage do not survive the downgrade because G11 cannot read it; I restored them from JSON exports on disk. The image pin and the recovery procedure are written into the dashboard README.</p>
+<p>The working <code>docker run</code> is small enough to live in the blog:</p>
+<pre><code class="language-bash">docker run -d \
+  --name grafana \
+  --restart unless-stopped \
+  --memory 384m \
+  --memory-swap 512m \
+  -p 3000:3000 \
+  -v /home/user/grafana/data:/var/lib/grafana \
+  -v /home/user/grafana/provisioning:/etc/grafana/provisioning:ro \
+  -e GF_SECURITY_ADMIN_USER=admin \
+  -e GF_SECURITY_ADMIN_PASSWORD=*** \
+  -e GF_AUTH_ANONYMOUS_ENABLED=false \
+  -e GF_ANALYTICS_REPORTING_ENABLED=false \
+  -e GF_ANALYTICS_CHECK_FOR_UPDATES=false \
+  grafana/grafana:11.5.2
+</code></pre>
+<p>The general rule: not every Grafana release is appropriate for every host. A pinned image and a documented incompatibility is worth more than the freshness of <code>:latest</code>.</p>
+<h2>The Channel Lesson</h2>
+<p>The Telegram receiver was failing during the cluster outage in the most embarrassing way possible — quietly. Alertmanager kept retrying for hours, the bot was unreachable because the cluster's network had broken, and the alerts arrived in a single deluge after recovery. By that point the operator had already noticed by other means. The channel had taught nothing.</p>
+<p>Replaced with Gmail SMTP. The configuration change is small:</p>
+<pre><code class="language-yaml">global:
+  smtp_smarthost: smtp.gmail.com:587
+  smtp_from: ive.mcfire@gmail.com
+  smtp_auth_password_file: /etc/alertmanager/secrets/smtp-password
+  smtp_require_tls: true
+</code></pre>
+<p>The Gmail App Password lives in a Kubernetes Secret mounted at <code>/etc/alertmanager/secrets/smtp-password</code> and in the age-encrypted <code>credentials.md.age</code> for recovery. Critical alerts route at <code>group_wait: 10s, repeat_interval: 1h</code>; warnings use the defaults; <code>Watchdog</code> and <code>info</code> severity still go to <code>blackhole</code>. The legacy Telegram secret stays on disk but is no longer mounted by the Deployment.</p>
+<p>The deeper lesson — and the reason this generalises beyond Telegram — is that any notification path which depends on the cluster being healthy is the wrong notification path. The cluster being unhealthy is the <em>entire event being notified</em>. Direct SMTP from an Alertmanager whose network does not have to touch the failing thing first is closer to the right shape. The next iteration would route through an SMTP relay on <code>.62</code> itself — same Alertmanager, different egress — so that even a cluster-network outage cannot stop the page. That is a follow-up.</p>
+<h2>Things That Went Wrong</h2>
+<p><strong>The Tailscale <code>--accept-routes</code> hijack had a sibling.</strong> The previous post documented the fix on <code>.52</code>: a subnet router that advertises <code>192.168.100.0/24</code> must not accept it back. Twenty-four hours later, the Frigate backup CronJob started doing this from inside cluster pods:</p>
+<pre><code>[Thu May 28 02:00:02 UTC 2026] Starting rsync mirror to jumphost...
+ssh: connect to host 192.168.100.62 port 22: Operation timed out
+rsync: connection unexpectedly closed (0 bytes received so far) [sender]
+rsync error: unexplained error (code 255) at io.c(232) [sender=3.4.3]
+</code></pre>
+<p>LAN ping <code>.52</code> → <code>.62</code> failed. Tailscale ping to <code>100.85.33.36</code> worked. The exact same bug, on <code>.62</code>, missed when the rule was applied yesterday. <code>tailscale debug prefs</code> on <code>.62</code>:</p>
+<pre><code class="language-json">{
+  &quot;RouteAll&quot;: true,
+  &quot;AdvertiseRoutes&quot;: [&quot;192.168.100.0/24&quot;]
+}
+</code></pre>
+<p><code>.62</code> was both advertising the LAN and accepting it back — <code>ip route show table 52</code> confirmed <code>192.168.100.0/24 dev tailscale0</code> in the routing table that rule 5270 sent everything through, so reply packets to LAN peers were leaving via WireGuard while inbound arrived on <code>enp1s0</code>. Asymmetric, no return path. One <code>sudo tailscale set --accept-routes=false</code> and roughly thirty hours of stuck <code>postgres-backup</code> CronJob runs across <code>frigate</code>, <code>chickenflow</code>, <code>hydroflow</code>, and <code>face-recognition</code> namespaces recovered on the next schedule. Rule restated: every subnet-routing peer needs this rule, on the day it starts advertising, including the second one.</p>
+<p><strong>The phone-node CNI quietly fails closed.</strong> ChickenFlow's <code>postgres-backup</code> CronJob shipped without a <code>nodeSelector</code>. For roughly half of scheduled runs, the scheduler placed it on a phone node — <code>one6t</code> or <code>one61</code> — where in-pod DNS does not reach CoreDNS at <code>10.43.0.10</code>. Reproducing under a debug Pod pinned to <code>one6t</code> made the failure visible:</p>
+<pre><code class="language-console">$ kubectl exec -n chickenflow dns-test -- cat /etc/resolv.conf
+search chickenflow.svc.cluster.local svc.cluster.local cluster.local
+nameserver 10.43.0.10
+options ndots:5
+
+$ kubectl exec -n chickenflow dns-test -- nslookup chickenflow-postgres
+;; connection timed out; no servers could be reached
+command terminated with exit code 1
+
+$ kubectl exec -n chickenflow cf-debug -- sh -c \
+    &quot;PGPASSWORD=*** pg_dump -h chickenflow-postgres -U *** -d *** --schema-only&quot;
+pg_dump: error: could not translate host name &quot;chickenflow-postgres&quot; to address: Try again
+</code></pre>
+<p>The Alpine init step <code>apk add openssh-client</code> (which would have produced <code>ssh</code> for the subsequent <code>scp</code> to <code>.62</code>) failed <em>silently</em> because <code>dl-cdn.alpinelinux.org</code> would not resolve either. The <code>pg_dump</code> failed visibly. The Job controller retried, exhausted <code>backoffLimit</code>, deleted the pod within ~30 seconds, and left nothing to inspect — which is why this looked like a Tailscale problem for so long even after the Tailscale problem was fixed.</p>
+<p>HydroFlow's identical-shape CronJob had this from day one:</p>
+<pre><code class="language-yaml">spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: k3frigate
+</code></pre>
+<p>It never saw the bug — its survival was masking the fault for everyone else. Same line added to chickenflow's CronJob (pinned to <code>k3master</code> for control-plane consistency) and the next manual run completed in 21 seconds, scp'd a 26 KiB dump to <code>.62</code>, and applied retention. The deeper bug — some interaction between flannel and the USB-tethered <code>10.0.x.x</code> interfaces on the phones — is its own investigation. The practical workaround: do not put DNS-dependent workloads on phone nodes. The phones serve Adreno OpenCL inference and routed IP traffic just fine; what they cannot serve is anything that needs Kubernetes cluster DNS.</p>
+<p><strong><code>CPUThrottlingHigh</code> was the chart talking, not the workload.</strong> Every <code>node-exporter</code> pod was being CFS-throttled 52–85 % of periods. Actual CPU usage was 3–20 milli-cores. Side by side:</p>
+<table>
+<thead>
+<tr>
+<th>pod</th>
+<th>CPU used</th>
+<th>throttled CFS periods</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>node-exporter-k2w8z</code></td>
+<td>15.9 m</td>
+<td><strong>85.0 %</strong></td>
+</tr>
+<tr>
+<td><code>node-exporter-2f4rx</code></td>
+<td>19.8 m</td>
+<td><strong>85.1 %</strong></td>
+</tr>
+<tr>
+<td><code>node-exporter-lzhv6</code></td>
+<td>15.8 m</td>
+<td><strong>84.9 %</strong></td>
+</tr>
+<tr>
+<td><code>node-exporter-fhc25</code></td>
+<td>8.7 m</td>
+<td>66.0 %</td>
+</tr>
+<tr>
+<td><code>node-exporter-vnm5v</code></td>
+<td>7.7 m</td>
+<td>56.2 %</td>
+</tr>
+<tr>
+<td><code>node-exporter-z6h62</code></td>
+<td>3.5 m</td>
+<td>52.5 %</td>
+</tr>
+</tbody>
+</table>
+<p>The kube-prometheus-stack chart ships <code>limits.cpu: 200m</code>, which sits just below the burst envelope of a node-exporter scrape — each 30-second scrape spends a few milliseconds clipping the limit and waits out the rest of the 100 ms CFS period. The alert's hold window made a millisecond-scale reality look chronic. The fix is a one-key strategic-merge patch:</p>
+<pre><code class="language-yaml"># patch-node-exporter-resources.yaml — drop only limits.cpu
+spec:
+  template:
+    spec:
+      containers:
+        - name: node-exporter
+          resources:
+            limits:
+              memory: 64Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
+</code></pre>
+<p>Applied with <code>kubectl patch ds -n monitoring node-exporter --patch-file ... --type=merge</code>. The 50 m request stays for scheduling; the cgroup can now burst freely during the scrape window. Throttle rate dropped to zero on the next sample. The alert was correctly describing real CFS behaviour; the CFS behaviour was correctly responding to the chart's defaults; the chart's defaults were wrong for this workload. Three layers each telling the truth in a way that added up to a falsehood.</p>
+<h2>Source Control Catches Up</h2>
+<p>The <code>kube-prometheus-stack</code> Helm release had drifted out of management before this work began — the components were still running, but <code>helm list -n monitoring</code> no longer claimed them. Re-adopting under Helm is a real piece of work that I deferred. What I did do was source-control the pieces I had touched directly, in a <code>homelab-config/apps/monitoring/</code> directory whose README is honest about the rest:</p>
+<ul>
+<li><code>alertmanager.yaml</code> — the standalone Deployment + ConfigMap with the email receiver</li>
+<li><code>prometheus-lan-svc.yaml</code> — the LoadBalancer at <code>.202</code> that lets jumphost Grafana query Prometheus</li>
+<li><code>additional-scrape-configs.yaml</code> — the plaintext form of the Secret that adds the jumphost node-exporter scrape (target <code>.62:9100</code>)</li>
+<li><code>patch-node-exporter-resources.yaml</code> — the strategic-merge patch that removed the CPU limit</li>
+<li><code>homelab-alerts-prometheusrule.yaml</code> — the homelab-specific PrometheusRule (frigate cameras, frigate service, backups, node health)</li>
+<li><code>README.md</code> — names what is and is not under source control, gives the recovery commands</li>
+</ul>
+<p>The dashboards live in a parallel directory at <code>homelab-config/jumphost/grafana-dashboards/</code> with their own README and re-import procedures. The repo shape after this round:</p>
+<pre><code>homelab-config/
+├── apps/
+│   └── monitoring/
+│       ├── alertmanager.yaml                       # standalone Alertmanager + cm
+│       ├── prometheus-lan-svc.yaml                 # LB IP .202 for .62 Grafana
+│       ├── additional-scrape-configs.yaml          # jumphost node-exporter target
+│       ├── patch-node-exporter-resources.yaml      # drop CPU limit
+│       ├── homelab-alerts-prometheusrule.yaml      # frigate cams, backups, node-health
+│       ├── README.md                               # the drift story, honestly
+│       └── loki/                                   # still helm-tracked
+├── apps/
+│   └── chickenflow/
+│       └── cronjob.yaml                            # nodeSelector pin
+└── jumphost/
+    └── grafana-dashboards/
+        ├── homelab-overview.json
+        ├── node-detail.json
+        └── README.md                               # image-pin rationale + recovery
+</code></pre>
+<p>Total monitoring-stack files under source control: <strong>1 → 9</strong>. The drift itself is not eliminated, but the next operator (very possibly future me) now has a written starting point rather than a kubectl-archaeology project.</p>
+<h2>Design Decisions</h2>
+<p>The non-obvious choices, listed:</p>
+<ul>
+<li><strong>Move only Grafana to <code>.62</code>, not Prometheus.</strong> Prometheus has to live next to the things it scrapes; relocating it would mean pushing scrape data across the LAN twice per interval. Grafana only reads; the read path is what needs the resilience.</li>
+<li><strong><code>grafana/grafana:11.5.2</code> pinned, never <code>:latest</code>.</strong> Grafana 12's internal apiserver is too heavy for the AMD C-50. Pinning beats <code>:latest</code> whenever the host hardware is a known constraint. Documented in the dashboard README so the rule does not have to be re-learnt.</li>
+<li><strong><code>monitor.*</code> behind Cloudflare Access SSO. <code>uptime.*</code> open.</strong> Two different audiences. The Grafana dashboard is for operators and contains query-the-cluster power; the Kuma status page is for anyone who wants to know whether the homelab is up. The auth gate has to match the audience, not the hostname pattern.</li>
+<li><strong>Gmail SMTP, not an SMTP relay on <code>.62</code>.</strong> Fewer moving parts now; a relay on <code>.62</code> is the next step if Gmail egress becomes a constraint. The cheapest fix that closes the worst-case is the right fix today.</li>
+<li><strong>ChickenFlow <code>nodeSelector: k3master</code>, not <code>k3frigate</code> like hydroflow.</strong> Symmetric pattern — both backup jobs pin to a known-good control-plane node. Picked <code>k3master</code> here for the spread; <code>k3frigate</code> is already carrying Frigate and would have been the wrong shoulder to lean on.</li>
+<li><strong>Remove the node-exporter CPU limit entirely, not raise it.</strong> The chart's defaults were wrong in principle, not in degree. Raising the limit pushes the next CFS clip a little further out without changing the dynamic. Removing it lets the cgroup burst during scrape and stay invisible the rest of the time.</li>
+<li><strong>Source-control the <em>patches</em>, not the full resources.</strong> <code>kube-prometheus-stack</code> is currently untracked by Helm; full-resource manifests would diverge from the chart's idea of itself the next time someone re-adopts under Helm. Strategic-merge patches survive that re-adoption — they describe <em>what changed</em> against the chart, not the chart itself.</li>
+</ul>
+<h2>Architecture After</h2>
+<pre><code>                  ┌─────────────────────────────────────────────┐
+   internet ──→ CF tunnel ──→ Access SSO ──→ monitor.ayurforlife.eu
+                            └─→ (open)    ──→ uptime.ayurforlife.eu
+                                                       │
+                                                       ▼
+                                ┌───────────────────────────────┐
+                                │        jumphost .62           │
+                                │  ┌─────────────────────────┐  │
+                                │  │ grafana (docker)        │  │
+                                │  │   pinned 11.5.2         │  │
+                                │  │   datasource ─────────┐ │  │
+                                │  │ uptime-kuma (docker)  │ │  │
+                                │  │   canonical OOB       │ │  │
+                                │  └───────────────────────┼─┘  │
+                                └──────────────────────────┼────┘
+                                                           │
+                                                           ▼  192.168.100.202:9090
+                                ┌──────────────────────────────┐
+                                │      k3s cluster             │
+                                │  prometheus  ⇠ scrapes all   │
+                                │  alertmanager  ──→ Gmail SMTP (smtp.gmail.com:587)
+                                │  exporters / sidecars        │
+                                │  (kube-prometheus-stack,     │
+                                │   no longer Helm-tracked)    │
+                                └──────────────────────────────┘
+</code></pre>
+<ul>
+<li>Prometheus, Alertmanager, in-cluster ServiceMonitors, exporters, sidecars: still in the cluster, where they have to be.</li>
+<li>Grafana: out of the cluster, on <code>.62</code> as a Docker container pinned to <code>grafana/grafana:11.5.2</code>, persistent bind-mount, datasource pointed at <code>monitoring/prometheus-lan</code> via MetalLB.</li>
+<li>Uptime Kuma: one instance, on <code>.62</code>, public at <code>uptime.ayurforlife.eu</code>.</li>
+<li><code>monitor.ayurforlife.eu</code>: Cloudflare Access SSO in front, same gate as <code>cams.*</code>.</li>
+<li>Alertmanager: Gmail SMTP receiver, no Telegram dependency, source-controlled at <code>homelab-config/apps/monitoring/alertmanager.yaml</code>.</li>
+<li>ChickenFlow <code>postgres-backup</code>: pinned to <code>k3master</code> via nodeSelector, source-controlled.</li>
+<li>node-exporter: CPU limit removed via strategic-merge patch, source-controlled.</li>
+</ul>
+<h2>A Note on the Sidecar Pattern</h2>
+<p>The original version of this post was about a single Fluent Bit sidecar attached to an application pod, sharing an <code>emptyDir</code> volume, fanning logs out to Loki, a Prometheus exporter on <code>:2021</code>, and stdout for <code>kubectl logs</code> access. That pattern is correct and is still in use where it applies. It belongs to a different layer of the problem than this post is now about: how the <em>aggregation, querying, alerting, and visualisation</em> of those signals stays healthy when the cluster around them does not. A sidecar makes one pod observable. The arrangement above keeps the observing itself observable.</p>
+<h2>Impact</h2>
+<ul>
+<li>Grafana host: <strong>k3master pod (lost when <code>.52</code> blips) → <code>.62</code> Docker container (cluster-independent)</strong></li>
+<li><code>monitor.ayurforlife.eu</code> auth gate: <strong>Grafana login form → Cloudflare Access SSO</strong></li>
+<li>External status page reachable from outside: <strong>none → <code>uptime.ayurforlife.eu</code></strong></li>
+<li>Uptime Kuma instances: <strong>2 (one in cluster, one on <code>.62</code>, neither exposed) → 1 (<code>.62</code>, publicly reachable, gated where it should be)</strong></li>
+<li>Cluster pods → <code>.62</code> LAN reachability: <strong><code>Operation timed out</code> → ~0.5 ms</strong></li>
+<li>Alertmanager outbound channel: <strong>Telegram (cluster-network-dependent) → Gmail SMTP (direct egress)</strong></li>
+<li><code>frigate</code> / <code>chickenflow</code> / <code>hydroflow</code> / <code>face-recognition</code> postgres backups: <strong>failing ~30 hours → green on next schedule</strong></li>
+<li><code>node-exporter</code> CFS throttle rate: <strong>52–85 % → 0 %</strong></li>
+<li><code>homelab-config</code> files for the monitoring stack: <strong>1 → 9</strong></li>
+<li>MetalLB LB IPs in use: <strong>11 → 10</strong> (one returned to the pool)</li>
+</ul>
+<h2>The Payoff</h2>
+<p>The artefact is a watcher that runs on a different physical host than the workloads it watches, a notification path whose delivery does not depend on what it is delivering about, two source-controlled dashboards that show node health at a glance and per-instance detail one click in, and a small README whose job is to admit honestly which pieces of the stack are not yet under source control.</p>
+<p>The recurring lesson across this post and the one before it is that <em>each layer's local "fine" is not the system's "fine".</em> Cloudflare's protocol supported HA; one of its deployments did not. Tailscale's tunnel was up; the host's DNS was empty. Frigate's pod was running; the node was about to lock up. Grafana was responsive; it lived inside the thing it was supposed to report on. Telegram had a green status page; the path to it ran through the same network that was on fire.</p>
+<p>Real observability is not a stack of tools. It is a discipline of placing each watcher one layer outside what it watches, and accepting that the outermost watcher — the human reading the email — is the one that finally has to decide what is real.</p>
+<h2>Cluster Context</h2>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Role</th>
+<th>Hardware</th>
+<th>LAN IP</th>
+<th>OS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>k3master</td>
+<td>control-plane / etcd / Prometheus host</td>
+<td>mini PC, Intel i5-1035G1</td>
+<td>192.168.100.52</td>
+<td>Ubuntu 24.04 LTS</td>
+</tr>
+<tr>
+<td>k3frigate</td>
+<td>control-plane / etcd / Frigate compute</td>
+<td>mini-ITX, Intel i5-6600K, GeForce GTX 1050 Ti</td>
+<td>192.168.100.56</td>
+<td>Ubuntu 24.04 LTS</td>
+</tr>
+<tr>
+<td>k3sp4</td>
+<td>control-plane / etcd</td>
+<td>Surface Pro 4, Intel i5-6300U</td>
+<td>192.168.100.53</td>
+<td>Ubuntu 24.04 LTS (surface kernel)</td>
+</tr>
+<tr>
+<td>one61</td>
+<td>worker (arm64) / Adreno inference</td>
+<td>OnePlus 6, Adreno 630</td>
+<td>USB tether to .52</td>
+<td>postmarketOS</td>
+</tr>
+<tr>
+<td>one62</td>
+<td>worker (arm64) / Adreno inference</td>
+<td>OnePlus 6, Adreno 630</td>
+<td>USB tether to .52</td>
+<td>postmarketOS</td>
+</tr>
+<tr>
+<td>one6t</td>
+<td>worker (arm64) / Adreno inference</td>
+<td>OnePlus 6T, Adreno 630</td>
+<td>USB tether to .52</td>
+<td>postmarketOS</td>
+</tr>
+<tr>
+<td>jumphost</td>
+<td>OOB / subnet router / <strong>Grafana + Uptime Kuma host</strong></td>
+<td>netbook board, AMD C-50 (2c/1 GHz/9 W TDP), 1.5 GiB RAM, 232 GiB SSD</td>
+<td>192.168.100.62</td>
+<td>Debian 13 (trixie)</td>
+</tr>
+<tr>
+<td>laptop</td>
+<td>workstation</td>
+<td>Acer 16, x86_64</td>
+<td>DHCP</td>
+<td>Fedora 44</td>
+</tr>
+</tbody>
+</table>
+<p>k3s v1.35.0+k3s3, etcd HA across the three control-plane nodes, MetalLB L2 pool on <code>192.168.100.200–220</code>. <code>monitoring/</code> namespace runs Prometheus, Alertmanager, exporters; Grafana and Uptime Kuma now live on the jumphost.</p>
+<hr />
+<p>Manifests:</p>
+<ul>
+<li><a href="https://github.com/ivemcfire/homelab-config/tree/main/jumphost/grafana-dashboards"><code>homelab-config/jumphost/grafana-dashboards/</code></a> — the two dashboards, with import / re-export procedures and the Grafana image-pin rationale</li>
+<li><a href="https://github.com/ivemcfire/homelab-config/tree/main/apps/monitoring"><code>homelab-config/apps/monitoring/</code></a> — standalone Alertmanager (Gmail SMTP), prometheus-lan LoadBalancer Service, additional-scrape-configs Secret, node-exporter CPU-limit patch, homelab-alerts PrometheusRule, README on the Helm drift</li>
+<li><a href="https://github.com/ivemcfire/homelab-config/tree/main/apps/chickenflow"><code>homelab-config/apps/chickenflow/cronjob.yaml</code></a> — the nodeSelector pin that finally lets postgres-backup run reliably</li>
+<li><a href="https://github.com/ivemcfire/homelab-config/tree/main/jumphost"><code>homelab-config/jumphost/</code></a> — sshd hardening, fail2ban jail, <code>/etc/network/interfaces</code>, the full bastion role</li>
+</ul>
+<p><em>Previous: · <a href="#">The Tunnel Was Up. The Cameras Were 502.</a> · <a href="#">Frigate NVR Migration on k3s</a> · <a href="#">A k3s Cluster Over USB Cables</a></em></p>
+
+</article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>
