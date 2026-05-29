@@ -307,7 +307,7 @@
 
       <!-- ==================== SETUP ==================== -->
       <section class="tab-content active" id="setup">
-        <h2>Lab setup &mdash; 3-2-1 block</h2>
+        <h2>Lab setup &mdash; 3+2 block</h2>
 
         <div class="warning">
           NOT accessible during the exam. Type from memory.
@@ -319,8 +319,7 @@
 source &lt;(kubectl completion bash)
 complete -F __start_kubectl k
 export do='--dry-run=client -o yaml'
-export now='--grace-period=0 --force'
-printf 'set ts=2 sw=2 et\nset pastetoggle=&lt;F2&gt;\nset nu\n' &gt; ~/.vimrc</code></pre>
+export now='--grace-period=0 --force'</code></pre>
 
         <h3>Verify</h3>
 
@@ -328,14 +327,13 @@ printf 'set ts=2 sw=2 et\nset pastetoggle=&lt;F2&gt;\nset nu\n' &gt; ~/.vimrc</c
 
         <p>Then <code>k get po</code> + TAB &rarr; expands to <code>pods</code>.</p>
 
-        <h3>3-2-1 recall</h3>
+        <h3>3+2 recall</h3>
 
         <table>
           <thead><tr><th>Group</th><th>What</th></tr></thead>
           <tbody>
             <tr><td><strong>3 lines</strong></td><td><code>alias k</code> + source completion + bind completion to <code>k</code></td></tr>
             <tr><td><strong>2 exports</strong></td><td><code>$do</code> = dry-run-yaml &middot; <code>$now</code> = force-grace-zero</td></tr>
-            <tr><td><strong>1 vim</strong></td><td><code>ts=2 sw=2 et</code> + <code>pastetoggle=&lt;F2&gt;</code> + <code>nu</code></td></tr>
           </tbody>
         </table>
 
@@ -346,7 +344,34 @@ printf 'set ts=2 sw=2 et\nset pastetoggle=&lt;F2&gt;\nset nu\n' &gt; ~/.vimrc</c
           <tbody>
             <tr><td><code>$do</code></td><td><code>k run x --image=nginx $do &gt; p.yaml</code></td></tr>
             <tr><td><code>$now</code></td><td><code>k delete pod x $now</code></td></tr>
-            <tr><td><code>&lt;F2&gt;</code></td><td>in vim, before/after pasting YAML</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Editor: nano (default choice)</h3>
+
+        <p>Nano handles YAML correctly out of the box. No setup needed. Just <code>nano file.yaml</code>, edit, <code>Ctrl-O</code> save, <code>Ctrl-X</code> exit.</p>
+
+        <table>
+          <thead><tr><th>Action</th><th>nano</th></tr></thead>
+          <tbody>
+            <tr><td>Save</td><td><code>Ctrl-O</code> &rarr; Enter</td></tr>
+            <tr><td>Exit</td><td><code>Ctrl-X</code></td></tr>
+            <tr><td>Search</td><td><code>Ctrl-W</code></td></tr>
+            <tr><td>Cut line</td><td><code>Ctrl-K</code></td></tr>
+            <tr><td>Paste</td><td><code>Ctrl-U</code></td></tr>
+            <tr><td>Go to line</td><td><code>Ctrl-_</code> then number</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Editor: vim (only if you already know it)</h3>
+
+        <p>If you reach for vim, two ad-hoc commands handle the gotchas:</p>
+
+        <table>
+          <thead><tr><th>Command (inside vim)</th><th>When</th></tr></thead>
+          <tbody>
+            <tr><td><code>:set paste</code></td><td>BEFORE pasting YAML from docs (then <code>:set nopaste</code> to resume editing)</td></tr>
+            <tr><td><code>:set ts=2 sw=2 et</code></td><td>If indent looks wrong (YAML breaks on literal tabs)</td></tr>
           </tbody>
         </table>
       </section>
