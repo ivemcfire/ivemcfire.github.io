@@ -307,49 +307,13 @@
 
       <!-- ==================== SETUP ==================== -->
       <section class="tab-content active" id="setup">
-        <h2>Lab setup &mdash; the "3-2-1" you type cold at the start of every lab</h2>
+        <h2>Lab setup &mdash; 3-2-1 block</h2>
 
         <div class="warning">
-          You <strong>cannot access this page during the exam</strong> (PSI proctored session locks the browser to kubernetes.io). This block has to come out of your fingers without thinking. Mental shortcut: <strong>3 lines + 2 lines + 1 line</strong>. Three groups, six lines total.
+          NOT accessible during the exam. Type from memory.
         </div>
 
-        <h3>Group A &mdash; make <code>k</code> work like <code>kubectl</code> (3 lines)</h3>
-
-<pre><code>alias k=kubectl
-source &lt;(kubectl completion bash)
-complete -F __start_kubectl k</code></pre>
-
-        <p><strong>Why three?</strong> Line 1 makes <code>k</code> exist. Line 2 loads kubectl's tab-completion functions into the shell. Line 3 binds those completion functions to the <code>k</code> alias. <strong>Without line 3</strong>, only <code>kubectl &lt;TAB&gt;</code> autocompletes &mdash; not <code>k &lt;TAB&gt;</code>. That single line saves hundreds of keystrokes per exam.</p>
-
-        <h3>Group B &mdash; two exports for speed (2 lines)</h3>
-
-<pre><code>export do='--dry-run=client -o yaml'
-export now='--grace-period=0 --force'</code></pre>
-
-        <p><strong>Memory hooks:</strong></p>
-        <ul>
-          <li><code>$do</code> = "<strong>do</strong> as if" (rehearsal, no real action). Use: <code>k run web --image=nginx $do &gt; web.yaml</code> &mdash; writes the YAML, doesn't create the resource.</li>
-          <li><code>$now</code> = "do it <strong>NOW</strong>" (no 30-second grace period, kill it instantly). Use: <code>k delete pod stuck $now</code> &mdash; gone immediately. Saves a half-minute every stuck-pod scenario.</li>
-        </ul>
-
-        <h3>Group C &mdash; vim safe for YAML (1 line)</h3>
-
-<pre><code>printf 'set ts=2 sw=2 et\nset pastetoggle=&lt;F2&gt;\nset nu\n' &gt; ~/.vimrc</code></pre>
-
-        <p>Three vim settings packed into one file:</p>
-        <ul>
-          <li><code>ts=2 sw=2 et</code> &mdash; tab-stop and shift-width = 2, expand tabs to spaces. <strong>YAML breaks on literal tabs</strong> &mdash; this prevents the most common silent-fail when editing manifests.</li>
-          <li><code>pastetoggle=&lt;F2&gt;</code> &mdash; hit <strong>F2 in vim before pasting</strong> YAML from docs, hit again to resume editing. Without it, vim auto-indents the paste and shreds the structure.</li>
-          <li><code>nu</code> &mdash; line numbers. Easier to jump with <code>:42</code> when something errors at "line 23 col 5."</li>
-        </ul>
-
-        <h3>Verify everything took (one-liner)</h3>
-
-<pre><code>echo "$do" &amp;&amp; type k &amp;&amp; k get no</code></pre>
-
-        <p>Should print the <code>$do</code> string, "<code>k is aliased to kubectl</code>", and the node list. Then sanity-check autocomplete: type <code>k get po</code> + TAB &mdash; should expand to <code>pods</code>. If it doesn't, line 3 of Group A didn't run.</p>
-
-        <h3>The whole block, no commentary (copy-paste reference)</h3>
+        <h3>Paste this</h3>
 
 <pre><code>alias k=kubectl
 source &lt;(kubectl completion bash)
@@ -358,14 +322,33 @@ export do='--dry-run=client -o yaml'
 export now='--grace-period=0 --force'
 printf 'set ts=2 sw=2 et\nset pastetoggle=&lt;F2&gt;\nset nu\n' &gt; ~/.vimrc</code></pre>
 
-        <h3>Recall drill (use during prep)</h3>
+        <h3>Verify</h3>
 
-        <p>Test yourself: close your eyes, can you say "3 lines, 2 lines, 1 line" and what each group does?</p>
-        <ul>
-          <li><strong>3 = k works:</strong> alias, source completion, bind completion to k.</li>
-          <li><strong>2 = $do, $now:</strong> dry-run-yaml-redirect, force-grace-zero.</li>
-          <li><strong>1 = vim YAML:</strong> ts/sw/et + pastetoggle + nu, all into <code>~/.vimrc</code>.</li>
-        </ul>
+<pre><code>echo "$do" &amp;&amp; type k &amp;&amp; k get po</code></pre>
+
+        <p>Then <code>k get po</code> + TAB &rarr; expands to <code>pods</code>.</p>
+
+        <h3>3-2-1 recall</h3>
+
+        <table>
+          <thead><tr><th>Group</th><th>What</th></tr></thead>
+          <tbody>
+            <tr><td><strong>3 lines</strong></td><td><code>alias k</code> + source completion + bind completion to <code>k</code></td></tr>
+            <tr><td><strong>2 exports</strong></td><td><code>$do</code> = dry-run-yaml &middot; <code>$now</code> = force-grace-zero</td></tr>
+            <tr><td><strong>1 vim</strong></td><td><code>ts=2 sw=2 et</code> + <code>pastetoggle=&lt;F2&gt;</code> + <code>nu</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Aliases in action</h3>
+
+        <table>
+          <thead><tr><th>Snippet</th><th>Use</th></tr></thead>
+          <tbody>
+            <tr><td><code>$do</code></td><td><code>k run x --image=nginx $do &gt; p.yaml</code></td></tr>
+            <tr><td><code>$now</code></td><td><code>k delete pod x $now</code></td></tr>
+            <tr><td><code>&lt;F2&gt;</code></td><td>in vim, before/after pasting YAML</td></tr>
+          </tbody>
+        </table>
       </section>
 
       <!-- ==================== WORKLOADS ==================== -->
