@@ -378,10 +378,75 @@ export now='--grace-period=0 --force'</code></pre>
 
       <!-- ==================== WORKLOADS ==================== -->
       <section class="tab-content" id="workloads">
-        <h2>Workloads &mdash; create / inspect / modify pods, deployments, services</h2>
-        <p class="placeholder">
-          Cards land here as drills cover them: <code>k run</code>, <code>k create deployment</code>, <code>k get / describe</code>, <code>k expose</code>, <code>k scale</code>, <code>k set image</code>, <code>k rollout</code>, <code>k edit</code>.
-        </p>
+        <h2>Workloads &mdash; create / inspect / modify</h2>
+
+        <h3>Create</h3>
+
+<pre><code><span class="comment"># Pod (imperative)</span>
+k run NAME --image=IMAGE [--restart=Never] [--port=P] [-- CMD]
+
+<span class="comment"># Deployment</span>
+k create deployment NAME --image=IMAGE [--replicas=N] [--port=P]
+
+<span class="comment"># Generate YAML only, don't create (uses $do)</span>
+k run NAME --image=IMAGE $do &gt; pod.yaml
+k create deployment NAME --image=IMAGE $do &gt; deploy.yaml</code></pre>
+
+        <h3>Expose &mdash; deployment/pod &rarr; service</h3>
+
+<pre><code>k expose deployment NAME --port=P [--target-port=Q] [--type=T] [--name=X]
+k expose pod NAME --port=P [--name=X]</code></pre>
+
+        <table>
+          <thead><tr><th>Flag</th><th>Default</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>--port</code></td><td>required</td><td>port the SERVICE listens on</td></tr>
+            <tr><td><code>--target-port</code></td><td>= <code>--port</code></td><td>port the CONTAINER listens on</td></tr>
+            <tr><td><code>--type</code></td><td><code>ClusterIP</code></td><td><code>NodePort</code> | <code>LoadBalancer</code> | <code>ClusterIP</code></td></tr>
+            <tr><td><code>--name</code></td><td>= deployment name</td><td>override service name</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Inspect</h3>
+
+<pre><code>k get pods [-A] [-n NS] [-o wide|yaml|json|jsonpath=...] [-l KEY=VAL]
+k describe pod NAME [-n NS]
+k logs POD [-n NS] [-f] [--previous] [-c CONTAINER] [--tail=N] [--since=10m]
+k exec -it POD [-n NS] [-c CONTAINER] -- CMD</code></pre>
+
+        <h3>Modify in place</h3>
+
+<pre><code>k scale deployment NAME --replicas=N
+k set image deployment/NAME CONTAINER=NEW_IMAGE
+k set image deployment/NAME --all=NEW_IMAGE     <span class="comment"># every container</span>
+k edit deployment NAME                          <span class="comment"># opens $EDITOR</span>
+k label pod NAME key=value [--overwrite]
+k label pod NAME key-                           <span class="comment"># remove label</span></code></pre>
+
+        <h3>Rollout</h3>
+
+<pre><code>k rollout status deployment/NAME      <span class="comment"># wait until complete</span>
+k rollout history deployment/NAME     <span class="comment"># list revisions</span>
+k rollout undo deployment/NAME        <span class="comment"># revert to previous</span>
+k rollout undo deployment/NAME --to-revision=2
+k rollout restart deployment/NAME     <span class="comment"># force pod re-creation</span></code></pre>
+
+        <h3>Delete</h3>
+
+<pre><code>k delete pod NAME [$now]              <span class="comment"># $now = grace=0 --force</span>
+k delete deployment NAME              <span class="comment"># also kills RS + pods</span>
+k delete -f file.yaml
+k delete pod -l key=value             <span class="comment"># by label selector</span></code></pre>
+
+        <h3>Gotchas</h3>
+
+        <ul>
+          <li><code>k create deployment</code> auto-names the container after the image base (e.g. <code>nginx</code>). That's the <code>CONTAINER</code> name for <code>set image</code>.</li>
+          <li><code>k set image deployment/NAME container=image</code> uses <code>=</code>, not space.</li>
+          <li><code>k rollout status</code> blocks until rollout completes (or stalls). If it hangs, image is failing &mdash; check <code>describe pod</code>.</li>
+          <li><code>k scale</code> changes replica count immediately; no rollout, no new revision.</li>
+          <li><code>k delete deployment</code> cascades to ReplicaSet + pods automatically. <code>k delete pod</code> on a deployment-owned pod just re-creates it.</li>
+        </ul>
       </section>
 
       <!-- ==================== DEBUG ==================== -->
