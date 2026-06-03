@@ -300,6 +300,7 @@
       <button class="tab-button" data-tab="workloads">Workloads</button>
       <button class="tab-button" data-tab="debug">Debug</button>
       <button class="tab-button" data-tab="storage">Storage &amp; Config</button>
+      <button class="tab-button" data-tab="networking">Networking</button>
       <button class="tab-button" data-tab="cluster">Cluster Ops</button>
     </div>
 
@@ -579,6 +580,65 @@ k create secret generic db-sec --from-literal=password=s3cret
         <ul>
           <li>kubernetes.io: "Configure a Pod to Use a PersistentVolume" &middot; "Persistent Volumes"</li>
           <li>Search: <strong>"persistent volume"</strong>, <strong>"configmap"</strong></li>
+        </ul>
+      </section>
+
+      <!-- ==================== NETWORKING ==================== -->
+      <section class="tab-content" id="networking">
+        <h2>Networking &mdash; NetworkPolicy</h2>
+
+        <h3>The model (the whole game)</h3>
+        <table>
+          <thead><tr><th>Slot</th><th>Means</th></tr></thead>
+          <tbody>
+            <tr><td><code>spec.podSelector</code> (top)</td><td>WHO you protect &mdash; the destination. <code>{}</code> = all pods in ns.</td></tr>
+            <tr><td><code>ingress.from[].podSelector</code></td><td>WHO is allowed in &mdash; the source.</td></tr>
+          </tbody>
+        </table>
+        <p>Read the task &mdash; "traffic <strong>TO</strong> x <strong>FROM</strong> y" &mdash; straight into the two slots. <code>policyTypes</code> listed with no matching rules = deny-all that direction (<code>Egress</code> alone cuts DNS).</p>
+
+        <h3>Allow ingress pod &rarr; pod (the 90% case)</h3>
+<pre><code>apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-web-to-db, namespace: prod }
+spec:
+  podSelector:
+    matchLabels: { app: db }       <span class="comment"># protected (TO)</span>
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels: { app: web }  <span class="comment"># allowed (FROM)</span>
+    ports:                         <span class="comment"># optional; omit = all ports</span>
+    - { protocol: TCP, port: 80 }</code></pre>
+
+        <h3>Variants &mdash; swap the <code>from</code> block</h3>
+        <ul>
+          <li>From a namespace: <code>- namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: dev}}</code></li>
+          <li>ns <strong>AND</strong> pod: both selectors in <strong>one</strong> <code>-</code> item &middot; ns <strong>OR</strong> pod: two separate <code>-</code> items.</li>
+          <li>Deny-all ingress: <code>podSelector: {}</code> + <code>policyTypes: [Ingress]</code> + no ingress rules.</li>
+          <li>Egress: <code>policyTypes: [Egress]</code> + <code>egress: [{to: [...], ports: [...]}]</code>.</li>
+        </ul>
+
+        <h3>Verify both directions (always)</h3>
+<pre><code><span class="comment"># destination IP</span>
+k get pod DST -n ns -o wide
+<span class="comment"># allowed source -> serves the page</span>
+k exec -n ns SRC -- wget -qO- --timeout=2 &lt;ip&gt;:80
+<span class="comment"># non-allowed source -> times out (policy working)</span>
+k run t --image=busybox -n ns --rm -it --restart=Never -- wget -qO- --timeout=2 &lt;ip&gt;:80</code></pre>
+
+        <h3>Gotchas</h3>
+        <ul>
+          <li>Separate <code>-</code> = OR; two selectors in one <code>-</code> = AND. Trips everyone.</li>
+          <li>Source ns must carry a label to match &mdash; built-in <code>kubernetes.io/metadata.name</code>.</li>
+          <li>CNI without policy support (flannel) = policy silently no-ops.</li>
+          <li>Wrong namespace = 0 points. Set it before anything else.</li>
+        </ul>
+
+        <h3>Docs path</h3>
+        <ul>
+          <li>kubernetes.io search <strong>"network policy"</strong> &rarr; copy the <code>test-network-policy</code> block, trim to the two selectors.</li>
         </ul>
       </section>
 
