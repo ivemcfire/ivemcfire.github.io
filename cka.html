@@ -518,9 +518,68 @@ cat /etc/resolv.conf</code></pre>
       <!-- ==================== STORAGE & CONFIG ==================== -->
       <section class="tab-content" id="storage">
         <h2>Storage &amp; Config &mdash; PV / PVC, ConfigMap, Secret</h2>
-        <p class="placeholder">
-          Cards land here: <code>k create configmap</code> (from-literal / from-file), <code>k create secret</code>, PV+PVC YAML patterns, volume mounts, storage classes.
-        </p>
+        <h3>PV + PVC + Pod (static bind, hostPath)</h3>
+<pre><code>apiVersion: v1
+kind: PersistentVolume
+metadata: { name: pv-log }
+spec:
+  capacity: { storage: 1Gi }
+  accessModes: ["ReadWriteOnce"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  hostPath: { path: /mnt/data }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: pvc-log }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources: { requests: { storage: 1Gi } }
+  storageClassName: manual
+---
+<span class="comment"># in pod.spec:</span>
+  volumes:
+  - name: data
+    persistentVolumeClaim: { claimName: pvc-log }
+  <span class="comment"># container.volumeMounts:</span>
+  - name: data          <span class="comment"># MUST == volumes[].name</span>
+    mountPath: /usr/share/nginx/html</code></pre>
+
+        <h3>accessModes &amp; binding</h3>
+        <table>
+          <thead><tr><th>Mode</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>RWO</code></td><td>ReadWriteOnce &mdash; one node, read-write</td></tr>
+            <tr><td><code>ROX</code></td><td>ReadOnlyMany &mdash; many nodes, read-only</td></tr>
+            <tr><td><code>RWX</code></td><td>ReadWriteMany &mdash; many nodes, read-write</td></tr>
+            <tr><td><code>RWOP</code></td><td>ReadWriteOncePod &mdash; one pod only</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li>PVC binds only if: <code>storageClassName</code> equal &middot; modes &sube; &middot; PV capacity &ge; request.</li>
+          <li>Static bind (no provisioner): set <code>storageClassName: manual</code> (or <code>""</code>) on BOTH.</li>
+          <li>reclaim: <code>Retain</code> &middot; <code>Delete</code> (dynamic default) &middot; <code>Recycle</code> (dead).</li>
+        </ul>
+
+        <h3>ConfigMap / Secret (imperative)</h3>
+<pre><code>k create configmap app-cfg --from-literal=KEY=val --from-literal=K2=v2
+k create configmap app-cfg --from-file=config.txt
+k create secret generic db-sec --from-literal=password=s3cret
+<span class="comment"># consume: envFrom:[configMapRef|secretRef] | valueFrom.configMapKeyRef | volume</span></code></pre>
+
+        <h3>Gotchas</h3>
+        <ul>
+          <li>volume <code>name</code> must == volumeMount <code>name</code> &mdash; mismatch = silent no-mount, no error.</li>
+          <li>PVC stuck <code>Pending</code> = no PV matches (class/access/size). <code>k describe pvc</code> tells you why.</li>
+          <li><code>emptyDir: {}</code> = scratch (dies with pod). Can't shrink a PVC. RWO &ne; multi-node.</li>
+          <li>Secret values are base64 &mdash; <code>--from-literal</code> encodes for you.</li>
+        </ul>
+
+        <h3>Docs path</h3>
+        <ul>
+          <li>kubernetes.io: "Configure a Pod to Use a PersistentVolume" &middot; "Persistent Volumes"</li>
+          <li>Search: <strong>"persistent volume"</strong>, <strong>"configmap"</strong></li>
+        </ul>
       </section>
 
       <!-- ==================== CLUSTER OPS ==================== -->
@@ -534,7 +593,7 @@ cat /etc/resolv.conf</code></pre>
     </main>
 
     <footer>
-      Last updated: 2026-05-29 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
+      Last updated: 2026-06-03 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
     </footer>
 
     <button class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">&uarr;</button>
