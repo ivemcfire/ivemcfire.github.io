@@ -290,6 +290,26 @@
           font-size: 0.72rem;
         }
       }
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+      .back-to-top.visible { opacity: 1; }
+      .back-to-top:hover { background: #e55a2b; }
     </style>
   </head>
   <body>
@@ -679,7 +699,19 @@ ollama<span class="w"> </span>pull<span class="w"> </span>codellama
       </ul>
     </article>
     <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
     <script>
+      const backToTopBtn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        backToTopBtn.classList.toggle("visible", window.scrollY > 400);
+      });
+
       document.querySelectorAll("article pre").forEach((pre) => {
         const wrapper = document.createElement("div");
         wrapper.className = "code-block";

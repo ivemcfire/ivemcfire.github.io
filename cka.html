@@ -351,6 +351,21 @@ export now='--grace-period=0 --force'</code></pre>
         </table>
 
         <p>Editor choice: see the <strong>Vim</strong> tab. <code>k edit</code> defaults to vim, so survival vim is the safer bet.</p>
+
+        <h3>Paste, don't type (kills exact-name fails)</h3>
+
+        <div class="warning">
+          Never <em>transcribe</em> a string the grader checks. Select it and paste it.
+        </div>
+
+        <ul>
+          <li><strong>Paste the nouns:</strong> resource names, namespaces, image tags, ports, paths &mdash; straight from the question text (it's selectable). No typo = no silent zero.</li>
+          <li><strong>Paste docs YAML</strong> skeletons, then paste the question's names into them.</li>
+          <li><strong>Always paste:</strong> base64 secrets, tokens, join commands, long flags.</li>
+          <li><strong>Type the verbs:</strong> short imperative commands (<code>k get</code>, <code>k create</code>, <code>k describe</code>) &mdash; faster typed, and a typo just errors instead of silently failing.</li>
+        </ul>
+
+        <p>Maps to memorize-vs-lookup: <strong>verbs typed, nouns pasted.</strong> Terminal paste = <code>Ctrl+Shift+V</code>.</p>
       </section>
 
       <!-- ==================== VIM ==================== -->
