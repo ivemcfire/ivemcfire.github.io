@@ -308,43 +308,28 @@
 
       <!-- ==================== SETUP ==================== -->
       <section class="tab-content active" id="setup">
-        <h2>Lab setup &mdash; 3+2 block</h2>
+        <h2>Lab setup &mdash; almost nothing to do</h2>
 
         <div class="warning">
-          NOT accessible during the exam. Type from memory.
+          <code>alias k=kubectl</code> + completion are <strong>PRE-SET</strong> in both KodeKloud and the real CKA (PSI) exam. Do NOT waste clock typing them. Old guides that tell you to are outdated.
         </div>
 
-        <h3>Paste this</h3>
+        <h3>Optional exports (yours, not pre-set)</h3>
 
-<pre><code>alias k=kubectl
-source &lt;(kubectl completion bash)
-complete -F __start_kubectl k
-export do='--dry-run=client -o yaml'
+<pre><code>export do='--dry-run=client -o yaml'
 export now='--grace-period=0 --force'</code></pre>
 
-        <h3>Verify</h3>
+        <p>Lost on every <code>ssh node01</code> / new terminal &mdash; re-paste after a context switch, or just type the full flags. Fine to skip entirely.</p>
 
-<pre><code>echo "$do" &amp;&amp; type k &amp;&amp; k get po</code></pre>
+        <h3>Verify (k is already there)</h3>
 
-        <p>Then <code>k get po</code> + TAB &rarr; expands to <code>pods</code>.</p>
-
-        <h3>3+2 recall</h3>
+<pre><code>type k &amp;&amp; k get po          <span class="comment"># k get po + TAB expands to pods</span></code></pre>
 
         <table>
-          <thead><tr><th>Group</th><th>What</th></tr></thead>
+          <thead><tr><th>Snippet</th><th>What</th></tr></thead>
           <tbody>
-            <tr><td><strong>3 lines</strong></td><td><code>alias k</code> + source completion + bind completion to <code>k</code></td></tr>
-            <tr><td><strong>2 exports</strong></td><td><code>$do</code> = dry-run-yaml &middot; <code>$now</code> = force-grace-zero</td></tr>
-          </tbody>
-        </table>
-
-        <h3>Aliases in action</h3>
-
-        <table>
-          <thead><tr><th>Snippet</th><th>Use</th></tr></thead>
-          <tbody>
-            <tr><td><code>$do</code></td><td><code>k run x --image=nginx $do &gt; p.yaml</code></td></tr>
-            <tr><td><code>$now</code></td><td><code>k delete pod x $now</code></td></tr>
+            <tr><td><code>$do</code></td><td>dry-run-yaml &middot; <code>k run x --image=nginx $do &gt; p.yaml</code></td></tr>
+            <tr><td><code>$now</code></td><td>force-grace-zero &middot; <code>k delete pod x $now</code></td></tr>
           </tbody>
         </table>
 
@@ -442,7 +427,7 @@ k delete pod -l key=value             <span class="comment"># by label selector<
         <h3>Gotchas</h3>
 
         <ul>
-          <li><code>k create deployment</code> auto-names the container after the image base (e.g. <code>nginx</code>). That's the <code>CONTAINER</code> name for <code>set image</code>.</li>
+          <li><strong>Container name = image basename AT CREATE TIME</strong> (incl. typos: <code>--image=ngnix</code> &rarr; container <code>ngnix</code>). It's the <code>CONTAINER</code> token for <code>set image</code>. Don't assume it &mdash; look it up: <code>k describe deploy/NAME | grep -i image</code>.</li>
           <li><code>k set image deployment/NAME container=image</code> uses <code>=</code>, not space.</li>
           <li><code>k rollout status</code> blocks until rollout completes (or stalls). If it hangs, image is failing &mdash; check <code>describe pod</code>.</li>
           <li><code>k scale</code> changes replica count immediately; no rollout, no new revision.</li>
