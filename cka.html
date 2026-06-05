@@ -297,6 +297,7 @@
 
     <div class="tabs" role="tablist">
       <button class="tab-button active" data-tab="setup">Setup</button>
+      <button class="tab-button" data-tab="vim">Vim</button>
       <button class="tab-button" data-tab="workloads">Workloads</button>
       <button class="tab-button" data-tab="debug">Debug</button>
       <button class="tab-button" data-tab="storage">Storage &amp; Config</button>
@@ -349,17 +350,82 @@ export now='--grace-period=0 --force'</code></pre>
           </tbody>
         </table>
 
-        <h3>Editor: vim (only if you already know it)</h3>
+        <p>Editor choice: see the <strong>Vim</strong> tab. <code>k edit</code> defaults to vim, so survival vim is the safer bet.</p>
+      </section>
 
-        <p>If you reach for vim, two ad-hoc commands handle the gotchas:</p>
+      <!-- ==================== VIM ==================== -->
+      <section class="tab-content" id="vim">
+        <h2>Vim &mdash; survival kit</h2>
+
+        <div class="warning">
+          <code>k edit</code> opens vim by default (unless <code>export KUBE_EDITOR=nano</code>). Know enough vim that a surprise <code>k edit</code> never traps you.
+        </div>
+
+        <h3>Modes &amp; save/quit</h3>
 
         <table>
-          <thead><tr><th>Command (inside vim)</th><th>When</th></tr></thead>
+          <thead><tr><th>Do</th><th>Keys</th></tr></thead>
           <tbody>
-            <tr><td><code>:set paste</code></td><td>BEFORE pasting YAML from docs (then <code>:set nopaste</code> to resume editing)</td></tr>
+            <tr><td>Start typing (insert)</td><td><code>i</code></td></tr>
+            <tr><td>Stop typing</td><td><code>Esc</code></td></tr>
+            <tr><td>Save</td><td><code>:w</code></td></tr>
+            <tr><td>Save + quit</td><td><code>:wq</code></td></tr>
+            <tr><td>Quit, discard changes</td><td><code>:q!</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Move</h3>
+
+        <table>
+          <thead><tr><th>Do</th><th>Keys</th></tr></thead>
+          <tbody>
+            <tr><td>Top of file</td><td><code>gg</code></td></tr>
+            <tr><td>Bottom of file</td><td><code>G</code></td></tr>
+            <tr><td>Go to line N</td><td><code>:N</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Delete</h3>
+
+        <table>
+          <thead><tr><th>Delete</th><th>Keys</th></tr></thead>
+          <tbody>
+            <tr><td>Current line</td><td><code>dd</code></td></tr>
+            <tr><td>N lines down (current + below)</td><td><code>Ndd</code> (e.g. <code>5dd</code>)</td></tr>
+            <tr><td>Current line &rarr; end of file</td><td><code>dG</code></td></tr>
+            <tr><td>Current line &rarr; top of file</td><td><code>dgg</code></td></tr>
+            <tr><td>Cursor &rarr; end of line</td><td><code>D</code></td></tr>
+            <tr><td>One word</td><td><code>dw</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Copy / paste (vim-internal) &amp; undo</h3>
+
+        <table>
+          <thead><tr><th>Do</th><th>Keys</th></tr></thead>
+          <tbody>
+            <tr><td>Copy (yank) current line</td><td><code>yy</code></td></tr>
+            <tr><td>Paste below / above</td><td><code>p</code> / <code>P</code></td></tr>
+            <tr><td>Undo</td><td><code>u</code></td></tr>
+            <tr><td>Redo</td><td><code>Ctrl-r</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>YAML paste gotcha</h3>
+
+        <table>
+          <thead><tr><th>Command</th><th>When</th></tr></thead>
+          <tbody>
+            <tr><td><code>:set paste</code></td><td>BEFORE pasting YAML from docs (then <code>:set nopaste</code> to resume)</td></tr>
             <tr><td><code>:set ts=2 sw=2 et</code></td><td>If indent looks wrong (YAML breaks on literal tabs)</td></tr>
           </tbody>
         </table>
+
+        <ul>
+          <li>Number prefix repeats any delete: <code>3dd</code> = 3 lines.</li>
+          <li>Clean generated YAML fast: cursor on first junk line (<code>status:</code>) &rarr; <code>dG</code> wipes to end.</li>
+          <li>Stuck and need out: <code>Esc</code> first, then <code>:q!</code>.</li>
+        </ul>
       </section>
 
       <!-- ==================== WORKLOADS ==================== -->
