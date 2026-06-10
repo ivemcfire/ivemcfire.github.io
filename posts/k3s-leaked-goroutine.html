@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Empty Logs and a Burning Core: Tracing a Silent k3s Failure Three Layers Down — Ivalin's Lab
+    </title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+
+      .code-block {
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+      <h1>Empty Logs and a Burning Core: Tracing a Silent k3s Failure Three Layers Down</h1>
+      <em>A backup that never ran, a CPU core that never rested &mdash; and why they turned out to be the same bug.</em>
+
+      <img
+        src="../images/k3s-leaked-goroutine_small.jpg"
+        alt="Goroutine dump showing two etcd backend.run goroutines, one runnable and leaked"
+      />
+      <p class="photo-caption">One of these two goroutines should not exist.</p>
+
+      <hr />
+
+      <h2>The Starting Point</h2>
+      <p>
+        It began as a routine morning check on the cluster. Five nodes Ready, nothing on fire
+        &mdash; except the <code>frigate</code> namespace, where the nightly backup CronJob had a
+        row of <code>Error</code> pods and one cloudflared replica stuck in <code>Pending</code>
+        for two days.
+      </p>
+      <p>
+        The backup job mirrors Frigate's recordings to a second node with rsync. It is the kind of
+        job you write once, see it complete, and stop thinking about. That was the first mistake,
+        but not in the way I expected.
+      </p>
+
+      <hr />
+
+      <h2>An Exit Code and Nothing Else</h2>
+      <p>The failed pods all looked identical: exit code 2, dead in exactly 10 seconds.</p>
+      <p><code>kubectl logs</code> returned nothing.</p>
+      <p>
+        Not an error &mdash; nothing. Zero lines from a shell script that starts with
+        <code>set -e</code> and has echo statements everywhere. Which means it died on the only
+        line whose output was deliberately thrown away:
+      </p>
+      <pre><code>set -e
+apk add --no-cache openssh-client rsync >/dev/null 2>&amp;1   # first line, output discarded
+...
+echo "[$(date)] Starting rsync mirror..."                  # never reached</code></pre>
+      <p>
+        The trap: the job installed rsync <strong>at runtime</strong>, on every run. It almost
+        works. The image stays 100 MB smaller, the script stays one file, and on a healthy cluster
+        nobody ever notices the dependency. But it quietly makes a 02:00 backup depend on working
+        DNS and internet egress at 02:00 &mdash; and when cluster DNS got flaky, the job died
+        before its first echo, with the only evidence redirected to /dev/null.
+      </p>
+      <p>
+        The fix was architectural, not a retry loop: an image with rsync and ssh baked in
+        (<code>instrumentisto/rsync-ssh</code>), no network dependency at run time. Trade-off: one
+        more upstream image to track, in exchange for a backup that only depends on the thing it
+        actually backs up.
+      </p>
+      <p>
+        The honest part of this story: the first successful run after the fix transferred 42 GB.
+        That was the <em>initial</em> full sync. In 28 days of "running nightly", the job had never
+        completed once &mdash; and nothing told me. A backup that fails silently is not a backup.
+        It is a feeling.
+      </p>
+      <p>
+        So the second fix was alerting: <code>KubeJobFailed</code> added to the Alertmanager email
+        whitelist. Cheap, boring, and it converts this entire class of failure from "discovered
+        after a month" to "email at 02:01".
+      </p>
+
+      <hr />
+
+      <h2>The Second Question: Who Is Eating the Core</h2>
+      <p>
+        Fixing DNS flakiness meant explaining it. The journal on the affected server was full of
+        kubelet noise, CoreDNS had restart counts, and <code>kubectl top</code> looked normal-ish.
+        But <code>pidstat</code> did not:
+      </p>
+      <img
+        src="../images/k3s-leaked-goroutine_pidstat.png"
+        alt="pidstat showing k3s-server at 104% CPU before the fix and 10% after"
+      />
+      <p class="photo-caption">
+        The same process, the same node, the same workloads &mdash; before and after. kubectl top
+        averaged this down to "normal-ish".
+      </p>
+      <p>
+        One flat core. Prometheus history made it stranger: ~0.15 cores for days, then a step to
+        ~1.05 cores &mdash; and it stays there, perfectly flat, through load changes and through
+        <em>k3s restarts</em>. A load problem fluctuates. A stuck spin does not.
+      </p>
+      <p>
+        That restart detail broke my first mental model. I assumed some one-off event had wedged a
+        goroutine, and a restart would clear it. The metrics said no: the freshly restarted
+        process spun from minute one. Whatever ignited it &mdash; and the ignition lined up
+        exactly with the <em>other</em> etcd server being down &mdash; the condition
+        re-established itself every time.
+      </p>
+
+      <hr />
+
+      <h2>Profiling a Binary You Cannot Read</h2>
+      <p>
+        <code>perf record</code> on the k3s process gave me a profile full of raw addresses. The
+        k3s binary is stripped &mdash; no ELF symbol table, nothing for perf to name.
+      </p>
+      <p>
+        But Go binaries cannot be fully stripped. The runtime needs <code>gopclntab</code> &mdash;
+        the function table used for panics &mdash; and <code>go tool addr2line</code> happily
+        reads it. So the workflow becomes: perf for the hot addresses, addr2line for the names.
+      </p>
+      <p>
+        Almost works. The first resolution pass produced garbage &mdash; runtime tracer internals
+        that sent me down a flight-recorder rabbit hole for a while. The reveal: I was resolving
+        against <code>/usr/local/bin/k3s</code>, but k3s <em>self-extracts</em> at startup and the
+        running code lives in <code>/var/lib/rancher/k3s/data/&lt;hash&gt;/bin/k3s</code>. Same
+        name, different build layout. <code>/proc/&lt;pid&gt;/exe</code> settles the question in
+        one line; I asked it an hour too late.
+      </p>
+
+      <hr />
+
+      <h2>The Keyhole</h2>
+      <p>
+        The clean tool was hiding in plain sight. k3s runs everything &mdash; apiserver, etcd,
+        scheduler, kubelet &mdash; in one process. And the kubelet ships a debug endpoint that the
+        Kubernetes API will proxy for you:
+      </p>
+      <pre><code>kubectl get --raw /api/v1/nodes/k3frigate/proxy/debug/pprof/profile?seconds=20</code></pre>
+      <p>
+        On a normal cluster that profiles the kubelet. On k3s, the kubelet's debug port is not a
+        kubelet endpoint &mdash; it is a keyhole into the entire control plane. Fully symbolized
+        CPU profile, no restarts, no flags, evidence intact.
+      </p>
+      <p>The profile was unambiguous:</p>
+      <img
+        src="../images/k3s-leaked-goroutine_peek.png"
+        alt="pprof peek output showing 99.79% of selectgo callers are etcd backend.run"
+      />
+      <p class="photo-caption">
+        66% of all CPU inside runtime.selectgo &mdash; and 99.79% of it comes from a single
+        caller: etcd's batch-commit loop.
+      </p>
+      <p>
+        etcd's <code>backend.run</code> should tick every 100 ms and cost nothing. The goroutine
+        dump showed why it did not: <strong>two</strong> <code>backend.run</code> goroutines. One
+        parked in select, healthy. One <code>[runnable]</code>, created by <code>newBackend</code>
+        on <em>goroutine 1</em> &mdash; the bootstrap path &mdash; spinning on
+        <code>time.NewTimer(0)</code>:
+      </p>
+      <pre><code>t := time.NewTimer(b.batchInterval)   // batchInterval == 0 &rarr; fires immediately
+for {
+    select {
+    case &lt;-t.C:
+    case &lt;-b.stopc:
+        ...
+    }
+    ...
+    t.Reset(b.batchInterval)          // 0 again &rarr; fires immediately, forever
+}</code></pre>
+      <p>
+        A leaked backend from bootstrap, never closed, with a zero batch interval and no guard.
+        One goroutine, one core, forever.
+      </p>
+
+      <hr />
+
+      <h2>Upstream Already Knew</h2>
+      <p>
+        Searching with the right nouns &mdash; <code>backend.run</code>, busy loop, k3s &mdash;
+        found it immediately: closing the MVCC store does not close the backend passed into it,
+        and the leaked backend "busy-waits in the select loop chewing up CPU"
+        (<a href="https://github.com/k3s-io/k3s/pull/13571">k3s-io/k3s #13571</a>). Fixed in
+        k3s v1.35.1+k3s1 and backported across release branches. We were on v1.35.0+k3s3, three
+        patch releases behind the fix.
+      </p>
+      <p>
+        etcd snapshot first, then the standard installer with <code>INSTALL_K3S_VERSION</code>
+        pinned, one server at a time. CPU went from 104% to ~10% on both servers. The agents kept
+        running through the whole thing.
+      </p>
+      <img
+        src="../images/k3s-leaked-goroutine_nodes.png"
+        alt="kubectl get nodes showing both servers on v1.35.5+k3s1 and three postmarketOS phone agents"
+      />
+      <p class="photo-caption">
+        After: both etcd servers patched to v1.35.5+k3s1. The three agents in this table are
+        OnePlus phones on USB tether &mdash; they never noticed.
+      </p>
+      <p>
+        And here the two stories close into one. The leaked goroutine had been degrading the first
+        server for days &mdash; slow kubelet, struggling CoreDNS, the DNS flakiness that killed an
+        <code>apk add</code> at 02:00 in a backup job that could not tell anyone. The backup did
+        not fail because of rsync. It failed because a goroutine three layers down was spinning on
+        a zero-length timer.
+      </p>
+
+      <hr />
+
+      <h2>Design Decisions</h2>
+      <ul>
+        <li>
+          Baked rsync into the backup image instead of installing at runtime &mdash; a backup job
+          should depend on nothing that is not the data itself
+        </li>
+        <li>
+          Whitelisted <code>KubeJobFailed</code> for email instead of un-blackholing all warnings
+          &mdash; alert on what is actionable, keep the rest quiet
+        </li>
+        <li>
+          Profiled in production via the kubelet pprof proxy instead of restarting with debug
+          flags &mdash; keeps the evidence alive, and on k3s it covers the whole control plane
+        </li>
+        <li>
+          Fixed by version upgrade, not workaround &mdash; a systemd CPU quota would have
+          "contained" the spin and hidden the bug for another year
+        </li>
+      </ul>
+
+      <hr />
+
+      <h2>Things That Went Wrong</h2>
+      <p>
+        <strong>The logs were empty by design.</strong> The failing line's output went to
+        /dev/null for tidiness. Tidiness cost 28 days of undetected failure. Discard output only
+        after the script has proven it can speak.
+      </p>
+      <p>
+        <strong>kubectl top averaged the problem away.</strong> Trailing windows showed 13% on a
+        node that pidstat showed at 104% in real time. Averages are for capacity planning, not
+        for diagnosis.
+      </p>
+      <p>
+        <strong>I resolved symbols against the wrong binary.</strong> Same k3s version, same
+        filename &mdash; but the self-extracted copy under
+        <code>/var/lib/rancher/k3s/data/</code> is what actually runs. Half a day of tracer red
+        herrings from this kind of mismatch.
+      </p>
+      <p>
+        <strong>I assumed restart clears a stuck goroutine.</strong> Prometheus showed the spin
+        surviving k3s restarts cleanly. The assumption was not just wrong &mdash; it nearly made
+        me destroy the evidence by restarting with debug flags.
+      </p>
+      <p>
+        <strong>Two etcd members, so every server restart was a quorum hold-down.</strong> With
+        the third member long retired, each upgrade restart froze the API briefly. Survivable in
+        a homelab; the reminder that two-member etcd is availability theater is free.
+      </p>
+
+      <hr />
+
+      <h2>Impact</h2>
+      <ul>
+        <li>k3s-server CPU: ~104% &rarr; ~10% of a core, on both control-plane servers</li>
+        <li>Busiest node overall: 67% &rarr; ~35% CPU</li>
+        <li>
+          Backup success rate: 0 completed runs in 28 days &rarr; verified nightly mirror (42 GB
+          initial, ~250 MB/day incremental)
+        </li>
+        <li>Failure detection: never &rarr; email within a minute via KubeJobFailed</li>
+        <li>Diagnosis artifacts: zero restarts needed before the fix was identified</li>
+      </ul>
+
+      <hr />
+
+      <h2>The Payoff</h2>
+      <p>
+        The artifact is small: one image swap, one alert rule, one version bump. The understanding
+        is the part I keep &mdash; that a stripped Go binary in production is still a fully
+        observable system if you know where the keyholes are: <code>gopclntab</code> for names,
+        the kubelet proxy for profiles, the goroutine dump for the created-by line that points at
+        the leak.
+      </p>
+      <p>
+        Logs tell you what the code chose to say. The profiler tells you what it actually did.
+      </p>
+
+      <hr />
+
+      <h2>Cluster Context</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Role</th>
+            <th>Arch</th>
+            <th>Hardware</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>k3master</td>
+            <td>control-plane, etcd</td>
+            <td>amd64</td>
+            <td>x86 mini PC, backup target (1.8 TB)</td>
+          </tr>
+          <tr>
+            <td>k3frigate</td>
+            <td>control-plane, etcd, NVR</td>
+            <td>amd64</td>
+            <td>x86, GTX 1050 Ti, 16 GB RAM, Frigate + 7 cameras</td>
+          </tr>
+          <tr>
+            <td>one6t</td>
+            <td>Worker</td>
+            <td>arm64</td>
+            <td>OnePlus 6T (Snapdragon 845, 6GB)</td>
+          </tr>
+          <tr>
+            <td>one62</td>
+            <td>Worker</td>
+            <td>arm64</td>
+            <td>OnePlus 6 (Snapdragon 845, 8GB)</td>
+          </tr>
+          <tr>
+            <td>one61</td>
+            <td>Worker</td>
+            <td>arm64</td>
+            <td>OnePlus 6 (Snapdragon 845, 8GB)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <hr />
+      <p>
+        Manifests for the backup job and alert routing live in the
+        <a href="https://github.com/ivemcfire/homelab-config">homelab-config</a> repo.
+      </p>
+      <p>
+        Previous posts:
+        <a href="every-light-was-green.html">Every Light Was Green. The Cluster Was Dead.</a> &middot;
+        <a href="cloudflared-ha-and-oob.html">The Tunnel Was Up. The Cameras Were 502.</a> &middot;
+        <a href="k3s-ha-migration.html">What broke during a k3s sqlite to etcd HA migration</a> &middot;
+        <a href="edge-ai-phones.html">Running Edge AI on Broken Phones</a>
+      </p>
+    </article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>
