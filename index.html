@@ -253,19 +253,16 @@
       <div class="label">Posts</div>
 
       <a href="posts/k3s-leaked-goroutine.html" class="post">
-        <div class="post-meta">June 2026 · 10 min read</div>
+        <div class="post-meta">June 2026 · 5 min read</div>
         <h2>
           Empty Logs and a Burning Core: Tracing a Silent k3s Failure Three Layers Down
         </h2>
         <p>
-          A nightly backup failed for 28 days with zero log lines &mdash; it
-          installed rsync at runtime and sent the evidence to /dev/null. The
-          DNS flakiness that killed it traced down to a leaked etcd backend
-          goroutine inside k3s, spinning on a zero-length timer and eating a
-          full core on both servers. Profiling a stripped Go binary in
-          production: perf, <code>gopclntab</code>, the wrong-binary trap, and
-          the kubelet pprof proxy that on k3s is a keyhole into the entire
-          control plane.
+          A nightly backup failed for 28 days with zero log lines. The trail
+          led to a leaked etcd goroutine inside k3s, spinning on a zero-length
+          timer and eating a full core on both servers &mdash; found by
+          profiling the stripped binary in production via perf,
+          <code>gopclntab</code>, and the kubelet pprof proxy.
         </p>
         <div class="tags">
           <span class="tag">k3s</span>
