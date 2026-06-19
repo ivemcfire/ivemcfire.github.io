@@ -366,6 +366,29 @@ export now='--grace-period=0 --force'</code></pre>
         </ul>
 
         <p>Maps to memorize-vs-lookup: <strong>verbs typed, nouns pasted.</strong> Terminal paste = <code>Ctrl+Shift+V</code>.</p>
+
+        <h3>Don't let a pasted command auto-run</h3>
+
+        <div class="warning">
+          Docs "copy" buttons and triple-click grab the trailing newline &mdash; that newline is <strong>Enter</strong>, so a pasted command fires before you can read it.
+        </div>
+
+        <ul>
+          <li><strong>Single-line command:</strong> type <code>#</code> first, then paste. The whole line is commented &mdash; it prints, doesn't run. Read it, up-arrow, strip the <code>#</code>, run. (<code>#</code> beats <code>echo</code>: no <code>$</code>/quote/backtick expansion.)</li>
+          <li><strong>Multi-line / YAML:</strong> <code>#</code> only protects the first line. Paste into the editor instead (vim <code>:set paste</code> first).</li>
+        </ul>
+
+        <h3>No IDE in the exam &mdash; <code>yq</code> is there though</h3>
+
+        <div class="warning">
+          The post-2025 remote-desktop CKA is <strong>terminal + vim/nano + a Firefox docs window</strong>. No VS Code, no code-server, no IDE. Don't plan around one.
+        </div>
+
+        <p><code>yq</code> (the YAML <code>jq</code>) is pre-installed and underused &mdash; the fast path for a one-field read/edit without opening an editor:</p>
+
+<pre><code>yq '.spec.replicas' deploy.yaml             <span class="comment"># read a field</span>
+yq -i '.spec.replicas = 3' deploy.yaml      <span class="comment"># edit in place</span>
+yq '.spec.containers[0].image' pod.yaml      <span class="comment"># drill into arrays</span></code></pre>
       </section>
 
       <!-- ==================== VIM ==================== -->
@@ -524,11 +547,11 @@ k delete pod -l key=value             <span class="comment"># by label selector<
 
         <h3>One-shot patterns (all use <code>--rm -it --restart=Never</code>)</h3>
 
-<pre><code><span class="comment"># Shell into busybox</span>
-k run tmp --image=busybox --rm -it --restart=Never -- sh
+<pre><code><span class="comment"># Shell into busybox &mdash; ALWAYS pin :1.28 (latest's wget AND nslookup lie)</span>
+k run tmp --image=busybox:1.28 --rm -it --restart=Never -- sh
 
 <span class="comment"># HTTP test (wget is built into busybox)</span>
-k run tmp --image=busybox --rm -it --restart=Never -- wget -O- web-svc:80
+k run tmp --image=busybox:1.28 --rm -it --restart=Never -- wget -O- web-svc:80
 
 <span class="comment"># DNS lookup &mdash; USE busybox:1.28 (latest's nslookup is broken)</span>
 k run tmp --image=busybox:1.28 --rm -it --restart=Never -- nslookup web-svc
@@ -560,8 +583,10 @@ k exec -it debug -- sh</code></pre>
         <ul>
           <li><code>--</code> is not optional. Forgetting it = "unknown flag" error.</li>
           <li><code>-O-</code> = capital-O-dash. <code>-0-</code> (zero) silently fails.</li>
-          <li><code>busybox:latest</code> has a broken <code>nslookup</code> &mdash; use <code>busybox:1.28</code> for DNS.</li>
-          <li>Service DNS: <code>&lt;svc&gt;</code> works in same namespace. Cross-namespace: <code>&lt;svc&gt;.&lt;ns&gt;</code> or <code>&lt;svc&gt;.&lt;ns&gt;.svc.cluster.local</code>.</li>
+          <li><code>busybox:latest</code> lies &mdash; broken <code>nslookup</code> AND a <code>wget</code> that returns a false <code>connection refused</code>. Pin <code>busybox:1.28</code> for <strong>all</strong> probes.</li>
+          <li><strong><code>connection refused</code> &ne; blocked.</strong> Refused/RST = traffic reached the host, nothing listening (or a reject-CNI policy). <code>timeout</code> = packets dropped (drop-CNI policy / no route). Different diagnoses.</li>
+          <li><strong><code>Running</code> &ne; serving.</strong> STATUS=Running only means the container's main process is alive. A <code>-- sleep</code> override &rarr; Running but the app never started &rarr; port closed. Confirm with a probe, not the phase.</li>
+          <li>Service DNS: <code>&lt;svc&gt;</code> works in same namespace. Cross-namespace: <code>&lt;svc&gt;.&lt;ns&gt;</code> or <code>&lt;svc&gt;.&lt;ns&gt;.svc.cluster.local</code>. Bare pods get NO DNS &mdash; target them by IP.</li>
           <li>Without <code>--rm</code>, the pod stays Completed and clutters <code>k get pods</code> for the rest of the question.</li>
         </ul>
 
@@ -661,7 +686,7 @@ k create secret generic db-sec --from-literal=password=s3cret
             <tr><td><code>ingress.from[].podSelector</code></td><td>WHO is allowed in &mdash; the source.</td></tr>
           </tbody>
         </table>
-        <p>Read the task &mdash; "traffic <strong>TO</strong> x <strong>FROM</strong> y" &mdash; straight into the two slots. <code>policyTypes</code> listed with no matching rules = deny-all that direction (<code>Egress</code> alone cuts DNS).</p>
+        <p>Read the task &mdash; "traffic <strong>TO</strong> x <strong>FROM</strong> y" &mdash; straight into the two slots. The two selectors are <strong>different pods</strong>: read each one's real label off the question, don't autopilot <code>app:</code>. A wrong key on the top selector matches nothing &rarr; the policy applies to no pod &rarr; silent allow-all. <code>policyTypes</code> listed with no matching rules = deny-all that direction (<code>Egress</code> alone cuts DNS).</p>
 
         <h3>Allow ingress pod &rarr; pod (the 90% case)</h3>
 <pre><code>apiVersion: networking.k8s.io/v1
@@ -686,19 +711,22 @@ spec:
           <li>Egress: <code>policyTypes: [Egress]</code> + <code>egress: [{to: [...], ports: [...]}]</code>.</li>
         </ul>
 
-        <h3>Verify both directions (always)</h3>
+        <h3>Verify both directions (always) &mdash; busybox:1.28</h3>
 <pre><code><span class="comment"># destination IP</span>
 k get pod DST -n ns -o wide
-<span class="comment"># allowed source -> serves the page</span>
-k exec -n ns SRC -- wget -qO- --timeout=2 &lt;ip&gt;:80
-<span class="comment"># non-allowed source -> times out (policy working)</span>
-k run t --image=busybox -n ns --rm -it --restart=Never -- wget -qO- --timeout=2 &lt;ip&gt;:80</code></pre>
+<span class="comment"># allowed: prober carries the trusted LABEL -> serves the page</span>
+k run t --image=busybox:1.28 --labels=&lt;allowed-label&gt; -n ns --rm -it --restart=Never -- wget -qO- --timeout=2 &lt;ip&gt;:80
+<span class="comment"># blocked: no label -> blocked (policy working)</span>
+k run t --image=busybox:1.28 -n ns --rm -it --restart=Never -- wget -qO- --timeout=2 &lt;ip&gt;:80</code></pre>
+        <p>Policy trusts the <strong>label</strong>, not the pod name/image &mdash; the allowed prober just needs the right label. It also needs a working tool: nginx has no <code>wget</code>, so use busybox, and pin <code>:1.28</code> (latest's wget returns a false <code>connection refused</code>).</p>
 
         <h3>Gotchas</h3>
         <ul>
           <li>Separate <code>-</code> = OR; two selectors in one <code>-</code> = AND. Trips everyone.</li>
           <li>Source ns must carry a label to match &mdash; built-in <code>kubernetes.io/metadata.name</code>.</li>
           <li>CNI without policy support (flannel) = policy silently no-ops.</li>
+          <li><strong>Deny shows as <code>timeout</code> OR <code>connection refused</code></strong> depending on the CNI (drop vs reject). Don't read allow/deny off the error string &mdash; judge by the controlled comparison: labeled pod gets in, unlabeled is blocked.</li>
+          <li><code>Running</code> &ne; serving: a <code>-- sleep</code> override leaves the pod Running but its port closed (&rarr; refused). Verify the target with a probe, not the status phase.</li>
           <li>Wrong namespace = 0 points. Set it before anything else.</li>
         </ul>
 
@@ -719,7 +747,7 @@ k run t --image=busybox -n ns --rm -it --restart=Never -- wget -qO- --timeout=2 
     </main>
 
     <footer>
-      Last updated: 2026-06-03 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
+      Last updated: 2026-06-19 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
     </footer>
 
     <button class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">&uarr;</button>
