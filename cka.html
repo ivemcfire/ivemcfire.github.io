@@ -299,6 +299,7 @@
       <button class="tab-button active" data-tab="setup">Setup</button>
       <button class="tab-button" data-tab="vim">Vim</button>
       <button class="tab-button" data-tab="workloads">Workloads</button>
+      <button class="tab-button" data-tab="scheduling">Scheduling</button>
       <button class="tab-button" data-tab="debug">Debug</button>
       <button class="tab-button" data-tab="storage">Storage &amp; Config</button>
       <button class="tab-button" data-tab="networking">Networking</button>
@@ -539,6 +540,86 @@ k delete pod -l key=value             <span class="comment"># by label selector<
         </ul>
       </section>
 
+      <!-- ==================== SCHEDULING ==================== -->
+      <section class="tab-content" id="scheduling">
+        <h2>Scheduling &mdash; Labels, Taints/Tolerations, nodeSelector</h2>
+
+        <h3>Labels &amp; selectors &mdash; query</h3>
+<pre><code>k get po -l env=dev                   <span class="comment"># equality filter</span>
+k get po -l env=prod,bu=finance       <span class="comment"># comma = AND (no spaces)</span>
+k get po -l 'env in (dev,prod)'       <span class="comment"># set-based</span>
+k get po -l env -l '!tier'            <span class="comment"># key exists / key absent</span>
+k get all -l env=prod                 <span class="comment"># ALL object types, not just pods</span>
+k get po --show-labels                <span class="comment"># every label, one column</span>
+k get po -L env -L tier               <span class="comment"># labels as their own columns</span>
+k get po --no-headers | wc -l         <span class="comment"># count (or subtract the header)</span></code></pre>
+
+        <h3>Labels &mdash; set / change / remove</h3>
+<pre><code>k label po web tier=frontend          <span class="comment"># add</span>
+k label po web env=prod --overwrite   <span class="comment"># change existing (needs flag)</span>
+k label po web tier-                  <span class="comment"># remove (trailing dash)</span>
+k label nodes node01 size=Large       <span class="comment"># label a node (for nodeSelector)</span></code></pre>
+
+        <div class="warning">
+          Selector <strong>must match</strong> labels or it silently breaks: a Service with the wrong <code>spec.selector</code> = <strong>0 endpoints</strong>; a ReplicaSet/Deployment whose <code>selector.matchLabels</code> &ne; template labels is rejected at create (<code>`selector` does not match template `labels`</code>). The selector is immutable after create &mdash; fix the template to match it.
+        </div>
+
+        <h3>Taints vs nodeSelector &mdash; opposite directions</h3>
+        <table>
+          <thead><tr><th>Mechanism</th><th>Direction</th><th>Set on</th></tr></thead>
+          <tbody>
+            <tr><td>Taint + Toleration</td><td><strong>repels</strong> (keep off unless tolerated)</td><td>node taint + pod toleration</td></tr>
+            <tr><td>nodeSelector / affinity</td><td><strong>attracts</strong> (put me here)</td><td>node label + pod field</td></tr>
+          </tbody>
+        </table>
+        <p>Toleration only <strong>permits</strong>, never <strong>attracts</strong> &mdash; a tolerating pod may still land elsewhere. "Only this pod, only on this node" = taint the node (repel others) <strong>+</strong> nodeSelector (pull this pod). One alone isn't enough.</p>
+
+        <h3>Taints (imperative)</h3>
+<pre><code>k taint nodes node01 spray=mortein:NoSchedule        <span class="comment"># key=value:effect</span>
+k describe node node01 | grep -i taint               <span class="comment"># check</span>
+k taint nodes node01 spray=mortein:NoSchedule-       <span class="comment"># remove (trailing dash)</span></code></pre>
+        <table>
+          <thead><tr><th>Effect</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>NoSchedule</code></td><td>block new pods without the toleration</td></tr>
+            <tr><td><code>PreferNoSchedule</code></td><td>soft &mdash; avoid if possible</td></tr>
+            <tr><td><code>NoExecute</code></td><td>block <strong>+ evict</strong> already-running non-tolerating pods</td></tr>
+          </tbody>
+        </table>
+        <p>Control-plane ships with <code>node-role.kubernetes.io/control-plane:NoSchedule</code> &mdash; that's why workloads avoid it.</p>
+
+        <h3>Toleration / nodeSelector (pod YAML, under <code>spec:</code>)</h3>
+<pre><code>  tolerations:
+  - key: "spray"
+    operator: "Equal"        <span class="comment"># Exists = any value (omit value:)</span>
+    value: "mortein"
+    effect: "NoSchedule"
+  nodeSelector:
+    size: Large              <span class="comment"># exact equality ONLY (no OR/NotIn)</span></code></pre>
+
+        <h3>Node affinity (when nodeSelector can't &mdash; OR / NotIn / Exists)</h3>
+<pre><code>  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:   <span class="comment"># hard; preferred... = soft</span>
+        nodeSelectorTerms:
+        - matchExpressions:
+          - { key: size, operator: In, values: [Large, Medium] }</code></pre>
+        <p>Operators: <code>In</code> &middot; <code>NotIn</code> &middot; <code>Exists</code> &middot; <code>DoesNotExist</code> &middot; <code>Gt</code> &middot; <code>Lt</code>.</p>
+
+        <h3>Gotchas</h3>
+        <ul>
+          <li>Toleration <code>value</code> is string-exact &mdash; a typo (<code>mortain</code> &ne; <code>mortein</code>) leaves the pod Pending: the "but I added a toleration!" trap. Paste the noun.</li>
+          <li>No matching node (nodeSelector / required affinity) = pod <strong>Pending</strong> forever.</li>
+          <li><code>Pending</code> diagnosis: <code>k describe po X</code> &rarr; Events &rarr; "untolerated taint" / "didn't match node selector".</li>
+          <li>comma = AND in selectors; <code>get all</code> excludes cm/secret/pvc/ingress/netpol.</li>
+        </ul>
+
+        <h3>Docs path</h3>
+        <ul>
+          <li>Labels = memorize. k8s.io search <strong>"taints and tolerations"</strong> &middot; <strong>"assign pods to nodes"</strong> (affinity).</li>
+        </ul>
+      </section>
+
       <!-- ==================== DEBUG ==================== -->
       <section class="tab-content" id="debug">
         <h2>Debug pods &mdash; one-shot pods for in-cluster testing</h2>
@@ -747,7 +828,7 @@ k run t --image=busybox:1.28 -n ns --rm -it --restart=Never -- wget -qO- --timeo
     </main>
 
     <footer>
-      Last updated: 2026-06-19 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
+      Last updated: 2026-06-25 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
     </footer>
 
     <button class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">&uarr;</button>
