@@ -819,16 +819,110 @@ k run t --image=busybox:1.28 -n ns --rm -it --restart=Never -- wget -qO- --timeo
 
       <!-- ==================== CLUSTER OPS ==================== -->
       <section class="tab-content" id="cluster">
-        <h2>Cluster Ops &mdash; kubeadm, etcd, static pods, RBAC</h2>
-        <p class="placeholder">
-          Cards land here: <code>kubeadm upgrade plan/apply/node</code>, worker join via <code>kubeadm token</code>, <code>etcdctl snapshot save/restore</code>, static-pod placement, RBAC Role+RoleBinding patterns, node maintenance (<code>cordon/drain/uncordon</code>).
-        </p>
+        <h2>Cluster Ops &mdash; etcd, node maintenance, kubeadm upgrade</h2>
+
+        <h3>etcd &mdash; the cert rule (the whole confusion)</h3>
+        <div class="warning">
+          <code>snapshot save</code> talks to the <strong>live server</strong> &rarr; needs endpoint + 3 certs (mTLS). <code>snapshot status</code> / <code>restore</code> just <strong>read a file</strong> &rarr; no certs, only <code>--data-dir</code>. That's why only <code>save</code> has the flag wall.
+        </div>
+
+        <h3>etcd backup (run ON the controlplane)</h3>
+<pre><code>ETCDCTL_API=3 etcdctl snapshot save /opt/etcd-backup.db \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key
+
+<span class="comment"># verify (no certs needed)</span>
+etcdutl snapshot status /opt/etcd-backup.db --write-out=table</code></pre>
+
+        <h3>etcd restore + repoint</h3>
+<pre><code>etcdutl snapshot restore /opt/etcd-backup.db --data-dir=/var/lib/etcd-from-backup</code></pre>
+        <p>Then edit <code>/etc/kubernetes/manifests/etcd.yaml</code> &rarr; under <code>volumes:</code>, the <code>etcd-data</code> volume &rarr; change <strong>one line</strong>, its <code>hostPath.path</code>:</p>
+<pre><code>  volumes:
+  - hostPath:
+      path: /var/lib/etcd-from-backup    <span class="comment"># CHANGE this line only</span>
+    name: etcd-data</code></pre>
+        <p>kubelet auto-restarts etcd on save. <code>kubectl</code> hangs ~30-60s (apiserver restarts too) &rarr; wait &rarr; <code>k get pods -n kube-system</code>.</p>
+
+        <h3>If unsure of cert paths &mdash; read them, don't memorize</h3>
+<pre><code>grep -E 'cert-file|key-file|trusted-ca|listen-client|data-dir' /etc/kubernetes/manifests/etcd.yaml</code></pre>
+        <table>
+          <thead><tr><th>etcd manifest flag</th><th>etcdctl flag</th></tr></thead>
+          <tbody>
+            <tr><td><code>--trusted-ca-file</code></td><td><code>--cacert</code></td></tr>
+            <tr><td><code>--cert-file</code></td><td><code>--cert</code></td></tr>
+            <tr><td><code>--key-file</code></td><td><code>--key</code></td></tr>
+            <tr><td><code>--listen-client-urls</code></td><td><code>--endpoints</code> (use 127.0.0.1:2379)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>etcd gotchas</h3>
+        <ul>
+          <li>Change <code>hostPath.path</code> (host dir), NOT <code>--data-dir</code>/<code>mountPath</code> (both in-container <code>/var/lib/etcd</code>).</li>
+          <li>Restore success = final log line <code>restored snapshot</code> &mdash; no literal "success" word.</li>
+          <li><code>etcdctl version</code> must show API 3.x (snapshot is v3-only); <code>export ETCDCTL_API=3</code> if old.</li>
+          <li>Restore into a NEW dir, never over live <code>/var/lib/etcd</code>.</li>
+          <li><code>etcdctl</code> = client to server (certs); <code>etcdutl</code> = offline file tool (no certs).</li>
+        </ul>
+
+        <h3>Node maintenance &mdash; cordon / drain / uncordon</h3>
+<pre><code>k cordon node01                       <span class="comment"># block NEW pods (no evict)</span>
+k drain node01 --ignore-daemonsets    <span class="comment"># cordon + EVICT existing</span>
+<span class="comment"># ... OS upgrade / reboot happens here ...</span>
+k uncordon node01                     <span class="comment"># reopen for scheduling</span></code></pre>
+        <table>
+          <thead><tr><th>Flag</th><th>When</th></tr></thead>
+          <tbody>
+            <tr><td><code>--ignore-daemonsets</code></td><td>ALWAYS &mdash; DS pods can't be evicted, drain refuses without it</td></tr>
+            <tr><td><code>--delete-emptydir-data</code></td><td>if any pod uses an emptyDir (drain refuses otherwise)</td></tr>
+            <tr><td><code>--force</code></td><td>bare pods not owned by a controller</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li>Drained node shows <code>Ready,SchedulingDisabled</code> &mdash; the cordon signature.</li>
+          <li><code>drain</code> = <code>cordon</code> + evict. <code>cordon</code> alone leaves running pods in place.</li>
+        </ul>
+
+        <h3>kubeadm cluster upgrade (lookup-class &mdash; follow docs order)</h3>
+<pre><code><span class="comment"># --- control plane node ---</span>
+apt-get install -y kubeadm=1.NN.x-*        <span class="comment"># 1. binary FIRST</span>
+kubeadm upgrade plan                        <span class="comment"># 2. check</span>
+kubeadm upgrade apply v1.NN.x               <span class="comment"># 3. CP uses 'apply'</span>
+k drain controlplane --ignore-daemonsets
+apt-get install -y kubelet=1.NN.x-* kubectl=1.NN.x-*   <span class="comment"># 4. kubelet LAST</span>
+systemctl daemon-reload &amp;&amp; systemctl restart kubelet
+k uncordon controlplane
+
+<span class="comment"># --- each worker ---</span>
+k drain node01 --ignore-daemonsets          <span class="comment"># from CP</span>
+<span class="comment"># ssh node01:</span>
+apt-get install -y kubeadm=1.NN.x-*
+kubeadm upgrade node                        <span class="comment"># workers use 'node', NOT apply</span>
+apt-get install -y kubelet=1.NN.x-*
+systemctl daemon-reload &amp;&amp; systemctl restart kubelet
+<span class="comment"># back on CP:</span>
+k uncordon node01</code></pre>
+        <table>
+          <thead><tr><th>Trap</th><th>Rule</th></tr></thead>
+          <tbody>
+            <tr><td>Order</td><td>kubeadm binary &rarr; upgrade &rarr; kubelet. kubelet LAST.</td></tr>
+            <tr><td>apply vs node</td><td><code>upgrade apply</code> = control plane &middot; <code>upgrade node</code> = workers</td></tr>
+            <tr><td>drain</td><td>drain BEFORE, uncordon AFTER &mdash; every node</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Docs path</h3>
+        <ul>
+          <li>etcd: k8s.io search <strong>"etcd backup"</strong> &rarr; <em>Operating etcd clusters</em>.</li>
+          <li>upgrade: <strong>"kubeadm upgrade"</strong> &rarr; <em>Upgrading kubeadm clusters</em> (copy the sequence, follow line by line).</li>
+        </ul>
       </section>
 
     </main>
 
     <footer>
-      Last updated: 2026-06-25 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
+      Last updated: 2026-06-28 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
     </footer>
 
     <button class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">&uarr;</button>
