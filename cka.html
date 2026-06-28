@@ -864,6 +864,7 @@ etcdutl snapshot status /opt/etcd-backup.db --write-out=table</code></pre>
           <li><code>etcdctl version</code> must show API 3.x (snapshot is v3-only); <code>export ETCDCTL_API=3</code> if old.</li>
           <li>Restore into a NEW dir, never over live <code>/var/lib/etcd</code>.</li>
           <li><code>etcdctl</code> = client to server (certs); <code>etcdutl</code> = offline file tool (no certs).</li>
+          <li><code>etcdutl</code> often <strong>not installed</strong> (not in the <code>etcd-client</code> pkg) &rarr; fall back to <code>etcdctl snapshot status</code>/<code>restore</code> (deprecation warning, still works). Lab missing <code>etcdctl</code> too (KodeKloud quirk) &rarr; <code>apt-get install -y etcd-client</code>; the real CKA has it pre-installed.</li>
         </ul>
 
         <h3>Node maintenance &mdash; cordon / drain / uncordon</h3>
