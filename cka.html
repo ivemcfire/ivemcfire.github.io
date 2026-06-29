@@ -27,7 +27,7 @@
         background: var(--bg);
         color: var(--text);
         font-family: var(--mono);
-        font-size: 16px;
+        font-size: 17px;
         line-height: 1.6;
         min-height: 100vh;
       }
@@ -78,12 +78,10 @@
         max-width: 900px;
         margin: 0 auto;
         padding: 0 1.5rem;
-        overflow-x: auto;
-        white-space: nowrap;
-        -webkit-overflow-scrolling: touch;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 0.2rem;
       }
-
-      .tabs::-webkit-scrollbar { height: 0; }
 
       .tab-button {
         display: inline-block;
@@ -167,7 +165,7 @@
         padding: 0.1em 0.35em;
         font-size: 0.85em;
         font-family: var(--mono);
-        color: var(--accent);
+        color: #f2f2f2;
         border-radius: 2px;
       }
 
@@ -208,7 +206,7 @@
 
       th {
         background: var(--surface);
-        color: var(--accent);
+        color: #cfcfcf;
         font-weight: 700;
         font-size: 0.78rem;
         text-transform: uppercase;
@@ -304,6 +302,7 @@
       <button class="tab-button" data-tab="storage">Storage &amp; Config</button>
       <button class="tab-button" data-tab="networking">Networking</button>
       <button class="tab-button" data-tab="cluster">Cluster Ops</button>
+      <button class="tab-button" data-tab="rbac">RBAC</button>
     </div>
 
     <main>
@@ -917,6 +916,53 @@ k uncordon node01</code></pre>
         <ul>
           <li>etcd: k8s.io search <strong>"etcd backup"</strong> &rarr; <em>Operating etcd clusters</em>.</li>
           <li>upgrade: <strong>"kubeadm upgrade"</strong> &rarr; <em>Upgrading kubeadm clusters</em> (copy the sequence, follow line by line).</li>
+        </ul>
+      </section>
+
+      <!-- ==================== RBAC ==================== -->
+      <section class="tab-content" id="rbac">
+        <h2>RBAC &mdash; ServiceAccount &rarr; Role &rarr; Binding</h2>
+
+        <h3>The chain (4 nouns, always this order)</h3>
+        <p><strong>SA &rarr; Role &rarr; RoleBinding &rarr; verify</strong> = <em>who &rarr; what they can do &rarr; glue &rarr; prove</em>. Memorize the shape; look up the flags with <code>--help</code>.</p>
+
+        <h3>Namespaced (Role + RoleBinding) &mdash; <code>-n</code> on ALL THREE creates</h3>
+<pre><code>k create sa auditor -n finance
+k create role pod-reader -n finance --verb=get,list,watch --resource=pods
+k create rolebinding auditor-bind -n finance --role=pod-reader \
+     --serviceaccount=finance:auditor   <span class="comment"># ns:name</span></code></pre>
+
+        <h3>Verify (impersonate the SA)</h3>
+<pre><code>k auth can-i list   pods --as=system:serviceaccount:finance:auditor -n finance  <span class="comment"># yes</span>
+k auth can-i delete pods --as=system:serviceaccount:finance:auditor -n finance  <span class="comment"># no</span></code></pre>
+
+        <h3>Cluster-wide (ClusterRole + ClusterRoleBinding) &mdash; NO <code>-n</code></h3>
+<pre><code>k create clusterrole node-reader --verb=get,list,watch --resource=nodes
+k create clusterrolebinding node-read --clusterrole=node-reader \
+     --serviceaccount=finance:auditor</code></pre>
+
+        <h3>The two SA syntaxes (the slip)</h3>
+        <table>
+          <thead><tr><th>Where</th><th>Format</th></tr></thead>
+          <tbody>
+            <tr><td><code>--serviceaccount=</code></td><td><code>finance:auditor</code> (ns:name)</td></tr>
+            <tr><td><code>--as=</code></td><td><code>system:serviceaccount:finance:auditor</code> (full prefix)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Gotchas</h3>
+        <ul>
+          <li>Bind the role you <strong>made</strong>, not built-in <code>admin</code> (admin = broad, breaks least-privilege).</li>
+          <li><code>--serviceaccount=</code> with no namespace &rarr; defaults to <code>default:auditor</code> &rarr; binds nothing.</li>
+          <li>All three namespaced creates need <code>-n</code> &mdash; silent zero otherwise.</li>
+          <li>Multiple verbs/resources = comma list, no spaces: <code>--verb=get,list,watch</code>.</li>
+          <li>Bind to a user/group instead of an SA: <code>--user=jane</code> / <code>--group=devs</code>.</li>
+        </ul>
+
+        <h3>Docs path</h3>
+        <ul>
+          <li>Imperative flags &rarr; <code>k create role --help</code> / <code>k create rolebinding --help</code> (EXAMPLES &mdash; faster than docs, works offline).</li>
+          <li>YAML form &rarr; k8s.io search <strong>"Role and RoleBinding"</strong>.</li>
         </ul>
       </section>
 
