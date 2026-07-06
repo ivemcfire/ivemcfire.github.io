@@ -303,6 +303,10 @@
       <button class="tab-button" data-tab="networking">Networking</button>
       <button class="tab-button" data-tab="cluster">Cluster Ops</button>
       <button class="tab-button" data-tab="rbac">RBAC</button>
+      <button class="tab-button" data-tab="helm">Helm</button>
+      <button class="tab-button" data-tab="kustomize">Kustomize</button>
+      <button class="tab-button" data-tab="crd">CRDs &amp; Operators</button>
+      <button class="tab-button" data-tab="gateway">Gateway API</button>
     </div>
 
     <main>
@@ -966,10 +970,150 @@ k create clusterrolebinding node-read --clusterrole=node-reader \
         </ul>
       </section>
 
+      <section class="tab-content" id="helm">
+        <h2>Helm &mdash; package manager <span style="opacity:.6">(post-2025 addition)</span></h2>
+        <p><strong>helm.sh/docs is now an allowed exam tab.</strong> Lookup-class &mdash; know the ~8 commands + the values flow.</p>
+
+        <h3>Repos &amp; search</h3>
+<pre><code>helm repo add <span class="comment">&lt;name&gt; &lt;url&gt;</span>
+helm repo update
+helm search repo <span class="comment">&lt;term&gt;</span></code></pre>
+
+        <h3>Install / manage</h3>
+<pre><code>helm install &lt;release&gt; &lt;repo/chart&gt; -n &lt;ns&gt; --create-namespace
+helm upgrade --install &lt;release&gt; &lt;chart&gt;   <span class="comment"># idempotent upsert</span>
+helm uninstall &lt;release&gt; -n &lt;ns&gt;
+helm ls -A                                  <span class="comment"># all releases</span>
+helm history &lt;release&gt; ; helm rollback &lt;release&gt; &lt;REV&gt;</code></pre>
+
+        <h3>Values (the exam move)</h3>
+<pre><code>helm show values &lt;repo/chart&gt; &gt; values.yaml   <span class="comment"># dump defaults, edit</span>
+helm install &lt;rel&gt; &lt;chart&gt; -f values.yaml
+helm install &lt;rel&gt; &lt;chart&gt; --set key=val,key2=val2
+helm template &lt;chart&gt;    <span class="comment"># render locally, no install</span></code></pre>
+
+        <h3>Gotchas</h3>
+        <ul>
+          <li><code>-n &lt;ns&gt;</code> per command &mdash; releases are namespaced.</li>
+          <li>Precedence: <code>--set</code> &gt; <code>-f</code> &gt; chart defaults (last wins).</li>
+          <li><code>repo/chart</code> ref only resolves after <code>repo add</code> + <code>repo update</code>.</li>
+        </ul>
+        <h3>Docs path</h3>
+        <ul><li><strong>helm.sh/docs</strong> &rarr; "Helm Commands" / "Values Files"; <code>helm &lt;cmd&gt; --help</code>.</li></ul>
+      </section>
+
+      <section class="tab-content" id="kustomize">
+        <h2>Kustomize &mdash; template-free overlays <span style="opacity:.6">(post-2025 addition)</span></h2>
+        <p>Built into kubectl via <code>-k</code> &mdash; no separate binary. Patches, not variables.</p>
+
+        <h3>Commands</h3>
+<pre><code>k kustomize ./dir      <span class="comment"># render to stdout (preview, no apply)</span>
+k apply -k ./dir       <span class="comment"># build + apply</span>
+k delete -k ./dir</code></pre>
+
+        <h3>kustomization.yaml <span style="opacity:.6">(must be named exactly this)</span></h3>
+<pre><code>apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml
+namespace: prod          <span class="comment"># force ns on all</span>
+namePrefix: dev-
+commonLabels:
+  app: web
+images:
+  - name: nginx
+    newTag: "1.27"       <span class="comment"># swap tag, no file edit</span></code></pre>
+
+        <h3>Gotchas</h3>
+        <ul>
+          <li>File MUST be <code>kustomization.yaml</code>; <code>-k</code> points at the <strong>dir</strong>, not the file.</li>
+          <li><code>k kustomize</code> = preview; <code>k apply -k</code> = apply. Preview first.</li>
+          <li>Overlays: <code>resources: [../../base]</code> (relative to the base dir).</li>
+        </ul>
+        <h3>Docs path</h3>
+        <ul><li>k8s.io search <strong>"kustomize"</strong>.</li></ul>
+      </section>
+
+      <section class="tab-content" id="crd">
+        <h2>CRDs &amp; Operators <span style="opacity:.6">(post-2025 addition)</span></h2>
+
+        <h3>Inspect the API</h3>
+<pre><code>k get crd                       <span class="comment"># installed custom kinds</span>
+k api-resources | grep &lt;group&gt;
+k explain &lt;cr&gt;.spec --recursive
+k get &lt;cr&gt; -A ; k describe &lt;cr&gt; &lt;name&gt; -n &lt;ns&gt;</code></pre>
+
+        <h3>Install flow (operator)</h3>
+        <ul>
+          <li>Apply operator: <code>k apply -f operator.yaml</code> (or <code>helm install</code>)</li>
+          <li>Confirm kinds registered: <code>k get crd</code></li>
+          <li>Create a CR of the new kind (normal <code>k apply -f cr.yaml</code>)</li>
+          <li>Verify: <code>k get &lt;cr&gt;</code> + watch the controller pod act</li>
+        </ul>
+
+        <h3>Gotchas</h3>
+        <ul>
+          <li>CRD <code>metadata.name</code> MUST be <code>&lt;plural&gt;.&lt;group&gt;</code>.</li>
+          <li>Operator = CRD + a controller pod. No controller &rarr; CRs just sit there.</li>
+          <li>Exactly one version has <code>storage: true</code>.</li>
+        </ul>
+        <h3>Docs path</h3>
+        <ul><li>k8s.io search <strong>"CustomResourceDefinition"</strong> / "operator pattern".</li></ul>
+      </section>
+
+      <section class="tab-content" id="gateway">
+        <h2>Gateway API &mdash; Ingress successor <span style="opacity:.6">(post-2025 addition)</span></h2>
+        <p>apiGroup <code>gateway.networking.k8s.io</code>. Three layered objects.</p>
+
+        <h3>The three objects</h3>
+        <table>
+          <thead><tr><th>Object</th><th>Owner</th><th>Does</th></tr></thead>
+          <tbody>
+            <tr><td>GatewayClass</td><td>provider</td><td>which controller (usually pre-installed)</td></tr>
+            <tr><td>Gateway</td><td>cluster op</td><td>listeners: ports/protocols/hosts</td></tr>
+            <tr><td>HTTPRoute</td><td>app dev</td><td>host/path &rarr; backend Service</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Inspect</h3>
+<pre><code>k get gatewayclass
+k get gateway,httproute -A</code></pre>
+
+        <h3>Gateway + HTTPRoute (skeletons)</h3>
+<pre><code>kind: Gateway
+spec:
+  gatewayClassName: &lt;class&gt;      <span class="comment"># from k get gatewayclass</span>
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+---
+kind: HTTPRoute
+spec:
+  parentRefs:
+    - name: web-gw                <span class="comment"># the Gateway name</span>
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: / }
+      backendRefs:
+        - name: web-svc           <span class="comment"># a Service, not a pod</span>
+          port: 80</code></pre>
+
+        <h3>Gotchas</h3>
+        <ul>
+          <li>HTTPRoute <code>parentRefs.name</code> MUST match the Gateway (+ns if cross-ns).</li>
+          <li><code>gatewayClassName</code> must be a real class &mdash; check first.</li>
+          <li><code>backendRefs</code> &rarr; a <strong>Service</strong>. Migration Q's compare vs single-object Ingress.</li>
+        </ul>
+        <h3>Docs path</h3>
+        <ul><li>k8s.io search <strong>"gateway api"</strong>.</li></ul>
+      </section>
+
     </main>
 
     <footer>
-      Last updated: 2026-06-28 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
+      Last updated: 2026-07-05 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
     </footer>
 
     <button class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">&uarr;</button>
