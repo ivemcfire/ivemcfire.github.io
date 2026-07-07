@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+  labels:
+    app: wordpress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      containers:
+      - name: wordpress
+        image: wordpress:php8.2-apache
+        command: ["/bin/sh", "-c", "mkdir -p /var/log/app && while true; do echo \"$(date) GET /wp-admin 200\" >> /var/log/app/access.log; sleep 3; done"]
+        volumeMounts:
+        - name: shared-logs
+          mountPath: /var/log/app
+      initContainers:
+      - name: log-shipper
+        image: busybox:1.28
+        restartPolicy: Always
+        command: ["/bin/sh", "-c", "tail -F /var/log/app/access.log"]
+        volumeMounts:
+        - name: shared-logs
+          mountPath: /var/log/app
+      volumes:
+      - name: shared-logs
+        emptyDir: {}
