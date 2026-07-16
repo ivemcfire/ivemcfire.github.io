@@ -535,6 +535,8 @@ k delete pod -l key=value             <span class="comment"># by label selector<
         <h3>Gotchas</h3>
 
         <ul>
+          <li><strong><code>run</code> = pod, no resource noun</strong> (<code>docker run</code> legacy). <code>k run pod catalog</code> &rarr; pod NAMED <code>pod</code>, <code>catalog</code> becomes the container command &rarr; CrashLoop. <code>create</code> needs the noun; <code>run</code> never does.</li>
+          <li><code>expose --target-port</code> only when the container port actually differs. Endpoints populate as <code>podIP:targetPort</code> with NO listener check &mdash; wrong value = populated-but-dead service. Read the PORT in <code>k get endpoints</code>, not just presence.</li>
           <li><strong>Container name = image basename AT CREATE TIME</strong> (incl. typos: <code>--image=ngnix</code> &rarr; container <code>ngnix</code>). It's the <code>CONTAINER</code> token for <code>set image</code>. Don't assume it &mdash; look it up: <code>k describe deploy/NAME | grep -i image</code>.</li>
           <li><code>k set image deployment/NAME container=image</code> uses <code>=</code>, not space.</li>
           <li><code>k rollout status</code> blocks until rollout completes (or stalls). If it hangs, image is failing &mdash; check <code>describe pod</code>.</li>
@@ -666,6 +668,8 @@ k exec -it debug -- sh</code></pre>
 
         <ul>
           <li><code>--</code> is not optional. Forgetting it = "unknown flag" error.</li>
+          <li><code>--restart=Never</code> is ONE token with <code>=</code>. Typing <code>-- restart Never</code> puts everything after the first <code>--</code> into the container command.</li>
+          <li>NetworkPolicy allow-probe: run it in the ALLOWED <strong>namespace</strong> with the ALLOWED <strong>label</strong> (<code>-n &lt;ns&gt; --labels k=v</code>). Right label + wrong ns = you're testing the deny path. The output names the ns: <code>pod &lt;ns&gt;/&lt;name&gt;</code>.</li>
           <li><code>-O-</code> = capital-O-dash. <code>-0-</code> (zero) silently fails.</li>
           <li><code>busybox:latest</code> lies &mdash; broken <code>nslookup</code> AND a <code>wget</code> that returns a false <code>connection refused</code>. Pin <code>busybox:1.28</code> for <strong>all</strong> probes.</li>
           <li><strong><code>connection refused</code> &ne; blocked.</strong> Refused/RST = traffic reached the host, nothing listening (or a reject-CNI policy). <code>timeout</code> = packets dropped (drop-CNI policy / no route). Different diagnoses.</li>
@@ -807,6 +811,8 @@ k run t --image=busybox:1.28 -n ns --rm -it --restart=Never -- wget -qO- --timeo
         <h3>Gotchas</h3>
         <ul>
           <li>Separate <code>-</code> = OR; two selectors in one <code>-</code> = AND. Trips everyone.</li>
+          <li>Cross-ns allow test: the prober must ALSO run in the allowed <strong>namespace</strong> &mdash; right label + wrong ns = deny path. Check <code>pod &lt;ns&gt;/&lt;name&gt;</code> in the probe output.</li>
+          <li><strong>Always prove the deny</strong> &mdash; an OR-bug policy and a dead CNI look IDENTICAL from the allowed side (both succeed). Only the blocked probe distinguishes them.</li>
           <li>Source ns must carry a label to match &mdash; built-in <code>kubernetes.io/metadata.name</code>.</li>
           <li>CNI without policy support (flannel) = policy silently no-ops.</li>
           <li><strong>Deny shows as <code>timeout</code> OR <code>connection refused</code></strong> depending on the CNI (drop vs reject). Don't read allow/deny off the error string &mdash; judge by the controlled comparison: labeled pod gets in, unlabeled is blocked.</li>
@@ -916,10 +922,34 @@ k uncordon node01</code></pre>
           </tbody>
         </table>
 
+        <h3>kubectl is dead (refused :6443) &mdash; the ladder</h3>
+<pre><code>ssh &lt;controlplane&gt;                          <span class="comment"># crictl/systemctl live ON the node</span>
+crictl ps -a | grep -i apiserver
+<span class="comment">#   Exited container  -> apiserver crashing -> crictl logs -> fix manifest</span>
+<span class="comment">#   NO container      -> kubelet never acted -> keep climbing:</span>
+ls /etc/kubernetes/manifests/               <span class="comment"># 4 static manifests present?</span>
+grep staticPodPath /var/lib/kubelet/config.yaml
+systemctl status kubelet                    <span class="comment"># read BOTH: Loaded: AND Active:</span>
+journalctl -u kubelet | tail                <span class="comment"># hostname in loglines = right node?</span></code></pre>
+        <table>
+          <thead><tr><th>Finding</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr><td>unit "could not be found" (it IS the answer)</td><td><code>apt-get install --reinstall -y kubelet</code> &mdash; then VERIFY <code>Active:</code>; may still need <code>systemctl start kubelet</code></td></tr>
+            <tr><td><code>Active: inactive (dead)</code> / disabled</td><td><code>systemctl enable --now kubelet</code></td></tr>
+            <tr><td>misconfig</td><td><code>kubelet.conf</code>=kubeconfig &middot; <code>config.yaml</code>=settings &middot; <code>manifests/</code>=static pods</td></tr>
+            <tr><td>apiserver Exited</td><td><code>crictl logs</code> &rarr; fix the manifest FILE (never <code>k delete</code> a static pod)</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><strong>Verify at the layer you fixed, bottom-up:</strong> unit &rarr; <code>Active: running</code> &rarr; apiserver container &rarr; <code>:6443</code> &rarr; <code>k get nodes</code>. The apiserver needs ~1 min after kubelet starts &mdash; don't panic-retry from the bastion at 30s.</li>
+          <li>Exited apiserver = crash &middot; ABSENT apiserver = kubelet not acting. scheduler/cm sitting Exited for hours = kubelet dead (kubelet is the restarter). Other containers still Running = normal (containerd keeps them alive).</li>
+        </ul>
+
         <h3>Docs path</h3>
         <ul>
           <li>etcd: k8s.io search <strong>"etcd backup"</strong> &rarr; <em>Operating etcd clusters</em>.</li>
           <li>upgrade: <strong>"kubeadm upgrade"</strong> &rarr; <em>Upgrading kubeadm clusters</em> (copy the sequence, follow line by line).</li>
+          <li>crictl: search <strong>"crictl"</strong> &rarr; <em>Debugging Kubernetes nodes with crictl</em>.</li>
         </ul>
       </section>
 
@@ -1100,11 +1130,18 @@ spec:
         - name: web-svc           <span class="comment"># a Service, not a pod</span>
           port: 80</code></pre>
 
+        <h3>Verify (the grade &mdash; conditions, not just created)</h3>
+<pre><code>k get gateway &lt;name&gt;                        <span class="comment"># PROGRAMMED True (+ADDRESS only if LB exists)</span>
+k describe httproute &lt;name&gt; | grep -B2 -A8 Conditions
+<span class="comment"># want: Accepted True + "references resolved"</span></code></pre>
+
         <h3>Gotchas</h3>
         <ul>
           <li>HTTPRoute <code>parentRefs.name</code> MUST match the Gateway (+ns if cross-ns).</li>
           <li><code>gatewayClassName</code> must be a real class &mdash; check first.</li>
           <li><code>backendRefs</code> &rarr; a <strong>Service</strong>. Migration Q's compare vs single-object Ingress.</li>
+          <li><code>rules:</code> is a <strong>LIST</strong> &mdash; deleting the <code>matches:</code> block must keep the dash: <code>- backendRefs:</code>.</li>
+          <li>Docs-noun sweep after paste: pass 1 = names (<code>example-gateway</code>!), pass 2 = class/path/port. Your own <code>parentRefs</code> tells you the Gateway's required name.</li>
         </ul>
         <h3>Docs path</h3>
         <ul><li>k8s.io search <strong>"gateway api"</strong>.</li></ul>
@@ -1113,7 +1150,7 @@ spec:
     </main>
 
     <footer>
-      Last updated: 2026-07-05 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code>
+      Last updated: 2026-07-16 &middot; Source: <code>~/.claude/skills/cka-tutor/cheat_cards/</code> &middot; <a href="/cka-phone.html" style="color:var(--accent)">phone drills &rarr;</a>
     </footer>
 
     <button class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">&uarr;</button>

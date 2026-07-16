@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CKA pocket drills &mdash; Ivalin's Lab</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0a0a0a;
+        --surface: #111;
+        --border: #222;
+        --text: #e0e0e0;
+        --text-dim: #777;
+        --accent: #ff6b35;
+        --accent-dim: #ff6b3522;
+        --mono: 'JetBrains Mono', monospace;
+        --serif: 'Instrument Serif', Georgia, serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 15px;
+        line-height: 1.55;
+        padding: 1rem 0.9rem 4rem;
+        max-width: 700px;
+        margin: 0 auto;
+      }
+      nav a { color: var(--text-dim); text-decoration: none; font-size: 0.75rem; }
+      nav a:hover { color: var(--accent); }
+      h1 {
+        font-family: var(--serif);
+        font-weight: 400;
+        font-size: 1.9rem;
+        margin: 1rem 0 0.2rem;
+        letter-spacing: -0.02em;
+      }
+      p.sub { color: var(--text-dim); font-size: 0.8rem; margin-bottom: 1.4rem; }
+      h2 {
+        font-family: var(--serif);
+        font-weight: 400;
+        font-size: 1.3rem;
+        color: var(--accent);
+        margin: 2rem 0 0.7rem;
+      }
+      details {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        margin-bottom: 0.6rem;
+        overflow: hidden;
+      }
+      summary {
+        cursor: pointer;
+        padding: 0.85rem 0.9rem;
+        list-style: none;
+        position: relative;
+        padding-right: 2rem;
+        -webkit-tap-highlight-color: transparent;
+      }
+      summary::-webkit-details-marker { display: none; }
+      summary::after {
+        content: '+';
+        position: absolute;
+        right: 0.9rem;
+        top: 0.75rem;
+        color: var(--accent);
+        font-weight: 700;
+      }
+      details[open] summary::after { content: '\2212'; }
+      details[open] summary { border-bottom: 1px solid var(--border); background: var(--accent-dim); }
+      .answer { padding: 0.8rem 0.9rem; font-size: 0.86rem; }
+      .answer p { margin-bottom: 0.5rem; }
+      .answer p:last-child { margin-bottom: 0; }
+      pre {
+        background: #000;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.6rem 0.7rem;
+        overflow-x: auto;
+        font-size: 0.78rem;
+        line-height: 1.5;
+        margin: 0.5rem 0;
+      }
+      code { color: var(--accent); font-family: var(--mono); font-size: 0.95em; }
+      pre code { color: var(--text); }
+      .why { color: var(--text-dim); font-size: 0.8rem; }
+      ol.fatal { padding-left: 1.4rem; }
+      ol.fatal li { margin-bottom: 0.55rem; }
+      .tag {
+        display: inline-block;
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 0 0.35rem;
+        margin-right: 0.4rem;
+        vertical-align: middle;
+      }
+      .hint { color: var(--text-dim); font-size: 0.78rem; margin: 0.8rem 0 1rem; }
+    </style>
+  </head>
+  <body>
+    <nav><a href="/cka.html">&larr; full cheat sheet</a></nav>
+    <h1>CKA pocket drills</h1>
+    <p class="sub">Phone-only recall reps &middot; built from YOUR actual misses &middot; exam 2026-08-10</p>
+
+    <p class="hint"><strong>How to use:</strong> read the scenario, say the FULL answer out loud (the command, the geometry, the ladder) &mdash; then tap to check. Saying "I'd look that up" only counts for lookup-class cards, and then you must name the docs page. 2-3 passes a day beats one long one.</p>
+
+    <h2>1 &middot; Your miss bank</h2>
+
+    <details><summary><span class="tag">repeat offender</span>Test that pods labeled <code>job=probe</code> in ns <code>metrics</code> can reach 10.0.0.5:80 &mdash; and that others can't. Both commands.</summary><div class="answer">
+<pre><code>k run probe -n metrics --labels job=probe --image=busybox:1.28 \
+  --rm -it --restart=Never -- wget -O- --timeout=3 http://10.0.0.5
+k run outsider --image=busybox:1.28 \
+  --rm -it --restart=Never -- wget -O- --timeout=3 http://10.0.0.5</code></pre>
+<p class="why">You've asked for this syntax 3+ times. Anchors: <code>--restart=Never</code> is ONE token &middot; <code>-O-</code> capital O &middot; allow-probe needs the right label AND the right ns &middot; pin busybox:1.28.</p>
+</div></details>
+
+    <details><summary><span class="tag">07-16</span>Create a pod named <code>catalog</code>, image nginx, label tier=catalog, in ns shop. Exact command &mdash; what's the trap?</summary><div class="answer">
+<pre><code>k run catalog --image=nginx -n shop --labels tier=catalog</code></pre>
+<p class="why">Trap: <code>k run pod catalog</code> = pod NAMED "pod", <code>catalog</code> becomes the container command &rarr; CrashLoop. <strong>run = pod, no noun; create = needs the noun.</strong></p>
+</div></details>
+
+    <details><summary><span class="tag">2&times; repeat</span>You exposed an nginx deployment with <code>--target-port 8080</code>. Endpoints show <code>10.42.0.12:8080</code>. What does the grader see?</summary><div class="answer">
+<p>A zero. Endpoints = <code>podIP:targetPort</code> &mdash; k8s NEVER checks anything listens there. nginx serves :80, so the service is populated-but-dead.</p>
+<p class="why">Populated &ne; correct: read the PORT in <code>k get endpoints</code>, not just presence. Only set <code>--target-port</code> when the container port actually differs.</p>
+</div></details>
+
+    <details><summary><span class="tag">the L3 wall</span>Recite the <code>from:</code> geometry: allow pods <code>job=probe</code> in ns <code>metrics</code> only. AND vs OR &mdash; where do the dashes go?</summary><div class="answer">
+<pre><code>ingress:
+- from:
+  - namespaceSelector:          # dash = starts the ONE from-item
+      matchLabels:
+        kubernetes.io/metadata.name: metrics
+    podSelector:                # NO dash = AND (same item)
+      matchLabels:
+        job: probe
+  ports:                        # sibling of from:
+  - protocol: TCP
+    port: 80</code></pre>
+<p class="why">Second dash on podSelector = OR = allows every pod in metrics AND every job=probe pod anywhere. The ns label goes UNDER matchLabels (07-13 slip).</p>
+</div></details>
+
+    <details><summary>Why must you always prove the DENY on a NetworkPolicy, not just the allow?</summary><div class="answer">
+<p>An OR-bug policy, a selector that matches nothing, and a dead CNI all look IDENTICAL from the allowed side: the probe succeeds. Only the blocked probe distinguishes "policy works" from "policy silently no-ops".</p>
+<p class="why">Burned ~25 min on this across two labs on 07-13.</p>
+</div></details>
+
+    <details><summary><span class="tag">cluster2</span><code>k get nodes</code> &rarr; connection refused :6443. First two moves, and the discriminator you're looking for.</summary><div class="answer">
+<pre><code>ssh &lt;controlplane&gt;        # tools live on the node
+crictl ps -a | grep -i apiserver</code></pre>
+<p><strong>Exited</strong> container = apiserver crashing (read <code>crictl logs</code>, fix manifest). <strong>NO container at all</strong> = kubelet never acted &rarr; manifests present? staticPodPath right? &rarr; the kubelet itself.</p>
+<p class="why">Bonus tell: scheduler/cm sitting Exited for hours unrestarted = kubelet dead (kubelet is the restarter).</p>
+</div></details>
+
+    <details><summary><code>systemctl status kubelet</code> prints two lines that matter. Which, and what does each tell you?</summary><div class="answer">
+<p><code>Loaded:</code> &mdash; unit found + enabled? "Unit could not be found" IS the answer, never noise.</p>
+<p><code>Active:</code> &mdash; actually running? <code>inactive (dead)</code> = installed but never started &rarr; <code>systemctl start kubelet</code> (or <code>enable --now</code> if disabled).</p>
+<p class="why">07-16 wrinkle: after <code>apt-get install --reinstall -y kubelet</code> the unit was back but inactive &mdash; the postinst doesn't always start it. Verify Active:, don't assume.</p>
+</div></details>
+
+    <details><summary><span class="tag">07-16 slip</span>You reinstalled the kubelet unit. What's the verify sequence &mdash; and what did you do wrong last time?</summary><div class="answer">
+<p>Verify AT THE LAYER YOU FIXED, bottom-up: unit &rarr; <code>Active: running</code> &rarr; apiserver container appears &rarr; :6443 answers &rarr; <code>k get nodes</code> Ready.</p>
+<p class="why">Last time: hopped back to the bastion and retried kubectl ~30s after the fix, zero layer-verify. The apiserver needs ~1 min after kubelet starts.</p>
+</div></details>
+
+    <details><summary><span class="tag">silent zero</span>The question says cluster4. The deployment it names exists on the cluster you're on. Are you safe?</summary><div class="answer">
+<p>No &mdash; KK (and the exam pool) seed same-named resources on multiple clusters. The target existing proves NOTHING about being on the right cluster.</p>
+<pre><code>k config use-context cluster4 && k config current-context</code></pre>
+<p class="why">Free second check: node names in <code>k get po -o wide</code> / describe (cluster4-node01 vs cluster1-node01). This exact miss cost you Q3 on 07-14.</p>
+</div></details>
+
+    <details><summary>Gateway API: name the 3 objects, what binds a route to its gateway, and the verify commands.</summary><div class="answer">
+<p>GatewayClass (provider) &rarr; Gateway (listeners) &rarr; HTTPRoute (host/path &rarr; Service). <code>parentRefs.name</code> on the HTTPRoute binds it &mdash; without it the route is inert.</p>
+<pre><code>k get gatewayclass                  # the real class name
+k get gateway X                     # PROGRAMMED True
+k describe httproute Y              # Accepted + refs resolved</code></pre>
+</div></details>
+
+    <details><summary><span class="tag">07-16</span>You delete the <code>matches:</code> block from an HTTPRoute rule. What breaks?</summary><div class="answer">
+<pre><code>rules:
+- backendRefs:        # keep the dash! rules is a LIST
+  - name: web
+    port: 80</code></pre>
+<p class="why">Deleting matches took the dash with it &rarr; <code>rules:</code> became a map &rarr; schema error.</p>
+</div></details>
+
+    <details><summary><span class="tag">3&times; pattern</span>You just pasted YAML from the docs. Recite the two-pass sweep.</summary><div class="answer">
+<p><strong>Pass 1 = names</strong> (metadata.name, namespace &mdash; <code>example-gateway</code>, <code>test-network-policy</code>, <code>task-pv-pod</code> all shipped once).</p>
+<p><strong>Pass 2 = classes / paths / policies</strong> (<code>example-class</code>, <code>/login</code>, <code>storageClassName: manual</code>, missing <code>Retain</code>).</p>
+<p class="why">07-14 PV + 07-16 Gateway: every miss was a docs noun that survived the paste.</p>
+</div></details>
+
+    <details><summary><span class="tag">07-14</span>Local PV on node01, no dynamic provisioning. Which volume type, which extra block, which reclaim policy &mdash; and which docs page?</summary><div class="answer">
+<pre><code>spec:
+  local:                    # NOT hostPath!
+    path: /mnt/disk
+  persistentVolumeReclaimPolicy: Retain
+  nodeAffinity:             # REQUIRED for local
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - {key: kubernetes.io/hostname, operator: In, values: [node01]}</code></pre>
+<p class="why">Docs: Concepts &rarr; Storage &rarr; <strong>Volumes</strong> page, <code>#local</code> section &mdash; NOT the Persistent Volumes page. SC pair: <code>provisioner: kubernetes.io/no-provisioner</code> + <code>volumeBindingMode: WaitForFirstConsumer</code> (both TOP-level keys).</p>
+</div></details>
+
+    <details><summary>PVC with <code>volumeName:</code> set + SC is WaitForFirstConsumer. When does it bind?</summary><div class="answer">
+<p>IMMEDIATELY &mdash; explicit <code>volumeName:</code> pre-binds and short-circuits delayed binding. Pending only happens for unbound/dynamic claims. (Bound PVC then reports the PV's size, not the request &mdash; normal.)</p>
+</div></details>
+
+    <details><summary><span class="tag">false green</span><code>k auth can-i list pods --as=system:serviceaccount:fin:auditor</code> returns yes. What does that NOT prove?</summary><div class="answer">
+<p>That the SA exists. <code>--as</code> string-matches the username against bindings &mdash; a typo'd or never-created SA still returns yes.</p>
+<p class="why">Pair it with <code>k get sa -n fin</code>. Your 07-05 slip: SA <code>metric-reader</code> vs binding subject <code>metrics-reader</code> &mdash; green check, broken RBAC.</p>
+</div></details>
+
+    <details><summary>RBAC chain in ns <code>finance</code> for SA <code>auditor</code>: recite all 4 commands &mdash; where does <code>-n</code> go?</summary><div class="answer">
+<pre><code>k create sa auditor -n finance
+k create role pod-auditor --verb=list,get --resource=pods -n finance
+k create rolebinding audit-bind --role=pod-auditor \
+  --serviceaccount=finance:auditor -n finance
+k auth can-i list pods \
+  --as=system:serviceaccount:finance:auditor -n finance</code></pre>
+<p class="why"><code>-n</code> on ALL of them (&times;3 creates + the check); SA subject = <code>ns:name</code>; bind YOUR role, not admin.</p>
+</div></details>
+
+    <details><summary>You edited a ConfigMap that a running deployment consumes as env. Is the app updated?</summary><div class="answer">
+<p>No. Env-consumed CM/Secret values are baked at container start &mdash; <code>k rollout restart deployment X</code> or nothing changed. Confirmed 2026 exam gotcha.</p>
+</div></details>
+
+    <details><summary>Delete a static pod. How &mdash; and what never works?</summary><div class="answer">
+<p><code>mv</code> its file out of <code>/etc/kubernetes/manifests/</code> on the node. <code>k delete pod</code> never works &mdash; the kubelet recreates it from the file; edits go in the FILE too.</p>
+</div></details>
+
+    <details><summary>The task directory has a <code>kustomization.yaml</code>. Which flag &mdash; and what's the reflex error?</summary><div class="answer">
+<p><code>k apply -k ./dir</code> (preview: <code>k kustomize ./dir</code>). Reflex error = muscle-memory <code>-f</code>, a reported recurring exam trap.</p>
+</div></details>
+
+    <details><summary><span class="tag">lookup-class</span>etcd snapshot save needs 4 flags. Name them + where the values live. (Status/restore: how many certs?)</summary><div class="answer">
+<pre><code>etcdctl snapshot save /opt/backup.db \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key</code></pre>
+<p class="why">Values readable off <code>/etc/kubernetes/manifests/etcd.yaml</code> (grep listen-client / pki paths). <strong>save = mTLS to the live server; status/restore = offline file ops, ZERO certs</strong>, just <code>--data-dir</code>. <code>ETCDCTL_API=3</code>: export once per question.</p>
+</div></details>
+
+    <details><summary>Pod ran with <code>--restart=Never</code>, now status Error. <code>logs --previous</code> errors out. Why?</summary><div class="answer">
+<p><code>--previous</code> needs a RESTARTED container (CrashLoop). restart=Never containers die once &mdash; there is no previous instance. Plain <code>k logs</code> reads the dead container.</p>
+<p class="why">Started-then-died + restarting = <code>--previous</code>. Died once, no restart = plain logs. You reached for --previous twice on 07-05.</p>
+</div></details>
+
+    <details><summary>HPA on deployment <code>web</code>: min 2, max 6, target 70% CPU. One command + the two reasons TARGETS shows <code>&lt;unknown&gt;</code>.</summary><div class="answer">
+<pre><code>k autoscale deployment web --min 2 --max 6 --cpu 70%</code></pre>
+<p class="why"><code>&lt;unknown&gt;</code> = no metrics-server OR no CPU <em>request</em> on the pods (the % is measured against the request). v1.35: <code>--cpu</code>, the old <code>--cpu-percent</code> is deprecated.</p>
+</div></details>
+
+    <details><summary>Native sidecar: where does the container go, what makes it "native", and what proves it worked?</summary><div class="answer">
+<p>An <code>initContainers</code> entry with <code>restartPolicy: Always</code> (only legal there). Proof = pod reaches <code>2/2 Running</code> &mdash; a non-native init running <code>tail -F</code> would wedge at <code>Init:0/1</code> forever.</p>
+</div></details>
+
+    <details><summary>Helm: render a chart's manifests to a file WITHOUT installing. And the CRD-skip trap?</summary><div class="answer">
+<pre><code>helm template NAME repo/chart --version X -n ns > out.yaml</code></pre>
+<p class="why"><code>--skip-crds</code> only skips a chart's native <code>crds/</code> dir; charts that TEMPLATE their CRDs (ArgoCD) need the chart value, e.g. <code>--set crds.install=false</code>. Reflex: <code>helm show values chart | grep -A5 crds</code>.</p>
+</div></details>
+
+    <details><summary>Service has no endpoints. First command, and the root cause it almost always is?</summary><div class="answer">
+<pre><code>k get endpoints &lt;svc&gt;         # empty?
+k get pod --show-labels        # vs the svc selector</code></pre>
+<p class="why">Selector &ne; pod labels &mdash; same root cause as RS "selector does not match template labels". Fix the selector or the labels; endpoints repopulate on their own.</p>
+</div></details>
+
+    <details><summary>Drain node01 for maintenance: the command, the flag you always need, and the two you sometimes need.</summary><div class="answer">
+<pre><code>k drain node01 --ignore-daemonsets</code></pre>
+<p class="why">Sometimes: <code>--delete-emptydir-data</code> (pods with emptyDir), <code>--force</code> (bare pods). After the work: <code>k uncordon node01</code>. cordon=block-new, drain=cordon+evict.</p>
+</div></details>
+
+    <h2>2 &middot; Fatal-mistake list (say all 7)</h2>
+    <details><summary>Tap AFTER you've recited them &mdash; graded against every exam rep.</summary><div class="answer">
+      <ol class="fatal">
+        <li><strong>Over-running one question</strong> &mdash; 15 min hard cap, then flag + move.</li>
+        <li><strong>Wrong namespace / context / node</strong> &mdash; right answer, wrong place = 0.</li>
+        <li><strong>Not verifying before moving on</strong> &mdash; exercise the object, don't re-read it.</li>
+        <li><strong>Static pod edited via kubectl</strong> &mdash; it's a FILE in /etc/kubernetes/manifests/.</li>
+        <li><strong>ConfigMap change without rollout restart.</strong></li>
+        <li><strong><code>-f</code> reflex on a Kustomize task</strong> &mdash; needs <code>-k</code>.</li>
+        <li><strong>No backup before editing critical resources</strong> &mdash; <code>k get X -o yaml &gt; backup.yaml</code>, 5 seconds.</li>
+      </ol>
+    </div></details>
+
+    <h2>3 &middot; Docs-path recall (lookup-class: name the PAGE)</h2>
+
+    <details><summary>Local PV with nodeAffinity &mdash; which page has the full YAML?</summary><div class="answer"><p><strong>Volumes</strong> page, <code>#local</code> section (NOT Persistent Volumes). You couldn't find it on 07-14 &mdash; that's why it's here.</p></div></details>
+    <details><summary>The built-in namespace label for cross-ns NetworkPolicy &mdash; which page documents it?</summary><div class="answer"><p><strong>Namespaces</strong> page (search "namespace labels") &rarr; <code>kubernetes.io/metadata.name</code>. The NetworkPolicy page's examples use custom ns labels &mdash; wrong place to look.</p></div></details>
+    <details><summary>etcd backup one-liner with all flags &mdash; search term?</summary><div class="answer"><p>"etcd backup" &rarr; <em>Operating etcd clusters for Kubernetes</em>.</p></div></details>
+    <details><summary>kubeadm upgrade &mdash; strategy for the whole procedure?</summary><div class="answer"><p>"kubeadm upgrade" &rarr; copy the ENTIRE sequence, follow line by line. Binary &rarr; <code>upgrade apply</code> (CP) / <code>upgrade node</code> (workers) &rarr; kubelet LAST, drain-bookended. Minor bump = edit the repo URL in sources.list.d first; patch bump = no repo edit.</p></div></details>
+    <details><summary>Name the 4 allowed docs domains on the exam.</summary><div class="answer"><p><code>kubernetes.io/docs</code> &middot; <code>kubernetes.io/blog</code> &middot; <code>helm.sh/docs</code> &middot; <code>gateway-api.sigs.k8s.io</code> (CKA-only). NOT github.com/kubernetes. And this page isn't available either &mdash; it's study-phase only.</p></div></details>
+    <details><summary>Gateway/HTTPRoute full YAML &mdash; two places?</summary><div class="answer"><p><code>gateway-api.sigs.k8s.io</code> &rarr; Guides &rarr; HTTP routing / TLS; or kubernetes.io search "gateway api".</p></div></details>
+
+    <h2>4 &middot; Mental walk-throughs (no reveal &mdash; narrate the whole thing)</h2>
+    <p class="hint">Do these on a walk. Talk yourself through every command including verifies. If you stall, that's tomorrow's first lab drill.</p>
+    <ul style="padding-left:1.3rem; font-size:0.86rem;">
+      <li style="margin-bottom:0.5rem;">Full etcd backup &rarr; restore &rarr; repoint cycle (which file, which line, what restarts kubelet-side).</li>
+      <li style="margin-bottom:0.5rem;">Node NotReady &rarr; the complete kubelet ladder &rarr; the 3 config-file map &rarr; fix and verify bottom-up.</li>
+      <li style="margin-bottom:0.5rem;">kubeadm patch upgrade, controlplane then worker &mdash; every drain/uncordon and the apply-vs-node split.</li>
+      <li style="margin-bottom:0.5rem;">A question opens: first 30 seconds, word for word (context switch, verify, read task, paste nouns).</li>
+      <li style="margin-bottom:0.5rem;">Cross-ns NetworkPolicy from blank file to both probes &mdash; recite the YAML top to bottom.</li>
+    </ul>
+
+    <p class="hint" style="margin-top:2rem;">Back from camping: killer.sh session 1 lands ~Jul 27 &mdash; first lab session should be CNI-install (#39, last zero-rep) + a Helm values-file install.</p>
+  </body>
+</html>
