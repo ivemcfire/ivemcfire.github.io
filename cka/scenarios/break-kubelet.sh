@@ -59,8 +59,8 @@ case "$VARIANT" in
     $SSH "$NODE" "systemctl disable --now kubelet" >/dev/null 2>&1 ;;
   1) # kubelet runs but talks to the wrong API server port
     $SSH "$NODE" "sed -i '/server:/s/:6443/:6553/' $KCONF; systemctl restart kubelet" >/dev/null 2>&1 ;;
-  2) # kubelet config points at a static pod directory that does not exist
-    $SSH "$NODE" "sed -i 's|^staticPodPath:.*|staticPodPath: /etc/kubernetes/manifests-disabled|' $KCFG; systemctl restart kubelet" >/dev/null 2>&1 ;;
+  2) # kubelet config carries an invalid value — the service fails to come up
+    $SSH "$NODE" "sed -i 's|^cgroupDriver:.*|cgroupDriver: cgroupfsX|' $KCFG; grep -q '^cgroupDriver:' $KCFG || echo 'cgroupDriver: cgroupfsX' >> $KCFG; systemctl restart kubelet" >/dev/null 2>&1 ;;
 esac
 
 printf '%s\n%s\n%s\n' "$CTX" "$NODE" "$VARIANT" > "$STATE"
