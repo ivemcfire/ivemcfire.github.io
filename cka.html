@@ -575,6 +575,21 @@ k delete deployment NAME              <span class="comment"># also kills RS + po
 k delete -f file.yaml
 k delete pod -l key=value             <span class="comment"># by label selector</span></code></pre>
 
+        <h3>Service has no endpoints</h3>
+<pre><code>k get svc,po --show-labels        <span class="comment"># selector vs pod labels</span>
+k get endpoints &lt;svc&gt;             <span class="comment"># &lt;none&gt; = selector matches nothing</span>
+k delete svc X &amp;&amp; k expose pod X --name X --port 80   <span class="comment"># expose copies the pod's OWN labels</span>
+k exec &lt;probe-pod&gt; -- curl -s &lt;svc&gt;</code></pre>
+        <ul>
+          <li><code>&lt;none&gt;</code> endpoints = selector mismatch. Populated but wrong port = targetPort mismatch.</li>
+          <li><code>protocol: UDP</code> on a TCP app &mdash; endpoints look fine and nothing works.</li>
+          <li>ClusterIP is auto-assigned. Never the fault.</li>
+        </ul>
+
+        <h3>Logs to a file</h3>
+<pre><code>k logs POD -n NS | grep '^ERROR' &gt; /path/file    <span class="comment"># anchor ^ when the task says "starting with"</span>
+cat /path/file                                  <span class="comment"># wrong-but-nonempty scores zero and looks fine</span></code></pre>
+
         <h3>Gotchas</h3>
 
         <ul>
@@ -782,6 +797,34 @@ spec:
   <span class="comment"># container.volumeMounts:</span>
   - name: data          <span class="comment"># MUST == volumes[].name</span>
     mountPath: /usr/share/nginx/html</code></pre>
+
+        <h3>Local PV &mdash; the three names that get typo'd</h3>
+<pre><code>spec:
+  persistentVolumeReclaimPolicy: Retain   <span class="comment"># NOT reclaimPolicy</span>
+  local:
+    path: /opt/data                       <span class="comment"># local, NOT hostPath, when nodeAffinity is required</span>
+  nodeAffinity:                           <span class="comment"># PV form: spec.nodeAffinity.required</span>
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values: [cluster1-controlplane]</code></pre>
+        <ul>
+          <li>PVC pre-bind is <code>volumeName: &lt;pv-name&gt;</code> &mdash; sibling of <code>resources:</code>, and the field is <strong>not</strong> <code>volume:</code>.</li>
+          <li><strong>PV affinity &ne; Pod affinity.</strong> PV = <code>spec.nodeAffinity.required</code>. Pod = <code>spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</code>.</li>
+          <li>Strict decoding catches all of these: <code>unknown field "spec.reclaimPolicy"</code> / <code>"spec.volume"</code>. Read the error &mdash; it names the field.</li>
+        </ul>
+
+        <h3>ResourceQuota interaction</h3>
+<pre><code>k describe quota &lt;name&gt; -n &lt;ns&gt;      <span class="comment"># Used vs Hard</span>
+k describe rs &lt;replicaset&gt;           <span class="comment"># the quota error lands HERE, not on the pods</span>
+<span class="comment"># exceeded quota: requested: requests.memory=128Mi, used: 256Mi, limited: 300Mi</span></code></pre>
+        <ul>
+          <li><code>requests</code> and <code>limits</code> are DIFFERENT fields &mdash; "don't change the limits" still lets you lower <code>requests</code>.</li>
+          <li>Max pods = floor(hard / per-pod request). Check every resource in the quota; the tightest wins.</li>
+          <li><strong>Tight-quota deadlock:</strong> editing the Deployment makes a new ReplicaSet, but the OLD pods still hold the quota so the new RS creates nothing. Delete the old RS to release it.</li>
+        </ul>
 
         <h3>accessModes &amp; binding</h3>
         <table>
@@ -1030,6 +1073,15 @@ k get po -n kube-system              <span class="comment"># which component: Im
 <span class="comment">#   absent entirely -&gt; its manifest file is gone from /etc/kubernetes/manifests/</span></code></pre>
         <p>Only then open the manifest. Don't invent faults in fields you haven't verified.</p>
 
+        <h3>Exam discipline on any troubleshoot</h3>
+        <ul>
+          <li><strong>Evidence before hypothesis.</strong> One <code>k get</code> / <code>crictl ps -a</code> before forming a theory. "Connection refused on :6443" names no layer by itself.</li>
+          <li><strong>Fix the minimum that makes it work, then stop.</strong> An extra "improvement" on a graded object can fail a spec diff even when traffic flows.</li>
+          <li><strong>Read state before mutating.</strong> If the task says the object exists, <code>k get</code> it &mdash; don't recreate it.</li>
+          <li><strong>Verify on the cluster/node you fixed.</strong> Node names in any output are the free context check.</li>
+          <li>Don't invent faults in fields you haven't verified &mdash; status first, files second.</li>
+        </ul>
+
         <h3>Node NotReady but kubectl still works &mdash; CNI layer</h3>
 <pre><code>k get nodes                                  <span class="comment"># one node NotReady</span>
 k describe node &lt;n&gt; | grep -i -A2 ready
@@ -1103,6 +1155,27 @@ k create clusterrolebinding node-read --clusterrole=node-reader \
         <h2>Helm &mdash; package manager <span style="opacity:.6">(post-2025 addition)</span></h2>
         <p><strong>helm.sh/docs is now an allowed exam tab.</strong> Lookup-class &mdash; know the ~8 commands + the values flow.</p>
 
+        <h3>install vs upgrade &mdash; read the task wording</h3>
+        <table>
+          <thead><tr><th>Task says</th><th>Command</th></tr></thead>
+          <tbody>
+            <tr><td>"replace the existing one, then uninstall the old"</td><td><code>install &lt;new-release&gt; &lt;chart&gt;</code> then <code>uninstall &lt;old-release&gt;</code></td></tr>
+            <tr><td>"update the release to version X" / "set replicas to 3"</td><td><code>upgrade &lt;same-release&gt; &lt;chart&gt;</code></td></tr>
+            <tr><td>unsure whether it exists</td><td><code>upgrade --install &lt;release&gt; &lt;chart&gt;</code></td></tr>
+            <tr><td>"roll back"</td><td><code>helm history &lt;rel&gt;</code> then <code>helm rollback &lt;rel&gt; &lt;REV&gt;</code></td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>install</code> = NEW release, fails if the name exists. <code>upgrade</code> = same release, revision +1, keeps history.</li>
+          <li>Release NAME is your handle; CHART is the package. One chart &rarr; many releases.</li>
+          <li>A chart can be a path: <code>helm install my-rel /root/new-version</code> (dir with Chart.yaml + values.yaml + templates/).</li>
+          <li><code>helm lint &lt;chart&gt;</code> is the "validate" verb; <code>helm install --dry-run</code> also validates.</li>
+          <li>Proof of which version is live: <code>helm list</code> &rarr; CHART (<code>name-0.1.1</code>) + APP VERSION.</li>
+          <li><strong><code>-f</code> takes VALUES files only</strong> &mdash; <code>Chart.yaml</code> is metadata; feeding it to <code>-f</code> is meaningless.</li>
+          <li>Editing <code>values.yaml</code> does nothing until the next <code>install</code>/<code>upgrade</code>.</li>
+          <li><code>-n</code> and <code>--namespace</code> are the same flag &mdash; don't pass both. Order is <code>helm install &lt;RELEASE&gt; &lt;CHART&gt;</code>, flags after.</li>
+        </ul>
+
         <h3>Repos &amp; search</h3>
 <pre><code>helm repo add <span class="comment">&lt;name&gt; &lt;url&gt;</span>
 helm repo update
@@ -1166,6 +1239,28 @@ images:
 
       <section class="tab-content" id="crd">
         <h2>CRDs &amp; Operators <span style="opacity:.6">(post-2025 addition)</span></h2>
+
+        <h3>A CR for a CRD you didn't write</h3>
+<pre><code>k get crd | grep -i &lt;keyword&gt;          <span class="comment"># verticalpodautoscalers.autoscaling.k8s.io</span>
+k api-resources | grep -i &lt;keyword&gt;    <span class="comment"># KIND + APIVERSION columns</span>
+k explain &lt;plural&gt;.spec                <span class="comment"># field names + types</span></code></pre>
+<pre><code>apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: analytics-vpa
+  namespace: cka24456          <span class="comment"># ns goes HERE, not in targetRef</span>
+spec:
+  targetRef:
+    apiVersion: apps/v1        <span class="comment"># targetRef = apiVersion/kind/name ONLY</span>
+    kind: Deployment
+    name: analytics-deployment
+  updatePolicy:
+    updateMode: "Auto"         <span class="comment"># Off | Initial | Recreate | Auto</span></code></pre>
+        <ul>
+          <li>apiVersion is <code>&lt;group&gt;/&lt;version&gt;</code> &mdash; <strong>never the CRD object name</strong>, and never guessed. Read it off the cluster.</li>
+          <li>The CR normally must live in its target's namespace.</li>
+          <li>Blank status columns right after apply are normal (the controller needs samples) &mdash; not graded.</li>
+        </ul>
 
         <h3>Inspect the API</h3>
 <pre><code>k get crd                       <span class="comment"># installed custom kinds</span>
