@@ -623,10 +623,10 @@ k taint nodes node01 spray=mortein:NoSchedule-       <span class="comment"># rem
         <p>Control-plane ships with <code>node-role.kubernetes.io/control-plane:NoSchedule</code> &mdash; that's why workloads avoid it.</p>
 
         <h3>Toleration / nodeSelector (pod YAML, under <code>spec:</code>)</h3>
-<pre><code>  tolerations:
+<pre><code>  tolerations:               <span class="comment"># spec level - sibling of containers:</span>
   - key: "spray"
-    operator: "Equal"        <span class="comment"># Exists = any value (omit value:)</span>
-    value: "mortein"
+    operator: "Equal"        <span class="comment"># Equal -&gt; value: required</span>
+    value: "mortein"         <span class="comment"># Exists -&gt; DELETE this line</span>
     effect: "NoSchedule"
   nodeSelector:
     size: Large              <span class="comment"># exact equality ONLY (no OR/NotIn)</span></code></pre>
@@ -654,6 +654,7 @@ k taint nodes node01 spray=mortein:NoSchedule-       <span class="comment"># rem
           <li><strong>Read identifiers off the object, never from memory:</strong> <code>k get nodes</code> for names, <code>k get node X --show-labels</code> for keys.</li>
           <li>Affinity needs all three levels: <code>nodeAffinity:</code> &rarr; <code>requiredDuringSchedulingIgnoredDuringExecution:</code> &rarr; <code>nodeSelectorTerms:</code>. Skipping the middle one = rejected.</li>
           <li>Affinity is a POD property &mdash; in a Deployment it goes at <code>template.spec.affinity</code> (6sp, sibling of <code>containers:</code>).</li>
+          <li><strong><code>operator: Exists</code> &rarr; NO <code>value:</code> line</strong> (matches any value); <code>operator: Equal</code> &rarr; <code>value:</code> required. Both together = the Pod is rejected: <em>value must be empty when operator is Exists</em>.</li>
           <li>Toleration <code>value</code> is string-exact &mdash; a typo (<code>mortain</code> &ne; <code>mortein</code>) leaves the pod Pending: the "but I added a toleration!" trap. Paste the noun.</li>
           <li>No matching node (nodeSelector / required affinity) = pod <strong>Pending</strong> forever.</li>
           <li><code>Pending</code> diagnosis: <code>k describe po X</code> &rarr; Events &rarr; "untolerated taint" / "didn't match node selector".</li>
