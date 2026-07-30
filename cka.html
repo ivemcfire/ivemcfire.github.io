@@ -1171,6 +1171,32 @@ k create clusterrolebinding node-read --clusterrole=node-reader \
           <li>A chart can be a path: <code>helm install my-rel /root/new-version</code> (dir with Chart.yaml + values.yaml + templates/).</li>
           <li><code>helm lint &lt;chart&gt;</code> is the "validate" verb; <code>helm install --dry-run</code> also validates.</li>
           <li>Proof of which version is live: <code>helm list</code> &rarr; CHART (<code>name-0.1.1</code>) + APP VERSION.</li>
+        </ul>
+
+        <h3>Which values? two different questions</h3>
+<pre><code>helm show values &lt;repo/chart&gt;          <span class="comment"># the CHART'S DEFAULTS</span>
+helm show values &lt;chart&gt; | grep -i replica
+helm get values &lt;release&gt; -n &lt;ns&gt;      <span class="comment"># YOUR RELEASE'S OVERRIDES</span>
+k get po,svc -n &lt;ns&gt;                   <span class="comment"># what is ACTUALLY running</span></code></pre>
+        <ul>
+          <li>Chart values (<code>replicaCount</code>, <code>service.type</code>) are defined by the chart. They are <strong>not helm flags</strong> &mdash; they never appear in <code>helm --help</code> or on helm.sh/docs.</li>
+          <li><code>helm get values</code> is a false-green on its own: it reports what you asked for, not what is running.</li>
+        </ul>
+
+        <h3>Revision numbers</h3>
+        <table>
+          <thead><tr><th>Column in <code>helm list</code></th><th>What it is</th><th>Moves when</th></tr></thead>
+          <tbody>
+            <tr><td><code>REVISION</code></td><td>helm's release counter</td><td>every <code>upgrade</code> AND every <code>rollback</code></td></tr>
+            <tr><td><code>CHART</code></td><td>chart package version (<code>nginx-25.0.16</code>)</td><td>you install a different chart version</td></tr>
+            <tr><td><code>APP VERSION</code></td><td>the app's own version (<code>1.31.3</code>), from Chart.yaml</td><td>the maintainer ships a new app</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>helm rollback &lt;rel&gt; 2</code> does NOT set the counter back to 2 &mdash; it creates a <strong>new</strong> revision whose content matches 2. Judge a rollback by cluster state, not the number.</li>
+          <li><code>helm history &lt;rel&gt; -n &lt;ns&gt;</code> shows the chain.</li>
+          <li><strong>A values FILE is nested YAML</strong> (<code>service:</code> then indented <code>type:</code>). Flat <code>service.type: X</code> creates a root key literally named <code>service.type</code>; the chart reads <code>.Values.service.type</code>, your override is silently ignored and you get the chart default. The dotted form is <code>--set</code> ONLY.</li>
+          <li><code>--create-namespace</code> on install/upgrade &mdash; no separate <code>k create ns</code> needed.</li>
           <li><strong><code>-f</code> takes VALUES files only</strong> &mdash; <code>Chart.yaml</code> is metadata; feeding it to <code>-f</code> is meaningless.</li>
           <li>Editing <code>values.yaml</code> does nothing until the next <code>install</code>/<code>upgrade</code>.</li>
           <li><code>-n</code> and <code>--namespace</code> are the same flag &mdash; don't pass both. Order is <code>helm install &lt;RELEASE&gt; &lt;CHART&gt;</code>, flags after.</li>
