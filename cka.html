@@ -533,6 +533,22 @@ k label pod NAME key-                           <span class="comment"># remove l
           <li>Write the literal value the task states. Percentages are scale-dependent; the grader reads the field.</li>
         </ul>
 
+        <h3>PodDisruptionBudget</h3>
+<pre><code>k create pdb ledger-pdb --selector app=ledger --min-available 3 -n payments
+k get pdb -n payments                 <span class="comment"># MIN AVAILABLE + ALLOWED DISRUPTIONS</span></code></pre>
+<pre><code>apiVersion: policy/v1
+kind: PodDisruptionBudget
+spec:
+  minAvailable: 3                            <span class="comment"># or maxUnavailable, never both</span>
+  unhealthyPodEvictionPolicy: AlwaysAllow    <span class="comment"># generator can't set; default IfHealthyBudget</span>
+  selector:
+    matchLabels:
+      app: ledger</code></pre>
+        <ul>
+          <li>Selector matches <strong>pod</strong> labels, not the Deployment name. Matching nothing &rarr; <code>ALLOWED DISRUPTIONS 0</code>, protects nothing, no error.</li>
+          <li>Guards <em>voluntary</em> disruption only (<code>k drain</code>, eviction API). A node crash ignores it.</li>
+        </ul>
+
         <h3>Forgot a field name? <code>k explain</code></h3>
 
 <pre><code>k explain deploy.spec | grep -i ready          <span class="comment"># find it by keyword</span>
@@ -986,6 +1002,33 @@ journalctl -u kubelet | tail                <span class="comment"># hostname in 
           <li><strong>Verify at the layer you fixed, bottom-up:</strong> unit &rarr; <code>Active: running</code> &rarr; apiserver container &rarr; <code>:6443</code> &rarr; <code>k get nodes</code>. The apiserver needs ~1 min after kubelet starts &mdash; don't panic-retry from the bastion at 30s.</li>
           <li>Exited apiserver = crash &middot; ABSENT apiserver = kubelet not acting. scheduler/cm sitting Exited for hours = kubelet dead (kubelet is the restarter). Other containers still Running = normal (containerd keeps them alive).</li>
         </ul>
+
+        <h3>Static pods &mdash; files on the node, not kubectl</h3>
+<pre><code>ssh &lt;node&gt;
+grep staticPodPath /var/lib/kubelet/config.yaml       <span class="comment"># confirm the dir</span>
+
+<span class="comment"># generate on the bastion, copy it over - never hand-type</span>
+k run metrics-agent --image busybox:1.28 --dry-run=client -o yaml -- sleep 3600 &gt; ma.yaml
+scp ma.yaml &lt;node&gt;:/etc/kubernetes/manifests/metrics-agent.yaml
+
+<span class="comment"># DELETE = move the file out. k delete pod just recreates it.</span>
+mv /etc/kubernetes/manifests/metrics-agent.yaml /root/</code></pre>
+        <ul>
+          <li>kubelet reloads the directory on save &mdash; <strong>no <code>k apply</code>, no <code>systemctl restart kubelet</code></strong>.</li>
+          <li>Pod name always gets <code>-&lt;nodename&gt;</code> appended. That's correct, not a bug.</li>
+          <li>Control-plane manifests exist <strong>only on the control plane</strong>. Workers have an empty <code>manifests/</code> and no admin kubeconfig.</li>
+          <li>Back up before editing: <code>cp /etc/kubernetes/manifests/X.yaml /root/</code>.</li>
+          <li>Component image tags = the cluster version &mdash; read it off <code>k get nodes</code> or <code>grep image .../kube-apiserver.yaml</code>.</li>
+          <li><code>scheduler.conf</code> / <code>controller-manager.conf</code> are CORRECT paths (kubeconfigs, not manifests) &mdash; don't invent a fault there.</li>
+        </ul>
+
+        <h3>Control-plane component broken &mdash; the ladder</h3>
+<pre><code>k describe po &lt;pending-pod&gt;
+<span class="comment">#   Events: &lt;none&gt; + Node: &lt;none&gt;  -&gt; the SCHEDULER is not running</span>
+<span class="comment">#   a truly unschedulable pod gets a loud FailedScheduling; a missing scheduler is SILENT</span>
+k get po -n kube-system              <span class="comment"># which component: ImagePull/CrashLoop/absent</span>
+<span class="comment">#   absent entirely -&gt; its manifest file is gone from /etc/kubernetes/manifests/</span></code></pre>
+        <p>Only then open the manifest. Don't invent faults in fields you haven't verified.</p>
 
         <h3>Node NotReady but kubectl still works &mdash; CNI layer</h3>
 <pre><code>k get nodes                                  <span class="comment"># one node NotReady</span>
