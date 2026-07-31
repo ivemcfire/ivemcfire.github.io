@@ -581,9 +581,23 @@ k get endpoints &lt;svc&gt;             <span class="comment"># &lt;none&gt; = s
 k delete svc X &amp;&amp; k expose pod X --name X --port 80   <span class="comment"># expose copies the pod's OWN labels</span>
 k exec &lt;probe-pod&gt; -- curl -s &lt;svc&gt;</code></pre>
         <ul>
-          <li><code>&lt;none&gt;</code> endpoints = selector mismatch. Populated but wrong port = targetPort mismatch.</li>
+          <li><code>&lt;none&gt;</code> endpoints = selector mismatch &mdash; <strong>diff the selector against the pod label character by character</strong> (<code>curlme-ckaO1</code> with a capital O vs <code>curlme-cka01</code> with a zero is a real seeded fault). Populated but wrong port = targetPort mismatch.</li>
           <li><code>protocol: UDP</code> on a TCP app &mdash; endpoints look fine and nothing works.</li>
           <li>ClusterIP is auto-assigned. Never the fault.</li>
+        </ul>
+
+        <h3>Ingress not working &mdash; 404 vs 503</h3>
+        <table>
+          <thead><tr><th>curl returns</th><th>Means</th><th>Look at</th></tr></thead>
+          <tbody>
+            <tr><td><strong>404</strong> from nginx</td><td>reached the controller, NO rule matched</td><td>the Ingress rule: host, path, backend name/port</td></tr>
+            <tr><td><strong>503</strong></td><td>rule matched, backend has no endpoints</td><td>the Service: selector, targetPort, protocol</td></tr>
+            <tr><td>refused / hangs</td><td>controller or DNS/hosts entry</td><td><code>k get ing</code> for an ADDRESS</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>k describe ing &lt;name&gt;</code> renders the rules and flags a missing backend inline: <code>&lt;error: services "x" not found&gt;</code>.</li>
+          <li>Docs-placeholder values left in a seeded manifest (<code>example.com</code>, <code>example-service:80</code>) are a stock fault.</li>
         </ul>
 
         <h3>Logs to a file</h3>
@@ -847,6 +861,27 @@ k describe rs &lt;replicaset&gt;           <span class="comment"># the quota err
 k create configmap app-cfg --from-file=config.txt
 k create secret generic db-sec --from-literal=password=s3cret
 <span class="comment"># consume: envFrom:[configMapRef|secretRef] | valueFrom.configMapKeyRef | volume</span></code></pre>
+
+        <h3>Mounting ONE key as a file &mdash; <code>subPath</code></h3>
+<pre><code>        volumeMounts:
+        - name: nginx-conf-vol
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf        <span class="comment"># MUST equal the ConfigMap key</span></code></pre>
+        <ul>
+          <li>A ConfigMap/Secret volume is a <strong>DIRECTORY</strong>. Mounting it onto a file path fails at container start: <code>RunContainerError</code> &rarr; <code>cannot mkdir &hellip; /default.conf: not a directory</code>.</li>
+          <li><code>subPath</code> mounts that single key as a file. Without it the mount replaces the whole directory.</li>
+          <li>Trade-off: a <code>subPath</code> mount does NOT live-update when the ConfigMap changes.</li>
+        </ul>
+
+        <h3>Env on a live Pod is immutable</h3>
+<pre><code>k get po X -n NS -o yaml &gt; web.yaml    <span class="comment"># add envFrom/env to the container</span>
+k delete po X -n NS
+k get po -n NS                        <span class="comment"># CONFIRM it's gone before applying</span>
+k apply -f web.yaml</code></pre>
+        <ul>
+          <li><code>k apply</code> on a running Pod returns <code>Forbidden: pod updates may not change fields other than spec.containers[*].image&hellip;</code>.</li>
+          <li>Deployments recreate pods for you. Bare Pods don't &mdash; delete and re-apply.</li>
+        </ul>
 
         <h3>Gotchas</h3>
         <ul>
@@ -1350,7 +1385,32 @@ spec:
         - name: web-svc           <span class="comment"># a Service, not a pod</span>
           port: 80</code></pre>
 
-        <h3>Verify (the grade &mdash; conditions, not just created)</h3>
+<h3>Verify &mdash; read <code>spec:</code> BEFORE <code>status:</code></h3>
+<pre><code>k get gateway &lt;n&gt; -n &lt;ns&gt; -o yaml | grep -A15 '^spec:'     <span class="comment"># what you asked for</span>
+k get gateway &lt;n&gt; -n &lt;ns&gt; -o yaml | grep -A20 '^status:'   <span class="comment"># what the controller did</span></code></pre>
+        <ul>
+          <li><strong>A green <code>status:</code> block can describe the spec you thought you replaced.</strong> Four True conditions prove nothing if the edit never landed.</li>
+          <li>No error out of <code>k edit</code> &ne; saved. Re-read <code>spec:</code>.</li>
+        </ul>
+
+        <h3>Multiple rules on one HTTPRoute</h3>
+<pre><code>  rules:
+  - backendRefs:                  <span class="comment"># catch-all, no matches:</span>
+    - name: web-service
+      port: 80
+  - matches:                      <span class="comment"># SECOND rule = its own dash</span>
+    - path:
+        type: PathPrefix
+        value: /api
+    backendRefs:
+    - name: api-service
+      port: 8080</code></pre>
+        <ul>
+          <li>Each <code>-</code> under <code>rules:</code> is ONE rule with its own <code>matches</code> + <code>backendRefs</code>.</li>
+          <li>Adding a backendRef to an existing rule's list = load-balancing between backends, <strong>not</strong> a new path route.</li>
+        </ul>
+
+                <h3>Verify (the grade &mdash; conditions, not just created)</h3>
 <pre><code>k get gateway &lt;name&gt;                        <span class="comment"># PROGRAMMED True (+ADDRESS only if LB exists)</span>
 k describe httproute &lt;name&gt; | grep -B2 -A8 Conditions
 <span class="comment"># want: Accepted True + "references resolved"</span></code></pre>
