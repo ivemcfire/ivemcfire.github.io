@@ -1,0 +1,29 @@
+# KK Mock Exam 2 — Q13: Gateway HTTPS/TLS listener (ns cka5673, cluster3)
+# Task: modify web-gateway to serve HTTPS on 443 for kodekloud.com using secret kodekloud-tls.
+#
+# Apply with:  kubectl apply -f web-gateway-tls-cka5673.yaml
+# Verify spec BEFORE status:
+#   kubectl -n cka5673 get gateway web-gateway -o yaml | grep -A16 '^spec:'
+#   kubectl -n cka5673 get gateway web-gateway -o yaml | grep -E 'generation|observedGeneration'
+# status is green only when observedGeneration == metadata.generation.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: web-gateway
+  namespace: cka5673
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    name: https
+    protocol: HTTPS
+    port: 443
+    hostname: kodekloud.com
+    tls:
+      certificateRefs:
+      - kind: Secret
+        group: ""
+        name: kodekloud-tls
