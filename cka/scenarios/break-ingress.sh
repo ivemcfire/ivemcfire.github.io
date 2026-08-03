@@ -11,7 +11,7 @@
 set -uo pipefail
 
 MODE="${1:-break}"
-NS=shipping
+NS="${NS:-shipping}"
 
 command -v kubectl >/dev/null || { echo "kubectl not found — run this on the bastion."; exit 1; }
 CTX="$(kubectl config current-context 2>/dev/null)"
