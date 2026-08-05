@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: relay
+  namespace: beacon
+spec:
+  containers:
+  - name: feeder
+    image: busybox:1.28
+    command: ["sh", "-c", "while true; do date >> /shared/feed.log; sleep 5; done"]
+    env:
+    - name: ROLE
+      value: feeder
+    - name: INTERVAL
+      value: "5"
+    volumeMounts:
+    - name: shared
+      mountPath: /shared
+    - name: conf
+      mountPath: /etc/relay
+  - name: sinker
+    image: busybox:1.28
+    command: ["sh", "-c", "tail -F /shared/feed.log"]
+    env:
+    - name: ROLE
+      value: sinker
+    volumeMounts:
+    - name: shared
+      mountPath: /shared
+  volumes:
+  - name: shared
+    emptyDir: {}
+  - name: conf
+    configMap:
+      name: relay-config
