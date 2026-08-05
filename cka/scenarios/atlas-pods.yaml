@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: atlas-8842
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-a
+  namespace: atlas-8842
+  labels:
+    tier: edge
+    zone: north
+    stage: beta
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-b
+  namespace: atlas-8842
+  labels:
+    tier: edge
+    zone: south
+    stage: live
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-c
+  namespace: atlas-8842
+  labels:
+    tier: core
+    zone: north
+    stage: live
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-d
+  namespace: atlas-8842
+  labels:
+    tier: core
+    zone: south
+    stage: beta
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-e
+  namespace: atlas-8842
+  labels:
+    tier: edge
+    zone: north
+    stage: live
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-f
+  namespace: atlas-8842
+  labels:
+    tier: core
+    zone: north
+    stage: beta
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
