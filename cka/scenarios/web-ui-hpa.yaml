@@ -1,0 +1,30 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web-ui-hpa
+  namespace: ck1967
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web-ui-deployment
+  minReplicas: 2
+  maxReplicas: 12
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 65
+  behavior:
+    scaleUp:
+      policies:
+      - type: Percent
+        value: 20
+        periodSeconds: 45
+    scaleDown:
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
