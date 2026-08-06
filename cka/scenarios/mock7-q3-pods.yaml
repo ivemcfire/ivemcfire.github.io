@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orbit-5510
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: svc-a
+  namespace: orbit-5510
+  labels:
+    role: api
+    ring: inner
+    build: rc
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: svc-b
+  namespace: orbit-5510
+  labels:
+    role: api
+    ring: outer
+    build: ga
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: svc-c
+  namespace: orbit-5510
+  labels:
+    role: db
+    ring: inner
+    build: ga
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: svc-d
+  namespace: orbit-5510
+  labels:
+    role: db
+    ring: outer
+    build: rc
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: svc-e
+  namespace: orbit-5510
+  labels:
+    role: api
+    ring: inner
+    build: ga
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: svc-f
+  namespace: orbit-5510
+  labels:
+    role: db
+    ring: inner
+    build: rc
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
