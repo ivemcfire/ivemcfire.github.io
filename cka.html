@@ -295,6 +295,7 @@
 
     <div class="tabs" role="tablist">
       <button class="tab-button active" data-tab="setup">Setup</button>
+      <button class="tab-button" data-tab="checklist">Checklist</button>
       <button class="tab-button" data-tab="vim">Vim</button>
       <button class="tab-button" data-tab="workloads">Workloads</button>
       <button class="tab-button" data-tab="scheduling">Scheduling</button>
@@ -393,6 +394,76 @@ export now='--grace-period=0 --force'</code></pre>
 <pre><code>yq '.spec.replicas' deploy.yaml             <span class="comment"># read a field</span>
 yq -i '.spec.replicas = 3' deploy.yaml      <span class="comment"># edit in place</span>
 yq '.spec.containers[0].image' pod.yaml      <span class="comment"># drill into arrays</span></code></pre>
+
+        <h3>When the answer is a bash script</h3>
+
+<pre><code>#!/bin/bash
+kubectl top node                            <span class="comment"># kubectl — NOT k</span></code></pre>
+
+        <table>
+          <thead><tr><th>Rule</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>Write <code>kubectl</code>, never <code>k</code></td><td>The alias is interactive-shell only; a script runs in a fresh non-interactive shell. <strong>#1 way to fail a script question.</strong></td></tr>
+            <tr><td><code>#!/bin/bash</code> first line</td><td>Needed only for <code>./foo.sh</code>; harmless otherwise.</td></tr>
+            <tr><td><code>chmod +x</code> anyway</td><td><code>bash foo.sh</code> ignores the exec bit &mdash; but you don't know how the grader invokes it.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ==================== CHECKLIST ==================== -->
+      <section class="tab-content" id="checklist">
+        <h2>Mechanical checklist &mdash; the leaks that cost points when the knowledge was fine</h2>
+
+        <div class="warning">
+          Built from a 17-question simulator sit where <strong>not one point was lost to a concept</strong>. Every loss was mechanical. Run this list, not more theory.
+        </div>
+
+        <h3>After you write anything</h3>
+        <ul>
+          <li><strong><code>cat</code> the file. Always.</strong> A file that exists and a file that is correct are different things.</li>
+          <li>Answer files get <strong>bare values</strong> &mdash; no <code>Name:</code> labels carried over from <code>describe</code>, no JSON quotes or trailing commas from <code>inspect</code>.</li>
+          <li><strong>Container logs usually go to STDERR</strong> (httpd, nginx, most JVM apps). A bare <code>&gt;</code> writes an empty file &mdash; use <code>2&gt;&amp;1</code> <em>after</em> the <code>&gt;</code>.</li>
+        </ul>
+
+        <h3>After you edit anything</h3>
+<pre><code>k get rs -n NS                    <span class="comment"># new ReplicaSet = the template change landed</span>
+k get cm NAME -o yaml | grep X    <span class="comment"># ConfigMap edits</span></code></pre>
+        <ul>
+          <li><code>k edit</code> can <strong>silently not save</strong>. Verify at the object: new ReplicaSet? <code>generation</code> bumped? Does the <strong><code>READY</code> column</strong> show the right container count?</li>
+          <li><strong><code>get -o yaml</code> is a SNAPSHOT, not a manifest.</strong> Before re-applying strip <code>resourceVersion</code> (this one actively breaks &mdash; <code>Conflict: object has been modified</code>), <code>uid</code>, <code>creationTimestamp</code>, <code>generation</code>, <code>status:</code>.</li>
+          <li><strong><code>apply</code> MERGES maps, it does not replace them.</strong> Deleting a key from your YAML does not delete it from the cluster. Escape hatch: <code>k replace --force -f</code>, or delete then apply.</li>
+          <li><code>spec.selector</code> on a Deployment is <strong>immutable</strong> &mdash; no edit path, only delete + recreate. Get it right before the first apply.</li>
+        </ul>
+
+        <h3>Before you diagnose</h3>
+        <ul>
+          <li><strong><code>k get &lt;kind&gt;</code> first.</strong> A missing object and a selector that matches nothing look identical from the client side.</li>
+          <li>Pending pod with a volume &rarr; read the <strong>PVC</strong> object before re-reading the Deployment.</li>
+          <li><code>k get po -o wide</code> is the single source of truth for placement. Read the node name, never recall it.</li>
+        </ul>
+
+        <h3>Location</h3>
+<pre><code>ssh &lt;node&gt; sudo crictl logs &lt;id&gt; &gt; /course/X/file 2&gt;&amp;1   <span class="comment"># redirect runs HERE, not there</span></code></pre>
+        <ul>
+          <li>The question <strong>names a host</strong> &rarr; <code>ssh &lt;host&gt;</code> is the first command; <code>hostname</code> proves it landed.</li>
+          <li>Worker hostnames resolve only <strong>from their controlplane</strong>: base terminal &rarr; <code>ssh &lt;cp&gt;</code> &rarr; <code>ssh &lt;cp&gt;-node1</code>.</li>
+          <li>Answer-file directories live on the <strong>controlplane</strong>, not the worker.</li>
+          <li><code>kubectl</code> does not work from a worker (no admin kubeconfig). SSH only for node-local files / <code>systemctl</code> / <code>crictl</code>.</li>
+          <li><code>crictl</code> talks to the runtime socket directly &rarr; always needs <code>sudo</code>. That's also why it still works when the API server is down.</li>
+        </ul>
+
+        <h3>Values</h3>
+        <div class="warning">
+          <strong>Docs give STRUCTURE. The cluster gives VALUES.</strong> Never type a value you could read off an object.
+        </div>
+<pre><code>k describe nodes | grep -i taint      <span class="comment"># taint key (docs still show the REMOVED master form)</span>
+k get nodes -o wide                   <span class="comment"># node names</span>
+k get po --show-labels                <span class="comment"># labels</span>
+k get svc                             <span class="comment"># service names + ports</span></code></pre>
+        <ul>
+          <li><code>node-role.kubernetes.io/master</code> was deprecated in 1.20 and <strong>REMOVED in 1.25</strong>. It's <code>control-plane</code> now.</li>
+          <li><strong>Never add a field the task didn't ask for</strong> &mdash; <code>hostnames:</code>, <code>storageClassName: manual</code>, an extra listener. Unrequested values can only cost.</li>
+        </ul>
       </section>
 
       <!-- ==================== VIM ==================== -->
@@ -515,7 +586,30 @@ k set image deployment/NAME CONTAINER=NEW_IMAGE
 k set image deployment/NAME --all=NEW_IMAGE     <span class="comment"># every container</span>
 k edit deployment NAME                          <span class="comment"># opens $EDITOR</span>
 k label pod NAME key=value [--overwrite]
-k label pod NAME key-                           <span class="comment"># remove label</span></code></pre>
+k label pod NAME key-                           <span class="comment"># remove label</span>
+k set env deploy NAME --from=configmap/CM -n NS  <span class="comment"># writes envFrom, no YAML editing</span>
+k set resources deploy NAME --requests=cpu=200m,memory=128Mi
+<span class="comment">#   ^ no editor, no indentation risk — prefer over k edit for resources</span></code></pre>
+
+        <h3>ConfigMap/Secret changed &mdash; do the pods see it?</h3>
+
+        <table>
+          <thead><tr><th>Consumed as</th><th>Propagates?</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td><code>envFrom</code> / <code>env.valueFrom</code></td><td><strong>No</strong></td><td><code>k rollout restart deploy X -n NS</code></td></tr>
+            <tr><td>volume mount + <code>subPath</code></td><td><strong>No</strong> (mount is a copy)</td><td><code>k rollout restart deploy X -n NS</code></td></tr>
+            <tr><td>plain volume mount</td><td>Yes, kubelet syncs (~60s)</td><td>nothing</td></tr>
+          </tbody>
+        </table>
+
+<pre><code>k get rs -n NS                              <span class="comment"># a NEW ReplicaSet = the restart landed</span>
+k describe deploy X -n NS | tail -25        <span class="comment"># NewReplicaSet + ScalingReplicaSet events</span></code></pre>
+        <ul>
+          <li><strong>Proof = a new ReplicaSet + a fresh <code>kubectl.kubernetes.io/restartedAt</code>.</strong></li>
+          <li><code>k exec POD -- env | grep KEY</code> is <strong>not</strong> proof &mdash; a pod that merely started after the edit shows the new value too.</li>
+          <li><code>k rollout status</code> printing "successfully rolled out" is <strong>not</strong> proof a restart happened.</li>
+          <li><code>k rollout</code> accepts Deployment / DaemonSet / StatefulSet only &mdash; not Ingress, not bare Pods.</li>
+        </ul>
 
         <h3>Deployment spec fields &mdash; generators can't set these</h3>
 
@@ -616,6 +710,85 @@ cat /path/file                                  <span class="comment"># wrong-bu
           <li><code>k delete deployment</code> cascades to ReplicaSet + pods automatically. <code>k delete pod</code> on a deployment-owned pod just re-creates it.</li>
           <li><strong><code>describe deploy</code> renders MinReadySeconds and <code>0 max unavailable, 1 max surge</code> &mdash; but NOT <code>revisionHistoryLimit</code> / <code>progressDeadlineSeconds</code>.</strong> Verify those with <code>k get deploy X -o yaml | grep -E 'revisionHistoryLimit|progressDeadlineSeconds'</code>.</li>
           <li>An edit that <em>looks</em> applied may not have landed. Always re-read the field you just set.</li>
+        </ul>
+
+        <h3>Which controller owns these Pods?</h3>
+
+        <p>Read the pod NAME &mdash; it's deterministic.</p>
+
+        <table>
+          <thead><tr><th>Pod name</th><th>Owner</th></tr></thead>
+          <tbody>
+            <tr><td><code>cache-0</code>, <code>cache-1</code> (ordinal)</td><td>StatefulSet</td></tr>
+            <tr><td><code>web-6d4cf56db6-x7k2p</code> (hash + random)</td><td>Deployment &rarr; ReplicaSet</td></tr>
+            <tr><td><code>logger-abcde</code> (one random suffix)</td><td>DaemonSet, bare ReplicaSet, or Job</td></tr>
+            <tr><td><code>backup-28931400-9xk4t</code></td><td>CronJob &rarr; Job</td></tr>
+            <tr><td><code>kube-apiserver-controlplane</code> (node-name suffix)</td><td>static pod</td></tr>
+            <tr><td>exact name, no suffix</td><td>bare Pod &mdash; nothing to scale</td></tr>
+          </tbody>
+        </table>
+
+<pre><code>k describe po X | grep -i "controlled by"    <span class="comment"># when the name is ambiguous</span>
+k -n NS get sts                              <span class="comment"># faster if you know there's one owner</span></code></pre>
+        <ul>
+          <li><strong>"Not a Deployment" does NOT imply StatefulSet.</strong> Read the name, don't infer.</li>
+        </ul>
+
+        <h3>StatefulSet</h3>
+<pre><code>k -n NS scale sts NAME --replicas 1     <span class="comment"># k scale takes deploy/sts/rs/rc</span></code></pre>
+        <ul>
+          <li>Scale-down removes the <strong>highest ordinal first</strong>, one at a time.</li>
+          <li><strong>The PVC of a removed pod is NOT deleted</strong> &mdash; by design, don't hunt it as a leftover.</li>
+          <li><code>volumeClaimTemplates</code>: recognise it, don't author it.</li>
+        </ul>
+
+        <h3>DaemonSet</h3>
+
+        <p>No <code>replicas</code> field at all &mdash; <code>k scale ds</code> is an error. Coverage changes via <code>nodeSelector</code> / tolerations. <code>DESIRED</code> in <code>k get ds</code> mirrors node count; DESIRED 3 on 4 nodes means one node is tainted or excluded.</p>
+
+        <p><strong>No generator exists</strong> &mdash; make a Deployment and convert it:</p>
+
+        <table>
+          <thead><tr><th>Step</th><th>Change</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>kind: Deployment</code> &rarr; <code>DaemonSet</code></td></tr>
+            <tr><td>2</td><td>delete <code>replicas:</code></td></tr>
+            <tr><td>3</td><td>delete <code>strategy: {}</code> (DS uses <code>updateStrategy</code>)</td></tr>
+            <tr><td>4</td><td>delete <code>status: {}</code> + <code>creationTimestamp: null</code></td></tr>
+          </tbody>
+        </table>
+
+<pre><code>      tolerations:                              <span class="comment"># pod-spec level, sibling of containers:</span>
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane</code></pre>
+        <ul>
+          <li><strong>Labels go in THREE places</strong> &mdash; metadata, <code>selector.matchLabels</code>, <code>template.metadata.labels</code>. Selector and template must match exactly. <strong>Replace</strong> the generator's <code>app: &lt;name&gt;</code>, don't append.</li>
+          <li>"Run on controlplanes too" = tolerate the taint. <strong>Read the key off <code>k describe nodes | grep -i taint</code></strong> &mdash; docs still show <code>master</code>, removed in 1.25.</li>
+          <li><code>k rollout restart/status/undo</code> works on a DS, same verbs as Deployment.</li>
+        </ul>
+
+        <h3>QoS class &mdash; who gets evicted first</h3>
+<pre><code>k -n NS describe po | grep -E "^Name:|^QoS Class:"    <span class="comment"># pairs name + class in one pass</span></code></pre>
+
+        <table>
+          <thead><tr><th>Class</th><th>Condition</th><th>Evicted</th></tr></thead>
+          <tbody>
+            <tr><td>Guaranteed</td><td>requests == limits, cpu AND memory, every container</td><td>last</td></tr>
+            <tr><td>Burstable</td><td>anything in between</td><td>middle</td></tr>
+            <tr><td>BestEffort</td><td>no requests, no limits, anywhere</td><td><strong>first</strong></td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>status.qosClass</code> is derived by the kubelet &mdash; you never set it.</li>
+          <li>Burstable tiebreak = how far <strong>over its requests</strong> a pod runs, not absolute usage. Same reason the scheduler reads requests, not limits.</li>
+        </ul>
+
+        <h3>Docs path</h3>
+
+        <ul>
+          <li>kubernetes.io/docs/concepts/workloads/controllers/statefulset/</li>
+          <li>kubernetes.io/docs/concepts/workloads/controllers/daemonset/ &mdash; search <strong>"daemonset tolerations"</strong> for the control-plane example</li>
+          <li>kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/</li>
         </ul>
       </section>
 
@@ -1179,6 +1352,16 @@ k create clusterrolebinding node-read --clusterrole=node-reader \
           <li>Bind to a user/group instead of an SA: <code>--user=jane</code> / <code>--group=devs</code>.</li>
         </ul>
 
+        <h3>Make a Pod use a ServiceAccount</h3>
+<pre><code>k -n NS run api --image nginx:1-alpine --dry-run=client -o yaml &gt; p.yaml
+<span class="comment"># hand-add under spec:, sibling of containers:</span>
+  serviceAccountName: secret-reader</code></pre>
+        <ul>
+          <li><strong><code>k run</code> has no flag for it</strong> &mdash; generate, then hand-add the one line.</li>
+          <li>Token auto-mounted at <code>/var/run/secrets/kubernetes.io/serviceaccount/</code> &mdash; three files: <code>token</code>, <code>ca.crt</code>, <code>namespace</code>.</li>
+          <li>Denied? <code>k auth can-i list secrets --as system:serviceaccount:NS:SA</code> separates an RBAC denial from everything else.</li>
+        </ul>
+
         <h3>Docs path</h3>
         <ul>
           <li>Imperative flags &rarr; <code>k create role --help</code> / <code>k create rolebinding --help</code> (EXAMPLES &mdash; faster than docs, works offline).</li>
@@ -1410,10 +1593,24 @@ k get gateway &lt;n&gt; -n &lt;ns&gt; -o yaml | grep -A20 '^status:'   <span cla
           <li>Adding a backendRef to an existing rule's list = load-balancing between backends, <strong>not</strong> a new path route.</li>
         </ul>
 
+        <h3>Restrict which namespaces may attach routes</h3>
+<pre><code>  listeners:
+    - name: web
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same              <span class="comment"># Same | All | Selector</span></code></pre>
+
                 <h3>Verify (the grade &mdash; conditions, not just created)</h3>
 <pre><code>k get gateway &lt;name&gt;                        <span class="comment"># PROGRAMMED True (+ADDRESS only if LB exists)</span>
+k describe gateway &lt;name&gt; -n &lt;ns&gt;           <span class="comment"># listener: Attached Routes: 1</span>
 k describe httproute &lt;name&gt; | grep -B2 -A8 Conditions
 <span class="comment"># want: Accepted True + "references resolved"</span></code></pre>
+        <ul>
+          <li><strong><code>Attached Routes: 1</code> on the listener is the proof <code>parentRefs</code> actually bound.</strong> A route can read <code>Accepted: True</code> from its own controller and still be ignored by the Gateway.</li>
+          <li><strong><code>Conflicted: Status: False</code> is HEALTHY</strong> &mdash; negative-polarity condition, <code>False</code> = no conflict. Don't "fix" it.</li>
+        </ul>
 
         <h3>Gotchas</h3>
         <ul>
