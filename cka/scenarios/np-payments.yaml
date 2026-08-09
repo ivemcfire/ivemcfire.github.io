@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db
+  namespace: payments
+  labels:
+    app: db
+spec:
+  containers:
+  - name: db
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: payments
+  labels:
+    app: frontend
+spec:
+  containers:
+  - name: frontend
+    image: busybox:1.28
+    command: ["sleep", "3600"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scanner
+  namespace: payments
+  labels:
+    app: scanner
+spec:
+  containers:
+  - name: scanner
+    image: busybox:1.28
+    command: ["sleep", "3600"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-svc
+  namespace: payments
+spec:
+  selector:
+    app: db
+  ports:
+  - port: 80
+    targetPort: 80
