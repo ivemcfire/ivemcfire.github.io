@@ -296,6 +296,7 @@
     <div class="tabs" role="tablist">
       <button class="tab-button active" data-tab="setup">Setup</button>
       <button class="tab-button" data-tab="checklist">Checklist</button>
+      <button class="tab-button" data-tab="fatal">Fatal 7</button>
       <button class="tab-button" data-tab="vim">Vim</button>
       <button class="tab-button" data-tab="workloads">Workloads</button>
       <button class="tab-button" data-tab="scheduling">Scheduling</button>
@@ -422,6 +423,7 @@ kubectl top node                            <span class="comment"># kubectl — 
         <ul>
           <li><strong><code>cat</code> the file. Always.</strong> A file that exists and a file that is correct are different things.</li>
           <li>Answer files get <strong>bare values</strong> &mdash; no <code>Name:</code> labels carried over from <code>describe</code>, no JSON quotes or trailing commas from <code>inspect</code>.</li>
+          <li><strong><code>cat -A</code> on every file answer.</strong> It exposes trailing padding spaces that plain <code>cat</code> cannot show. Strip them with <code>:%s/ *$//</code>.</li>
           <li><strong>Container logs usually go to STDERR</strong> (httpd, nginx, most JVM apps). A bare <code>&gt;</code> writes an empty file &mdash; use <code>2&gt;&amp;1</code> <em>after</em> the <code>&gt;</code>.</li>
         </ul>
 
@@ -433,6 +435,8 @@ k get cm NAME -o yaml | grep X    <span class="comment"># ConfigMap edits</span>
           <li><strong><code>get -o yaml</code> is a SNAPSHOT, not a manifest.</strong> Before re-applying strip <code>resourceVersion</code> (this one actively breaks &mdash; <code>Conflict: object has been modified</code>), <code>uid</code>, <code>creationTimestamp</code>, <code>generation</code>, <code>status:</code>.</li>
           <li><strong><code>apply</code> MERGES maps, it does not replace them.</strong> Deleting a key from your YAML does not delete it from the cluster. Escape hatch: <code>k replace --force -f</code>, or delete then apply.</li>
           <li><code>spec.selector</code> on a Deployment is <strong>immutable</strong> &mdash; no edit path, only delete + recreate. Get it right before the first apply.</li>
+          <li><strong><code>apply</code> printing <code>unchanged</code> after you edited the file means the edit never reached the object.</strong> Same family as <code>generation: 1</code> after a <code>k edit</code> &mdash; the tool told you it did nothing.</li>
+          <li><strong>Duplicate YAML keys do not error &mdash; the last one silently wins.</strong> Edit the existing block; never append a second <code>selector:</code> / <code>ports:</code>.</li>
         </ul>
 
         <h3>Before you diagnose</h3>
@@ -463,6 +467,31 @@ k get svc                             <span class="comment"># service names + po
         <ul>
           <li><code>node-role.kubernetes.io/master</code> was deprecated in 1.20 and <strong>REMOVED in 1.25</strong>. It's <code>control-plane</code> now.</li>
           <li><strong>Never add a field the task didn't ask for</strong> &mdash; <code>hostnames:</code>, <code>storageClassName: manual</code>, an extra listener. Unrequested values can only cost.</li>
+        </ul>
+      </section>
+
+      <!-- ==================== FATAL 7 ==================== -->
+      <section class="tab-content" id="fatal">
+        <h2>Fatal mistakes &mdash; ranked by how often they cost the exam</h2>
+
+        <div class="warning">
+          These are scoring failures, not knowledge failures. Grade every practice question against this list, not just against "did it work".
+        </div>
+
+        <ol>
+          <li><strong>Over-running one question.</strong> Past 15 minutes: flag it and move. The most repeated failure story is running out of time before returning to flagged questions. Budget ~7 min/question, two-pass, bank the cheap ones first.</li>
+          <li><strong>Wrong namespace / wrong context / wrong node.</strong> A correct answer in the wrong place scores zero. <code>k config use-context &lt;name&gt;</code> is the first action of every question; explicit <code>-n</code> on every graded command.</li>
+          <li><strong>Not verifying before moving on.</strong> Exercise the object, don't re-read it. Endpoints populated &ne; something listening. <code>auth can-i --as</code> matches a username string, not an existing ServiceAccount.</li>
+          <li><strong>Static pod edited with kubectl.</strong> It is a FILE in <code>/etc/kubernetes/manifests/</code> on the control plane. Never <code>k delete</code>, never <code>k edit</code>.</li>
+          <li><strong>ConfigMap changed without a restart.</strong> <code>env</code> / <code>envFrom</code> / <code>subPath</code> mounts &rarr; <code>k rollout restart deploy &lt;name&gt; -n &lt;ns&gt;</code>. A plain volume mount self-syncs.</li>
+          <li><strong><code>-f</code> reflex on a Kustomize task.</strong> A kustomization directory needs <code>-k</code>.</li>
+          <li><strong>No backup before editing something critical.</strong> <code>k get X -o yaml &gt; backup.yaml</code> &mdash; five seconds.</li>
+        </ol>
+
+        <h3>Two personal additions</h3>
+        <ul>
+          <li><strong>When a question names a host, do the whole question from that host</strong> &mdash; diagnosis, fix, and proof. Verifying from somewhere else is how a working fix gets graded as a miss.</li>
+          <li><strong>Strip what the task didn't ask for.</strong> Docs examples carry extra fields; they come along for the ride and can only cost.</li>
         </ul>
       </section>
 
