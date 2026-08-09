@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fleet-7781
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-a
+  namespace: fleet-7781
+  labels:
+    region: east
+    role: edge
+    tier: gold
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-b
+  namespace: fleet-7781
+  labels:
+    region: west
+    role: edge
+    tier: gold
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-c
+  namespace: fleet-7781
+  labels:
+    region: east
+    role: core
+    tier: gold
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-d
+  namespace: fleet-7781
+  labels:
+    region: east
+    role: edge
+    tier: silver
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-e
+  namespace: fleet-7781
+  labels:
+    region: west
+    role: core
+    tier: silver
+spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+    ports:
+    - containerPort: 80
