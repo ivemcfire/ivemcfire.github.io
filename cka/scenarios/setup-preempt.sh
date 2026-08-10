@@ -83,7 +83,14 @@ spec:
         app: filler
     spec:
       priorityClassName: low-priority
-      nodeName: $NODE
+      # nodeSelector, NOT nodeName: nodeName bypasses the scheduler, so the
+      # kubelet does admission instead and rejects with OutOfmemory, and the
+      # ReplicaSet then loops forever creating replacements. Preemption is a
+      # SCHEDULER feature — anything that skips the scheduler skips preemption.
+      nodeSelector:
+        kubernetes.io/hostname: $NODE
+      tolerations:
+      - operator: Exists
       containers:
       - name: pause
         image: registry.k8s.io/pause:3.9
