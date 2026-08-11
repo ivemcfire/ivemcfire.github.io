@@ -3,6 +3,7 @@
 # Run from the bastion/student-node (needs kubectl + passwordless ssh to nodes).
 #
 #   bash break-kubelet.sh           inject (one of three variants, chosen at random)
+#   bash break-kubelet.sh 0|1|2     inject a SPECIFIC variant (targeted practice — spoils the diagnosis)
 #   bash break-kubelet.sh restore   undo it (safety net — use only if stuck)
 #
 # Do not read this file before attempting the drill.
@@ -48,7 +49,10 @@ fi
 NODE="$(pick_worker)"
 [ -n "$NODE" ] || { echo "no worker node found in context $CTX."; exit 1; }
 
-VARIANT=$((RANDOM % 3))
+case "$MODE" in
+  0|1|2) VARIANT="$MODE" ;;
+  *)     VARIANT=$((RANDOM % 3)) ;;
+esac
 
 # Pristine copies first — this is what `restore` puts back.
 $SSH "$NODE" "mkdir -p $STASH && cp -n $KCONF $STASH/kubelet.conf; cp -n $KCFG $STASH/config.yaml" \
