@@ -322,13 +322,6 @@
           <code>alias k=kubectl</code> + completion are <strong>PRE-SET</strong> in both KodeKloud and the real CKA (PSI) exam. Do NOT waste clock typing them. Old guides that tell you to are outdated.
         </div>
 
-        <h3>Optional exports (yours, not pre-set)</h3>
-
-<pre><code>export do='--dry-run=client -o yaml'
-export now='--grace-period=0 --force'</code></pre>
-
-        <p>Lost on every <code>ssh node01</code> / new terminal &mdash; re-paste after a context switch, or just type the full flags. Fine to skip entirely.</p>
-
         <h3>Verify (k is already there)</h3>
 
 <pre><code>type k &amp;&amp; k get po          <span class="comment"># k get po + TAB expands to pods</span></code></pre>
@@ -338,7 +331,6 @@ export now='--grace-period=0 --force'</code></pre>
           <tbody>
             <tr><td><code>--dry-run=client -o yaml</code></td><td>generate, don't create &middot; <code>k run x --image=nginx --dry-run=client -o yaml &gt; p.yaml</code></td></tr>
             <tr><td><code>--grace-period=0 --force</code></td><td>instant delete &middot; <code>k delete pod x --grace-period=0 --force</code></td></tr>
-            <tr><td colspan="2"><strong>No <code>$do</code> / <code>$now</code> exports.</strong> Not pre-set on the exam, lost across every ssh hop and new terminal. Type the flags in full &mdash; tab-completion covers the cost.</td></tr>
           </tbody>
         </table>
 
@@ -386,17 +378,11 @@ export now='--grace-period=0 --force'</code></pre>
           <li><strong>Multi-line / YAML:</strong> <code>#</code> only protects the first line. Paste into the editor instead (vim <code>:set paste</code> first).</li>
         </ul>
 
-        <h3>No IDE in the exam &mdash; <code>yq</code> is there though</h3>
+        <h3>No IDE in the exam</h3>
 
         <div class="warning">
           The post-2025 remote-desktop CKA is <strong>terminal + vim/nano + a Firefox docs window</strong>. No VS Code, no code-server, no IDE. Don't plan around one.
         </div>
-
-        <p><code>yq</code> (the YAML <code>jq</code>) is pre-installed and underused &mdash; the fast path for a one-field read/edit without opening an editor:</p>
-
-<pre><code>yq '.spec.replicas' deploy.yaml             <span class="comment"># read a field</span>
-yq -i '.spec.replicas = 3' deploy.yaml      <span class="comment"># edit in place</span>
-yq '.spec.containers[0].image' pod.yaml      <span class="comment"># drill into arrays</span></code></pre>
 
         <h3>When the answer is a bash script</h3>
 
