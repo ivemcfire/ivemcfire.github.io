@@ -101,6 +101,18 @@ spec:
         ports:
         - containerPort: 80
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: ecom
+spec:
+  selector:
+    app: db
+  ports:
+  - port: 80
+    targetPort: 80
+---
 # netpol1 — DISTRACTOR: locks down db ingress entirely. Nothing to do with frontend->backend.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
