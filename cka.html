@@ -1104,6 +1104,26 @@ cat /etc/resolv.conf</code></pre>
       <!-- ==================== STORAGE & CONFIG ==================== -->
       <section class="tab-content" id="storage">
         <h2>Storage &amp; Config &mdash; PV / PVC, ConfigMap, Secret</h2>
+
+        <h3>StorageClass</h3>
+        <p><strong>Two StorageClass questions on the 2026-08-10 exam</strong> &mdash; edit an existing one, create a new one. Both rated short and easy.</p>
+<pre><code>apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast-local
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer     <span class="comment"># or Immediate</span>
+reclaimPolicy: Retain                       <span class="comment"># or Delete (default)</span></code></pre>
+        <p><strong>StorageClass has no <code>spec:</code></strong> &mdash; <code>provisioner</code>, <code>volumeBindingMode</code> and <code>reclaimPolicy</code> are top-level keys.</p>
+<pre><code>k get sc                                    <span class="comment"># (default) marker appears in the name column</span>
+k patch sc fast-local -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+k patch sc old-default -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'</code></pre>
+        <ul>
+          <li>Default = annotation <code>storageclass.kubernetes.io/is-default-class: "true"</code>. Clear the old one &mdash; two defaults is undefined behaviour.</li>
+          <li>Most SC fields are <strong>immutable</strong>: to change a provisioner or binding mode, delete and recreate. Annotations patch fine.</li>
+          <li><code>WaitForFirstConsumer</code> delays binding until a Pod is scheduled, so the volume lands on the right node. <code>Immediate</code> binds at once.</li>
+        </ul>
+
         <h3>PV + PVC + Pod (static bind, hostPath)</h3>
 <pre><code>apiVersion: v1
 kind: PersistentVolume
