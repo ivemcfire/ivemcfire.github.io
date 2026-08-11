@@ -575,7 +575,7 @@ k get svc                             <span class="comment"># service names + po
       <!-- ==================== OUTPUT & FILES ==================== -->
       <section class="tab-content" id="output">
         <h2>Output &amp; writing answers to files</h2>
-        <p><strong>The 2026-08-10 exam asked for names in one file and a field's values in another, with &ldquo;use kubectl only&rdquo; in the task text</strong> &mdash; no <code>grep</code>, <code>awk</code> or <code>cut</code>. <code>custom-columns</code> and <code>jsonpath</code> are the only tools that do this.</p>
+        <p><strong>When a task says &ldquo;use kubectl only&rdquo;</strong> &mdash; no <code>grep</code>, <code>awk</code> or <code>cut</code> &mdash; and wants values written to files, <code>custom-columns</code> and <code>jsonpath</code> are the only tools that do this.</p>
 
         <h3>Cheapest first &mdash; climb only when the rung below can't do it</h3>
         <table>
@@ -637,7 +637,7 @@ k explain pod.spec --recursive | grep -i FIELD</code></pre>
         <h2>Workloads &mdash; create / inspect / modify</h2>
 
         <h3>HPA + ResourceQuota</h3>
-        <p><strong>2026-08-10 exam:</strong> an HPA scaling to 3 pods, where the memory <code>requests</code> had to be cut so 3 pods fit under a quota. Quota <code>1100</code>, requests <code>600</code> &rarr; <code>350</code>.</p>
+        <p>The hard version of this task: an HPA that scales to 3 pods, where the memory <code>requests</code> must be cut so 3 pods fit under a quota. With a quota of <code>1100Mi</code> and pods requesting <code>600Mi</code>, three of them need <code>350Mi</code> each.</p>
 <pre><code>k autoscale deploy web -n NS --min 1 --max 3 --cpu-percent 50
 k describe quota -n NS                          <span class="comment"># Used vs Hard — the discovery step</span>
 k set resources deploy web -n NS --requests=memory=350Mi</code></pre>
@@ -1106,7 +1106,7 @@ cat /etc/resolv.conf</code></pre>
         <h2>Storage &amp; Config &mdash; PV / PVC, ConfigMap, Secret</h2>
 
         <h3>StorageClass</h3>
-        <p><strong>Two StorageClass questions on the 2026-08-10 exam</strong> &mdash; edit an existing one, create a new one. Both rated short and easy.</p>
+        <p>Two shapes to know: edit an existing StorageClass, and create a new one. Both are short.</p>
 <pre><code>apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -1242,7 +1242,7 @@ k apply -f web.yaml</code></pre>
         <h2>Networking &mdash; Ingress &amp; NetworkPolicy</h2>
 
         <h3>Ingress &mdash; create</h3>
-        <p><strong>&ge;2 Ingress questions on the 2026-08-10 exam.</strong> The generator does the whole job.</p>
+        <p>The generator does the whole job &mdash; hand-writing the YAML is rarely worth it.</p>
 <pre><code>k create ingress NAME -n NS --rule="host/path=SVC:PORT"
 k create ingress site-ing -n web --rule="www.example.com/*=site-svc:80"
 k create ingress site-ing -n web \
@@ -1643,13 +1643,13 @@ k create clusterrolebinding node-read --clusterrole=node-reader \
         <h2>Helm &mdash; package manager <span style="opacity:.6">(post-2025 addition)</span></h2>
         <p><strong>helm.sh/docs is now an allowed exam tab.</strong> Lookup-class &mdash; know the ~8 commands + the values flow.</p>
 
-        <h3>The 2026-08-10 exam shape &mdash; repo URL + local path + pinned version</h3>
+        <h3>Repo URL + local path + pinned version</h3>
 <pre><code>helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
-helm pull bitnami/wordpress --version 7.7.3 --untar --untardir /root/charts
-helm install blog /root/charts/wordpress -n web --create-namespace
-helm list -n web</code></pre>
-        <p><strong>Why a task gives you both a URL and a path: you pull from one and install from the other.</strong> <code>--version</code> works on a repo reference (<code>bitnami/wordpress</code>); a local path ignores it, because a local chart's version lives in its <code>Chart.yaml</code>. <code>--untardir</code> lands the chart at <code>&lt;dir&gt;/&lt;chartname&gt;/</code>, so the install path ends with the chart name.</p>
+helm pull bitnami/nginx --version 15.5.2 --untar --untardir /root/charts
+helm install web /root/charts/nginx -n demo --create-namespace
+helm list -n demo</code></pre>
+        <p><strong>Why a task gives you both a URL and a path: you pull from one and install from the other.</strong> <code>--version</code> works on a repo reference (<code>bitnami/nginx</code>); a local path ignores it, because a local chart's version lives in its <code>Chart.yaml</code>. <code>--untardir</code> lands the chart at <code>&lt;dir&gt;/&lt;chartname&gt;/</code>, so the install path ends with the chart name.</p>
         <p><code>helm search repo &lt;chart&gt; --versions | head -3</code> is only worth the keystrokes when a pinned version errors as not found.</p>
         <p><code>ls</code> the path to tell which case you're in:</p>
         <table>
