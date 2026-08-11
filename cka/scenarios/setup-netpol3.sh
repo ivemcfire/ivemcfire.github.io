@@ -8,8 +8,11 @@
 # On flannel/bare k3s every probe passes and the drill is meaningless.
 #
 # Usage:
-#   bash setup-netpol3.sh            # create everything
+#   bash setup-netpol3.sh            # create everything (netpol2 = allow-list, append case)
+#   bash setup-netpol3.sh denyall    # same, but netpol2 is a bare DENY-ALL (the real exam shape)
 #   bash setup-netpol3.sh restore    # remove everything it created
+#
+# Idempotent — re-run to reset any edits you made.
 #
 # Creates nothing outside namespace "ecom".
 
@@ -166,6 +169,11 @@ spec:
     - protocol: UDP
       port: 53
 EOF
+
+if [[ "${1:-}" == "denyall" ]]; then
+  kubectl patch netpol netpol2 -n "$NS" --type=json \
+    -p '[{"op":"remove","path":"/spec/ingress"}]' >/dev/null 2>&1 || true
+fi
 
 kubectl -n "$NS" rollout status deploy/backend --timeout=90s >/dev/null 2>&1 || true
 kubectl -n "$NS" rollout status deploy/frontend --timeout=90s >/dev/null 2>&1 || true
