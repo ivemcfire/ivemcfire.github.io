@@ -298,6 +298,7 @@
       <button class="tab-button" data-tab="checklist">Checklist</button>
       <button class="tab-button" data-tab="fatal">Fatal 7</button>
       <button class="tab-button" data-tab="vim">Vim</button>
+      <button class="tab-button" data-tab="output">Output &amp; Files</button>
       <button class="tab-button" data-tab="workloads">Workloads</button>
       <button class="tab-button" data-tab="scheduling">Scheduling</button>
       <button class="tab-button" data-tab="debug">Debug</button>
@@ -335,8 +336,9 @@ export now='--grace-period=0 --force'</code></pre>
         <table>
           <thead><tr><th>Snippet</th><th>What</th></tr></thead>
           <tbody>
-            <tr><td><code>$do</code></td><td>dry-run-yaml &middot; <code>k run x --image=nginx $do &gt; p.yaml</code></td></tr>
-            <tr><td><code>$now</code></td><td>force-grace-zero &middot; <code>k delete pod x $now</code></td></tr>
+            <tr><td><code>--dry-run=client -o yaml</code></td><td>generate, don't create &middot; <code>k run x --image=nginx --dry-run=client -o yaml &gt; p.yaml</code></td></tr>
+            <tr><td><code>--grace-period=0 --force</code></td><td>instant delete &middot; <code>k delete pod x --grace-period=0 --force</code></td></tr>
+            <tr><td colspan="2"><strong>No <code>$do</code> / <code>$now</code> exports.</strong> Not pre-set on the exam, lost across every ssh hop and new terminal. Type the flags in full &mdash; tab-completion covers the cost.</td></tr>
           </tbody>
         </table>
 
@@ -570,6 +572,66 @@ k get svc                             <span class="comment"># service names + po
         </ul>
       </section>
 
+      <!-- ==================== OUTPUT & FILES ==================== -->
+      <section class="tab-content" id="output">
+        <h2>Output &amp; writing answers to files</h2>
+        <p><strong>The 2026-08-10 exam asked for names in one file and a field's values in another, with &ldquo;use kubectl only&rdquo; in the task text</strong> &mdash; no <code>grep</code>, <code>awk</code> or <code>cut</code>. <code>custom-columns</code> and <code>jsonpath</code> are the only tools that do this.</p>
+
+        <h3>Cheapest first &mdash; climb only when the rung below can't do it</h3>
+        <table>
+          <thead><tr><th>Need</th><th>Reach for</th><th>Cost</th></tr></thead>
+          <tbody>
+            <tr><td>one value, one object</td><td><code>k get node NAME -o wide</code> &rarr; read it off the screen</td><td>0 special chars</td></tr>
+            <tr><td>one field per object, many objects</td><td><code>-o custom-columns=H:.the.path --no-headers</code></td><td>one dotted path</td></tr>
+            <tr><td>field inside a list, position varies</td><td><code>-o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'</code></td><td>quote nesting</td></tr>
+          </tbody>
+        </table>
+        <p>Gamble worth taking: on kubeadm nodes <code>.status.addresses[0]</code> <em>is</em> the InternalIP (<code>[1]</code> is Hostname). Use <code>[0]</code>, confirm against <code>-o wide</code>, move on.</p>
+        <ul>
+          <li><strong>A wrong path never errors &mdash; it prints <code>&lt;none&gt;</code>.</strong> Check the values, not the layout. <code>.spec.container[0]</code> (singular) is the classic; it's <code>containers</code>.</li>
+          <li><code>--no-headers</code> needs no <code>=true</code>.</li>
+          <li>jsonpath emits no trailing newline &mdash; <code>cat</code> runs into the prompt. Harmless to a grader.</li>
+          <li>Filter syntax: <code>[?(@.type=="InternalIP")]</code> &mdash; <code>@</code> is the current item; inner quotes must be double inside a single-quoted shell string.</li>
+        </ul>
+
+        <h3>Names to a file</h3>
+<pre><code>k get pod -n NS -o custom-columns=NAME:.metadata.name --no-headers &gt; /path/f
+k get pod -n NS -o name                  <span class="comment"># prints pod/NAME — WITH prefix</span>
+k get pod -n NS -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'</code></pre>
+
+        <h3>Any field to a file</h3>
+<pre><code>k get pod -n NS -o custom-columns=VAL:.spec.nodeName --no-headers &gt; /path/f
+k get pod -n NS -o jsonpath='{range .items[*]}{.status.podIP}{"\n"}{end}'</code></pre>
+
+        <h3>Find the path first</h3>
+<pre><code>k get pod NAME -n NS -o yaml | grep -n -i FIELD
+k explain pod.spec --recursive | grep -i FIELD</code></pre>
+
+        <h3>Multi-column &amp; sort</h3>
+<pre><code>k get po -A -o custom-columns=POD:.metadata.name,NS:.metadata.namespace --sort-by=.metadata.name</code></pre>
+
+        <table>
+          <thead><tr><th>Flag</th><th>Does</th></tr></thead>
+          <tbody>
+            <tr><td><code>HEADER:.path</code></td><td>left of <code>:</code> = printed header, right = value path</td></tr>
+            <tr><td><code>--no-headers</code></td><td>drop header row &mdash; <strong>mandatory</strong> for &ldquo;names only&rdquo;</td></tr>
+            <tr><td><code>--sort-by=.path</code></td><td>sorts as a STRING (so <code>10.42.0.9</code> lands last)</td></tr>
+            <tr><td><code>-o name</code></td><td>adds the <code>kind/</code> prefix</td></tr>
+            <tr><td><code>{range .items[*]}…{"\n"}{end}</code></td><td>one value per line; without <code>{"\n"}</code> it's all one line</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Gotchas</h3>
+        <ul>
+          <li><code>--no-headers</code> omitted &rarr; the literal word <code>NAME</code> becomes line 1 of your answer.</li>
+          <li><code>-o name</code> gives <code>pod/web</code>, not <code>web</code>.</li>
+          <li>jsonpath has <strong>no substring filter</strong> &mdash; filter by namespace or label, never by name fragment.</li>
+          <li><code>.items[*]</code> only exists on a LIST; a single object is addressed directly.</li>
+          <li>Single-quote the jsonpath &mdash; the shell eats <code>{}</code> and <code>*</code>.</li>
+          <li><strong><code>cat -A</code> the file before moving on</strong> &mdash; trailing spaces are invisible to plain <code>cat</code> and score zero.</li>
+        </ul>
+      </section>
+
       <!-- ==================== WORKLOADS ==================== -->
       <section class="tab-content" id="workloads">
         <h2>Workloads &mdash; create / inspect / modify</h2>
@@ -582,9 +644,9 @@ k run NAME --image=IMAGE [--restart=Never] [--port=P] [-- CMD]
 <span class="comment"># Deployment</span>
 k create deployment NAME --image=IMAGE [--replicas=N] [--port=P]
 
-<span class="comment"># Generate YAML only, don't create (uses $do)</span>
-k run NAME --image=IMAGE $do &gt; pod.yaml
-k create deployment NAME --image=IMAGE $do &gt; deploy.yaml</code></pre>
+<span class="comment"># Generate YAML only, don't create</span>
+k run NAME --image=IMAGE --dry-run=client -o yaml &gt; pod.yaml
+k create deployment NAME --image=IMAGE --dry-run=client -o yaml &gt; deploy.yaml</code></pre>
 
         <h3>Expose &mdash; deployment/pod &rarr; service</h3>
 
@@ -693,7 +755,7 @@ k rollout restart deployment/NAME     <span class="comment"># force pod re-creat
 
         <h3>Delete</h3>
 
-<pre><code>k delete pod NAME [$now]              <span class="comment"># $now = grace=0 --force</span>
+<pre><code>k delete pod NAME --grace-period=0 --force   <span class="comment"># instant, skips 30s grace</span>
 k delete deployment NAME              <span class="comment"># also kills RS + pods</span>
 k delete -f file.yaml
 k delete pod -l key=value             <span class="comment"># by label selector</span></code></pre>
@@ -823,7 +885,46 @@ k -n NS get sts                              <span class="comment"># faster if y
 
       <!-- ==================== SCHEDULING ==================== -->
       <section class="tab-content" id="scheduling">
-        <h2>Scheduling &mdash; Labels, Taints/Tolerations, nodeSelector</h2>
+        <h2>Scheduling &mdash; Labels, Taints/Tolerations, nodeSelector, Priority</h2>
+
+        <h3>PriorityClass &amp; preemption</h3>
+<pre><code>k create priorityclass high-priority --value=999999999 --global-default=true
+k create priorityclass batch-low --value=1000 --global-default=false
+k get priorityclass</code></pre>
+        <table>
+          <thead><tr><th>Class</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td><strong>user maximum</strong></td><td><code>1000000000</code> &rarr; one less = <strong><code>999999999</code></strong></td></tr>
+            <tr><td><code>system-cluster-critical</code></td><td><code>2000000000</code></td></tr>
+            <tr><td><code>system-node-critical</code></td><td><code>2000001000</code></td></tr>
+          </tbody>
+        </table>
+<pre><code>    spec:
+      priorityClassName: high-priority   <span class="comment"># Pod spec level, sibling of containers:</span>
+      containers:
+      - name: web</code></pre>
+<pre><code>k get events -n NS --sort-by=.lastTimestamp | tail -20   <span class="comment"># Preempted / Preempting</span>
+k describe node NODE | grep -A5 "Allocated resources"</code></pre>
+        <table>
+          <thead><tr><th>Signal</th><th>Means</th></tr></thead>
+          <tbody>
+            <tr><td><code>NOMINATED NODE</code> on a Pending Pod</td><td><strong>preemption in progress</strong> &mdash; this is the proof</td></tr>
+            <tr><td><code>FailedScheduling</code></td><td>the <strong>scheduler</strong> could not place it</td></tr>
+            <tr><td><code>OutOfmemory</code> on a Pod that never ran</td><td>the <strong>kubelet</strong> rejected it &mdash; something skipped the scheduler</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>preemptionPolicy: PreemptLowerPriority</code> = <strong>default</strong>, evicts to fit. <code>Never</code> = queue priority only.</li>
+          <li><strong><code>nodeName:</code> bypasses the scheduler</strong> &rarr; no preemption, no affinity, no taint checks; a ReplicaSet will loop forever recreating rejected Pods. Use <code>nodeSelector</code>.</li>
+          <li><code>priorityClassName</code> is a <strong>Pod</strong> field; <code>resources</code> is a <strong>container</strong> field.</li>
+          <li>Making your HIGHEST class <code>globalDefault</code> is exam-only &mdash; real clusters default to a LOW class.</li>
+          <li><strong>Preemption only fires when the Pod is Pending for lack of room.</strong> Empty node &rarr; nothing evicted &rarr; looks broken but isn't.</li>
+          <li>Victim chosen by <strong>lowest priority</strong>, not age or size.</li>
+          <li>Only ONE class may be <code>globalDefault</code>. A second is <strong>not rejected</strong> &mdash; smallest value silently wins. Check first.</li>
+          <li><code>globalDefault</code> affects only Pods created <em>afterwards</em> with no <code>priorityClassName</code>.</li>
+        </ul>
+
+        <h3>Labels &amp; selectors</h3>
 
         <h3>Labels &amp; selectors &mdash; query</h3>
 <pre><code>k get po -l env=dev                   <span class="comment"># equality filter</span>
@@ -1102,7 +1203,89 @@ k apply -f web.yaml</code></pre>
 
       <!-- ==================== NETWORKING ==================== -->
       <section class="tab-content" id="networking">
-        <h2>Networking &mdash; NetworkPolicy</h2>
+        <h2>Networking &mdash; Ingress &amp; NetworkPolicy</h2>
+
+        <h3>Ingress &mdash; create</h3>
+        <p><strong>&ge;2 Ingress questions on the 2026-08-10 exam.</strong> The generator does the whole job.</p>
+<pre><code>k create ingress NAME -n NS --rule="host/path=SVC:PORT"
+k create ingress site-ing -n web --rule="www.example.com/*=site-svc:80"
+k create ingress site-ing -n web \
+  --rule="www.example.com/*=site-svc:80" \
+  --rule="www.example.com/api*=api-svc:8080"
+k create ingress NAME -n NS --rule="..." --class=nginx
+k create ingress NAME -n NS --rule="..." --dry-run=client -o yaml &gt; ing.yaml</code></pre>
+        <p><code>--rule</code> = <code>host/path=service:port[,tls[=secret]]</code> &middot; trailing <code>*</code> on the path = <code>pathType: Prefix</code> &middot; no <code>*</code> = <code>Exact</code>.</p>
+        <p><strong>The comma slot is TLS, never a second path.</strong> Two paths = repeat the whole <code>--rule</code> flag. Keep it on one line &mdash; a <code>\</code> followed by a space is not a continuation.</p>
+
+<pre><code>spec:
+  ingressClassName: nginx
+  rules:
+  - host: www.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: site-svc
+            port:
+              number: 80</code></pre>
+
+        <h3>Ingress &mdash; discover, then verify</h3>
+<pre><code>k get ingressclass                <span class="comment"># which class exists — don't assume nginx</span>
+k get svc -n NS                   <span class="comment"># backend name + port must match</span>
+k describe ing NAME -n NS
+k get endpoints SVC -n NS         <span class="comment"># empty = backend broken, not the Ingress</span>
+curl -H "Host: www.example.com" http://&lt;ingress-address&gt;/</code></pre>
+        <ul>
+          <li><code>port.number</code> must be the <strong>Service</strong> port, not the container port.</li>
+          <li>No <code>ingressClassName</code> &rarr; controller ignores the object, <code>ADDRESS</code> stays empty.</li>
+          <li><code>pathType</code> is required in <code>networking.k8s.io/v1</code>.</li>
+          <li><strong>404</strong> = reached the controller, no rule matched. <strong>503</strong> = rule matched, backend has no endpoints.</li>
+          <li>Overlapping Prefix paths (<code>/</code> and <code>/api</code>) are not a conflict &mdash; <strong>longest match wins</strong>.</li>
+          <li>Same host+path twice = duplicate rule; only one backend survives. Check the describe lists both paths.</li>
+          <li><code>k get ingressclass</code> empty = no controller. The object still creates and still grades; nothing serves it.</li>
+        </ul>
+
+        <h3>Ingress &rarr; Gateway API translation</h3>
+        <table>
+          <thead><tr><th>Ingress</th><th>Gateway API</th></tr></thead>
+          <tbody>
+            <tr><td><code>ingressClassName</code></td><td><code>Gateway.spec.gatewayClassName</code></td></tr>
+            <tr><td><code>rules[].host</code></td><td><code>HTTPRoute.spec.hostnames[]</code></td></tr>
+            <tr><td><code>paths[].path</code></td><td><code>rules[].matches[].path.value</code></td></tr>
+            <tr><td><code>pathType: Prefix</code></td><td><code>path.type: PathPrefix</code> &nbsp;&larr; <strong>different spelling</strong></td></tr>
+            <tr><td><code>backend.service.name/port</code></td><td><code>rules[].backendRefs[].name/port</code></td></tr>
+            <tr><td>&mdash;</td><td><code>HTTPRoute.spec.parentRefs[]</code> &rarr; the Gateway</td></tr>
+          </tbody>
+        </table>
+
+        <h3>NetworkPolicy</h3>
+
+        <h3>Triage &mdash; "A can't reach B, N policies exist, fix the right one"</h3>
+        <p>Only two things can block A&rarr;B: an <strong>Ingress</strong> policy selecting <strong>B</strong>, or an <strong>Egress</strong> policy selecting <strong>A</strong>. Everything else in the namespace is noise.</p>
+<pre><code>k get netpol -n NS               <span class="comment"># POD-SELECTOR column alone eliminates most policies</span>
+k describe netpol -n NS          <span class="comment"># every allow-list in ONE screen</span>
+k get po -n NS --show-labels     <span class="comment"># confirm the real labels</span></code></pre>
+        <p>Diagnose off <code>describe</code> &mdash; no <code>k edit</code> needed:</p>
+        <table>
+          <thead><tr><th>describe line</th><th>spec</th></tr></thead>
+          <tbody>
+            <tr><td><code>PodSelector: app=backend</code></td><td><code>spec.podSelector</code> &mdash; who is governed</td></tr>
+            <tr><td><code>Allowing ingress traffic: &lt;none&gt;</code></td><td><code>spec.ingress</code> absent = <strong>deny-all</strong></td></tr>
+            <tr><td><code>To Port … From: PodSelector …</code></td><td><code>spec.ingress</code> = the entire allow-list</td></tr>
+            <tr><td><code>To Port: &lt;any&gt;</code></td><td><code>ports:</code> missing = all ports allowed (over-permissive)</td></tr>
+            <tr><td><code>Not affecting egress traffic</code></td><td>Egress not in <code>policyTypes</code></td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><strong>Deny-all doesn't identify the blocker &mdash; the SELECTOR does.</strong> Several policies can be deny-all on different workloads.</li>
+          <li>Task says <em>modify</em> &rarr; smallest additive edit. Never delete an existing <code>from</code> item to make room.</li>
+          <li>Deny-all &rarr; you author the whole <code>ingress:</code> block. Existing allow-list &rarr; you append one <code>- podSelector:</code> item.</li>
+          <li><code>k edit</code> printing <code>Edit cancelled, no changes made</code> = object untouched. In vim <code>:wq</code>, not <code>:q!</code>.</li>
+          <li>Editor-free append: <code>k patch netpol NAME -n NS --type=json -p '[{"op":"add","path":"/spec/ingress/0/ports","value":[{"port":80,"protocol":"TCP"}]}]'</code></li>
+          <li>Two labels in one <code>matchLabels</code> = AND on the same pod (and a duplicate YAML key). Two sources = two <code>- podSelector:</code> items.</li>
+        </ul>
 
         <h3>The model (the whole game)</h3>
         <table>
@@ -1275,9 +1458,31 @@ journalctl -u kubelet | tail                <span class="comment"># hostname in 
             <tr><td>unit "could not be found" (it IS the answer)</td><td><code>apt-get install --reinstall -y kubelet</code> &mdash; then VERIFY <code>Active:</code>; may still need <code>systemctl start kubelet</code></td></tr>
             <tr><td><code>Active: inactive (dead)</code> / disabled</td><td><code>systemctl enable --now kubelet</code></td></tr>
             <tr><td>misconfig</td><td><code>kubelet.conf</code>=kubeconfig &middot; <code>config.yaml</code>=settings &middot; <code>manifests/</code>=static pods</td></tr>
+            <tr><td><strong>unit <code>active (running)</code> but node NotReady</strong></td><td>kubelet is talking to the wrong API endpoint &mdash; <code>grep server: /etc/kubernetes/kubelet.conf</code>, must be <code>https://&lt;cp&gt;:6443</code>. <code>active</code> is NOT proof of health.</td></tr>
             <tr><td>apiserver Exited</td><td><code>crictl logs</code> &rarr; fix the manifest FILE (never <code>k delete</code> a static pod)</td></tr>
           </tbody>
         </table>
+
+        <h3>apiserver &harr; etcd &mdash; kubeadm defaults</h3>
+        <p><strong>Exited + a high ATTEMPT number</strong> in <code>crictl ps -a</code> means the kubelet IS restarting it &rarr; the manifest is wrong, fix the FILE. Attempt 0 with nothing running means the manifest isn't being read at all.</p>
+        <table>
+          <thead><tr><th>Flag</th><th>Default</th></tr></thead>
+          <tbody>
+            <tr><td><code>--etcd-servers</code></td><td><code>https://127.0.0.1:2379</code> &mdash; <strong>https</strong>, never http</td></tr>
+            <tr><td><code>--etcd-cafile</code></td><td><code>/etc/kubernetes/pki/<strong>etcd</strong>/ca.crt</code> &mdash; the etcd CA, not the cluster CA</td></tr>
+            <tr><td><code>--etcd-certfile</code></td><td><code>/etc/kubernetes/pki/apiserver-etcd-client.crt</code></td></tr>
+            <tr><td><code>--etcd-keyfile</code></td><td><code>/etc/kubernetes/pki/apiserver-etcd-client.key</code></td></tr>
+          </tbody>
+        </table>
+<pre><code>grep -n etcd /etc/kubernetes/manifests/kube-apiserver.yaml
+grep -n -E "listen-client-urls|trusted-ca-file" /etc/kubernetes/manifests/etcd.yaml
+ssh &lt;healthy-cp&gt; grep -n etcd /etc/kubernetes/manifests/kube-apiserver.yaml   <span class="comment"># reference copy, one terminal</span></code></pre>
+        <ul>
+          <li>Container IDs churn on a crashloop &mdash; <code>crictl logs $(crictl ps -a --name kube-apiserver -q | head -1)</code>, or skip it: the manifest is a file and doesn't vanish.</li>
+          <li>Back up <strong>outside</strong> <code>/etc/kubernetes/manifests/</code> &mdash; a <code>.bak</code> left inside is read as a second static pod.</li>
+          <li>Expect stacked faults: fixing only the scheme leaves it crashlooping and looks like your fix failed.</li>
+        </ul>
+
         <ul>
           <li><strong>Verify at the layer you fixed, bottom-up:</strong> unit &rarr; <code>Active: running</code> &rarr; apiserver container &rarr; <code>:6443</code> &rarr; <code>k get nodes</code>. The apiserver needs ~1 min after kubelet starts &mdash; don't panic-retry from the bastion at 30s.</li>
           <li>Exited apiserver = crash &middot; ABSENT apiserver = kubelet not acting. scheduler/cm sitting Exited for hours = kubelet dead (kubelet is the restarter). Other containers still Running = normal (containerd keeps them alive).</li>
@@ -1401,6 +1606,29 @@ k create clusterrolebinding node-read --clusterrole=node-reader \
       <section class="tab-content" id="helm">
         <h2>Helm &mdash; package manager <span style="opacity:.6">(post-2025 addition)</span></h2>
         <p><strong>helm.sh/docs is now an allowed exam tab.</strong> Lookup-class &mdash; know the ~8 commands + the values flow.</p>
+
+        <h3>The 2026-08-10 exam shape &mdash; repo URL + local path + pinned version</h3>
+<pre><code>helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+helm search repo bitnami/wordpress --versions          <span class="comment"># confirm 7.7.3 exists</span>
+helm pull bitnami/wordpress --version 7.7.3 --untar --untardir /root/charts
+helm install blog /root/charts/wordpress -n web --create-namespace</code></pre>
+        <p><code>ls</code> the path to tell which case you're in:</p>
+        <table>
+          <thead><tr><th>At the path</th><th>It is</th><th>Command</th></tr></thead>
+          <tbody>
+            <tr><td><code>Chart.yaml</code> + <code>templates/</code></td><td>chart dir</td><td><code>helm install REL /path -n NS</code></td></tr>
+            <tr><td>a single <code>.yaml</code></td><td>values file</td><td><code>helm install REL repo/chart --version X -f /path</code></td></tr>
+            <tr><td>nothing yet</td><td>you must pull first</td><td><code>helm pull … --untar --untardir /path</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3><code>helm list</code> shows less than you think</h3>
+<pre><code>helm list -A          <span class="comment"># every namespace — DEPLOYED only</span>
+helm list -A -a       <span class="comment"># every namespace — ALL states incl. failed/pending</span>
+helm status REL -n NS
+k get secret -A | grep sh.helm.release   <span class="comment"># helm's own records</span></code></pre>
+        <p><strong>An empty <code>helm list -A</code> means &ldquo;no HEALTHY release&rdquo;, not &ldquo;no release&rdquo;.</strong> <code>-A</code> = all namespaces; <code>-a</code> = all states. Different flags. Helm also reads your current kubeconfig context &mdash; wrong cluster reports nothing.</p>
 
         <h3>install vs upgrade &mdash; read the task wording</h3>
         <table>
