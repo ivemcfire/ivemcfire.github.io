@@ -636,6 +636,22 @@ k explain pod.spec --recursive | grep -i FIELD</code></pre>
       <section class="tab-content" id="workloads">
         <h2>Workloads &mdash; create / inspect / modify</h2>
 
+        <h3>HPA + ResourceQuota</h3>
+        <p><strong>2026-08-10 exam:</strong> an HPA scaling to 3 pods, where the memory <code>requests</code> had to be cut so 3 pods fit under a quota. Quota <code>1100</code>, requests <code>600</code> &rarr; <code>350</code>.</p>
+<pre><code>k autoscale deploy web -n NS --min 1 --max 3 --cpu-percent 50
+k describe quota -n NS                          <span class="comment"># Used vs Hard — the discovery step</span>
+k set resources deploy web -n NS --requests=memory=350Mi</code></pre>
+        <p>Budget &divide; replicas, round <strong>down</strong>, leave headroom: 1100 &divide; 3 = 366 &rarr; use 350. Write YAML only if the task names <code>behavior</code>, stabilization windows, or a non-CPU metric.</p>
+        <ul>
+          <li>A quota counts <strong>requests</strong>, not limits. The scheduler reads requests too; limits only bite at runtime (OOMKill).</li>
+          <li>A quota on <code>requests.memory</code> makes a memory request <strong>mandatory</strong> &mdash; a Pod without one is rejected.</li>
+          <li>Over quota surfaces on the <strong>ReplicaSet</strong>, not the Pod: <code>k describe rs -n NS</code> &rarr; <code>exceeded quota</code>. There's no Pending Pod to inspect.</li>
+          <li><code>cpu: &lt;unknown&gt;/50%</code> = no metrics-server. The object is still correct and still grades.</li>
+          <li><strong>The HPA needs a CPU request</strong> &mdash; utilization is a percentage of the request. No request, no denominator, no scaling.</li>
+          <li>HPA changes the replica <em>count</em>; VPA changes per-pod <em>requests</em> and is not on the exam.</li>
+        </ul>
+
+
         <h3>Create</h3>
 
 <pre><code><span class="comment"># Pod (imperative)</span>
@@ -1610,9 +1626,11 @@ k create clusterrolebinding node-read --clusterrole=node-reader \
         <h3>The 2026-08-10 exam shape &mdash; repo URL + local path + pinned version</h3>
 <pre><code>helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
-helm search repo bitnami/wordpress --versions          <span class="comment"># confirm 7.7.3 exists</span>
 helm pull bitnami/wordpress --version 7.7.3 --untar --untardir /root/charts
-helm install blog /root/charts/wordpress -n web --create-namespace</code></pre>
+helm install blog /root/charts/wordpress -n web --create-namespace
+helm list -n web</code></pre>
+        <p><strong>Why a task gives you both a URL and a path: you pull from one and install from the other.</strong> <code>--version</code> works on a repo reference (<code>bitnami/wordpress</code>); a local path ignores it, because a local chart's version lives in its <code>Chart.yaml</code>. <code>--untardir</code> lands the chart at <code>&lt;dir&gt;/&lt;chartname&gt;/</code>, so the install path ends with the chart name.</p>
+        <p><code>helm search repo &lt;chart&gt; --versions | head -3</code> is only worth the keystrokes when a pinned version errors as not found.</p>
         <p><code>ls</code> the path to tell which case you're in:</p>
         <table>
           <thead><tr><th>At the path</th><th>It is</th><th>Command</th></tr></thead>
