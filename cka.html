@@ -1309,6 +1309,31 @@ k get po -n NS --show-labels     <span class="comment"># confirm the real labels
           <li>Two labels in one <code>matchLabels</code> = AND on the same pod (and a duplicate YAML key). Two sources = two <code>- podSelector:</code> items.</li>
         </ul>
 
+        <h3>Egress &mdash; the DNS trap</h3>
+        <p><strong>Any egress policy selecting a Pod kills its DNS unless you re-allow port 53.</strong> The symptom misleads: name resolution dies, so <em>every</em> destination looks blocked &mdash; including the one you just permitted.</p>
+<pre><code>  egress:
+  - to:                                  <span class="comment"># the destination you want</span>
+    - podSelector:
+        matchLabels:
+          app: backend
+    ports:
+    - protocol: TCP
+      port: 80
+  - to:                                  <span class="comment"># + DNS, or nothing resolves</span>
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53</code></pre>
+        <ul>
+          <li>Shorter DNS allow: omit <code>to:</code> and give only <code>ports:</code> &mdash; that port, any destination.</li>
+          <li>Probe by IP as well as by name. Name fails while IP works = the DNS symptom.</li>
+          <li><strong><code>kubernetes.io/metadata.name</code> is not on the NetworkPolicy docs page</strong> &mdash; its examples use hand-made labels. Use <code>k get ns --show-labels</code>; the docs home for it is <em>Well-Known Labels, Annotations and Taints</em>.</li>
+        </ul>
+
         <h3>The model (the whole game)</h3>
         <table>
           <thead><tr><th>Slot</th><th>Means</th></tr></thead>
