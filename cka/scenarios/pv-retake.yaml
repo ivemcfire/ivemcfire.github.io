@@ -1,0 +1,15 @@
+# Static PV for the "bind a PVC to an existing PV" drill (CKA retake prep).
+# Deliberately NOT using the default StorageClass — the claim must name `manual`.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-log
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  hostPath:
+    path: /mnt/pv-log
