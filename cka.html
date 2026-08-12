@@ -1373,6 +1373,33 @@ k run t --image=busybox:1.28 -n ns --rm -it --restart=Never -- wget -qO- --timeo
       <section class="tab-content" id="cluster">
         <h2>Cluster Ops &mdash; etcd, node maintenance, kubeadm upgrade</h2>
 
+        <h3>Paths &mdash; every file the exam can break</h3>
+        <table>
+          <thead><tr><th>Path</th><th>What</th><th>Fault you'll see</th></tr></thead>
+          <tbody>
+            <tr><td><code>/etc/kubernetes/manifests/kube-apiserver.yaml</code></td><td>static pod</td><td>bad flag / wrong etcd cert &rarr; crashloop, <code>kubectl</code> dies on 6443</td></tr>
+            <tr><td><code>/etc/kubernetes/manifests/etcd.yaml</code></td><td>static pod</td><td>wrong listen URL or data-dir &rarr; apiserver can't reach etcd</td></tr>
+            <tr><td><code>/etc/kubernetes/manifests/kube-scheduler.yaml</code></td><td>static pod</td><td>file moved out &rarr; Pods Pending forever</td></tr>
+            <tr><td><code>/etc/kubernetes/admin.conf</code></td><td>cluster-admin kubeconfig</td><td>copy to <code>~/.kube/config</code> when kubectl has none</td></tr>
+            <tr><td><code>/etc/kubernetes/kubelet.conf</code></td><td><strong>the kubelet's kubeconfig</strong></td><td>wrong <code>server:</code> port &rarr; unit active but node <strong>NotReady</strong></td></tr>
+            <tr><td><code>/etc/kubernetes/pki/etcd/ca.crt</code></td><td>the <strong>etcd</strong> CA</td><td><code>--etcd-cafile</code> pointing at <code>pki/ca.crt</code> instead &mdash; both files exist</td></tr>
+            <tr><td><code>/etc/kubernetes/pki/apiserver-etcd-client.crt/.key</code></td><td>apiserver &rarr; etcd client pair</td><td>missing/renamed path &rarr; apiserver crashloop</td></tr>
+            <tr><td><code>/var/lib/kubelet/config.yaml</code></td><td>kubelet settings (<code>staticPodPath</code>, <code>cgroupDriver</code>)</td><td>bad cgroupDriver &rarr; unit won't start</td></tr>
+            <tr><td><code>/etc/cni/net.d/*.conflist</code></td><td>CNI config</td><td>missing &rarr; NotReady, <code>cni plugin not initialized</code></td></tr>
+            <tr><td><code>/opt/cni/bin/</code></td><td>CNI binaries</td><td>missing &rarr; <code>FailedCreatePodSandBox</code></td></tr>
+            <tr><td><code>/var/lib/etcd</code></td><td>etcd data dir</td><td>restore to a new dir &rarr; must edit the hostPath in <code>etcd.yaml</code></td></tr>
+            <tr><td><code>/etc/crictl.yaml</code></td><td>crictl endpoint config</td><td><code>crictl</code> erroring about the runtime endpoint</td></tr>
+          </tbody>
+        </table>
+        <p><strong>There is no <code>config.conf</code>.</strong> The <code>.conf</code> files in <code>/etc/kubernetes/</code> are all kubeconfigs (<code>admin</code>, <code>kubelet</code>, <code>controller-manager</code>, <code>scheduler</code>, <code>super-admin</code>); the YAML under <code>manifests/</code> are the static pods.</p>
+        <p>Which kubelet file holds what: <code>kubelet.conf</code> = <em>who to talk to</em> &middot; <code>/var/lib/kubelet/config.yaml</code> = <em>how to behave</em> &middot; <code>manifests/</code> = <em>what to run</em>.</p>
+        <ul>
+          <li><code>crictl</code> and <code>systemctl</code> exist <strong>only on the node</strong>. The bastion has <code>kubectl</code> only.</li>
+          <li>Never leave a backup inside <code>manifests/</code> &mdash; the kubelet runs it as a second static pod.</li>
+          <li>Editing a manifest restarts that pod in ~20-60s. No <code>kubectl apply</code>, and <code>k delete</code> cannot fix it.</li>
+        </ul>
+
+
         <h3>etcd &mdash; the cert rule (the whole confusion)</h3>
         <div class="warning">
           <code>snapshot save</code> talks to the <strong>live server</strong> &rarr; needs endpoint + 3 certs (mTLS). <code>snapshot status</code> / <code>restore</code> just <strong>read a file</strong> &rarr; no certs, only <code>--data-dir</code>. That's why only <code>save</code> has the flag wall.
