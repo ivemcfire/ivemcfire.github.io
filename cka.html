@@ -1782,7 +1782,66 @@ helm template &lt;chart&gt;    <span class="comment"># render locally, no instal
       </section>
 
       <section class="tab-content" id="kustomize">
+        <h2>Native sidecar <span style="opacity:.6">(post-2025 addition)</span></h2>
+        <p>Since 1.29 (GA 1.33) the correct sidecar is an <code>initContainers</code> entry with <code>restartPolicy: Always</code> &mdash; <strong>not</strong> a second entry under <code>containers:</code>.</p>
+<pre><code>    spec:
+      containers:
+      - name: app
+        image: nginx:1.25
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/nginx
+      initContainers:              <span class="comment"># the sidecar lives HERE</span>
+      - name: logger
+        image: busybox:1.28
+        restartPolicy: Always      <span class="comment"># &lt;-- this is what makes it a sidecar</span>
+        command: ["sh","-c","tail -F /var/log/nginx/access.log"]
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/nginx
+      volumes:
+      - name: logs
+        emptyDir: {}</code></pre>
+        <table>
+          <thead><tr><th>Shape</th><th>Behaviour</th></tr></thead>
+          <tbody>
+            <tr><td><code>initContainers</code>, no <code>restartPolicy</code></td><td>runs to completion, then the main containers start</td></tr>
+            <tr><td><code>initContainers</code> + <code>restartPolicy: Always</code></td><td><strong>native sidecar</strong> &mdash; starts first, keeps running, app waits for it</td></tr>
+            <tr><td>second entry under <code>containers:</code></td><td>plain sidecar &mdash; no ordering guarantee, cannot gate the app</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>restartPolicy</code> on an individual container is only legal under <code>initContainers</code>.</li>
+          <li><strong>Verify by phase:</strong> native &rarr; <code>2/2 Running</code>. A non-native <code>tail -F</code> init container never exits and wedges at <code>Init:0/1</code>.</li>
+          <li>On a Job, a native sidecar exits after the app so the Job completes; a plain sidecar hangs it forever.</li>
+          <li>The volume name must match in three places: the volume definition and both <code>volumeMounts</code>.</li>
+          <li>Read its logs with <code>k logs deploy/NAME -c logger</code>.</li>
+        </ul>
+
         <h2>Kustomize &mdash; template-free overlays <span style="opacity:.6">(post-2025 addition)</span></h2>
+        <h3>Requirement &rarr; field</h3>
+        <p>The docs page has a <strong>Kustomize Feature List</strong> table &mdash; match each line of the task to a row, copy the snippet.</p>
+        <table>
+          <thead><tr><th>Task says</th><th>Field</th></tr></thead>
+          <tbody>
+            <tr><td>builds on the base</td><td><code>resources: - ../base</code></td></tr>
+            <tr><td>namespace X</td><td><code>namespace</code></td></tr>
+            <tr><td>N replicas</td><td><code>replicas: [{name, count}]</code></td></tr>
+            <tr><td>image tag X</td><td><code>images: [{name, newTag}]</code></td></tr>
+            <tr><td>label on every resource</td><td><code>labels: [{pairs, includeSelectors: true}]</code></td></tr>
+            <tr><td>name prefixed / suffixed</td><td><code>namePrefix</code> / <code>nameSuffix</code></td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><strong><code>replicas[].name</code> is the RESOURCE name; <code>images[].name</code> is the IMAGE name.</strong> Crossing them renders cleanly with the change silently missing &mdash; no error.</li>
+          <li><code>resources:</code> entries can be a file, a directory with its own kustomization, or a git URL. A directory is built fully first, then this file's transformations apply on top.</li>
+          <li><strong>Paths are relative to the <code>kustomization.yaml</code>, never to your shell's cwd.</strong></li>
+          <li><code>apiVersion</code> / <code>kind</code> are optional in a kustomization file.</li>
+          <li>Quote tags: <code>newTag: "1.27"</code> &mdash; unquoted it parses as a float.</li>
+          <li><code>includeSelectors: true</code> is fine on first apply; adding it later fails &mdash; selectors are immutable.</li>
+          <li>The base stays independently applyable: <code>k apply -k base/</code> deploys the unmodified version.</li>
+        </ul>
+
         <p>Built into kubectl via <code>-k</code> &mdash; no separate binary. Patches, not variables.</p>
 
         <h3>Commands</h3>
