@@ -1612,11 +1612,99 @@ k apply -f &lt;cni-manifest&gt;                             <span class="comment
           <li>PVC Pending with no volume = no CSI driver / SC is <code>no-provisioner</code> &rarr; hand-write the PV.</li>
         </ul>
 
+        <h3>Package manager &mdash; apt vs dnf</h3>
+        <p>Everything else is identical: <code>systemctl</code>, every file path, every <code>kubeadm</code> command. Only the installer changes.</p>
+
+        <h4>Given a repo URL &mdash; one command, don't hand-write a file</h4>
+<pre><code>dnf config-manager --add-repo &lt;url&gt;      <span class="comment"># writes the .repo file for you</span>
+dnf install -y &lt;pkg&gt;-&lt;version&gt;
+systemctl enable --now &lt;service&gt;
+dnf repolist                             <span class="comment"># repo id is derived from the URL</span></code></pre>
+        <table>
+          <thead><tr><th>Situation</th><th>Command</th></tr></thead>
+          <tbody>
+            <tr><td>URL is a <strong>repo</strong></td><td><code>dnf config-manager --add-repo &lt;url&gt;</code></td></tr>
+            <tr><td>URL is a single <strong>.rpm</strong></td><td><code>dnf install -y &lt;url&gt;</code> &mdash; no repo needed</td></tr>
+            <tr><td>Unsigned / GPG errors</td><td>add <code>--nogpgcheck</code> to the install</td></tr>
+          </tbody>
+        </table>
+
+        <table>
+          <thead><tr><th>Question says</th><th>Do</th></tr></thead>
+          <tbody>
+            <tr><td>"make this repo available" / just a URL</td><td><code>dnf config-manager --add-repo &lt;url&gt;</code></td></tr>
+            <tr><td>names the <strong>repo id</strong>, a <strong>gpgkey</strong>, or an <strong>exclusion</strong></td><td>write the file &mdash; <code>--add-repo</code> sets none of those</td></tr>
+          </tbody>
+        </table>
+        <p><code>--add-repo</code> derives the repo id from the URL, sets no <code>gpgkey</code> (GPG check then fails &mdash; use <code>--nogpgcheck</code> or add the key) and adds no <code>exclude</code>, so <code>--disableexcludes=&lt;id&gt;</code> is pointless on it.</p>
+
+        <h4><code>.repo</code> file &mdash; for when the question names id/gpgkey/exclude</h4>
+<pre><code><span class="comment"># /etc/yum.repos.d/&lt;anything&gt;.repo</span>
+[wordpress]                                   <span class="comment"># the repo's NAME (bracket id)</span>
+name=WordPress internal mirror                <span class="comment"># free text, required, ungraded</span>
+baseurl=https://repo.example.com/rhel9/x86_64/
+enabled=1
+gpgcheck=0                                    <span class="comment"># 1 + gpgkey= when signed</span>
+exclude=pkg1 pkg2                             <span class="comment"># optional; = apt-mark hold</span></code></pre>
+        <ul>
+          <li>Only three lines ever change: bracket id, <code>baseurl</code>, <code>gpgcheck</code>.</li>
+          <li>Use this only when <code>config-manager</code> is unavailable &mdash; the one-command path above is what an exam question with a repo link expects.</li>
+          <li><strong>Not documented on any exam-allowed host.</strong> The only <code>.repo</code> block inside the allowlist is on the <em>Installing kubeadm</em> page, Red Hat tab.</li>
+        </ul>
+        <table>
+          <thead><tr><th>Ubuntu / Debian</th><th>RHEL / CentOS / Rocky / Fedora</th></tr></thead>
+          <tbody>
+            <tr><td><code>apt-get update</code></td><td><code>dnf makecache</code> (rarely needed)</td></tr>
+            <tr><td><code>apt-get install -y kubelet=1.35.0-1.1</code></td><td><code>dnf install -y kubelet-1.35.0 --disableexcludes=kubernetes</code></td></tr>
+            <tr><td><code>apt-get install --reinstall kubelet</code></td><td><code>dnf reinstall -y kubelet</code></td></tr>
+            <tr><td><code>apt-mark unhold kubeadm</code></td><td>&mdash; use <code>--disableexcludes=kubernetes</code></td></tr>
+            <tr><td><code>apt-mark hold kubeadm</code></td><td>&mdash; the repo excludes them permanently</td></tr>
+            <tr><td><code>dpkg -l | grep kube</code></td><td><code>rpm -qa | grep kube</code></td></tr>
+            <tr><td><code>apt-cache madison kubeadm</code></td><td><code>dnf list --showduplicates kubeadm --disableexcludes=kubernetes</code></td></tr>
+            <tr><td><code>apt-get remove kubelet</code></td><td><code>dnf remove -y kubelet</code></td></tr>
+          </tbody>
+        </table>
+        <h4><code>update</code> means opposite things &mdash; the real trap</h4>
+        <table>
+          <thead><tr><th></th><th>Ubuntu / Debian</th><th>RHEL</th></tr></thead>
+          <tbody>
+            <tr><td>refresh index only</td><td><code>apt-get update</code></td><td>automatic (<code>dnf makecache</code>)</td></tr>
+            <tr><td>upgrade everything</td><td><code>apt-get upgrade</code></td><td><code>dnf update</code> = <code>dnf upgrade</code></td></tr>
+            <tr><td>upgrade one package</td><td><code>apt-get install --only-upgrade &lt;pkg&gt;</code></td><td><code>dnf update &lt;pkg&gt;</code></td></tr>
+            <tr><td>what's upgradable</td><td><code>apt list --upgradable</code></td><td><code>dnf check-update</code></td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>apt-get update</code> changes <strong>nothing</strong> &mdash; metadata only. <code>dnf update</code> <strong>installs new versions</strong>.</li>
+          <li>Adding a repo: Ubuntu = key into <code>/etc/apt/keyrings/</code> + a <code>deb [signed-by=...]</code> line + <code>apt-get update</code>. RHEL = one command. No clean Ubuntu one-liner exists.</li>
+        </ul>
+
+<pre><code>kubelet=1.35.0-1.1        <span class="comment"># apt: EQUALS, full package revision</span>
+kubelet-1.35.0            <span class="comment"># dnf: HYPHEN, bare version resolves</span></code></pre>
+        <table>
+          <thead><tr><th><code>dpkg -l</code> code</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>ii</code></td><td>installed</td></tr>
+            <tr><td><code>hi</code></td><td>held + installed</td></tr>
+            <tr><td><code>rc</code></td><td><strong>removed, config files left</strong> &mdash; the package is gone, reinstall it</td></tr>
+            <tr><td><code>un</code></td><td>never installed</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>--disableexcludes=kubernetes</code> is mandatory on every dnf install/upgrade of kube packages.</li>
+          <li>Without it dnf says <em>"no package available"</em> and looks like a broken repo.</li>
+          <li>The RPM repo ships <code>exclude=kubelet kubeadm kubectl</code> in <code>/etc/yum.repos.d/kubernetes.repo</code> &mdash; that IS the <code>apt-mark hold</code> equivalent, hence no unhold step.</li>
+          <li><code>yum</code> is a symlink to <code>dnf</code> on RHEL8+; either works.</li>
+          <li>No kubelet binary + no <code>kubelet.service</code> + surviving <code>/var/lib/kubelet</code> = package removed, not misconfigured.</li>
+          <li>The docs page has a <strong>tab switcher</strong> per OS family &mdash; read the right column.</li>
+        </ul>
+
         <h3>Docs path</h3>
         <ul>
           <li>etcd: k8s.io search <strong>"etcd backup"</strong> &rarr; <em>Operating etcd clusters</em>.</li>
           <li>upgrade: <strong>"kubeadm upgrade"</strong> &rarr; <em>Upgrading kubeadm clusters</em> (copy the sequence, follow line by line).</li>
           <li>crictl: search <strong>"crictl"</strong> &rarr; <em>Debugging Kubernetes nodes with crictl</em>.</li>
+          <li>packages: <strong>"install kubeadm"</strong> &rarr; <em>Installing kubeadm, kubelet and kubectl</em> &mdash; switch the OS tab.</li>
         </ul>
       </section>
 
