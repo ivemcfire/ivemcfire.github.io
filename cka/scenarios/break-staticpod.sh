@@ -61,6 +61,7 @@ esac
 
 # Give the operator a visible symptom to chase.
 kubectl create ns "$NS" >/dev/null 2>&1
+sleep 25   # let the kubelet re-sync the manifest first, or the pods win the race and schedule
 kubectl create deployment frontend --image=nginx:1.27 --replicas=3 -n "$NS" >/dev/null 2>&1
 
 printf '%s\n%s\n%s\n' "$CTX" "$NODE" "$VARIANT" > "$STATE"
