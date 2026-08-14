@@ -1226,19 +1226,35 @@ k apply -f web.yaml</code></pre>
       <section class="tab-content" id="networking">
         <h2>Networking &mdash; Ingress &amp; NetworkPolicy</h2>
 
+        <h3>Ingress &mdash; legend, one worked example</h3>
+        <p>Nothing in this Ingress block is a placeholder. Every command is runnable as written; swap these nouns for the ones in your question.</p>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>namespace</td><td><code>web</code></td><td>given &mdash; <code>-n</code> on every command</td></tr>
+            <tr><td>Ingress name</td><td><code>site-ing</code></td><td>given</td></tr>
+            <tr><td>IngressClass</td><td><code>nginx</code></td><td><strong>read it, never assume:</strong> <code>k get ingressclass</code></td></tr>
+            <tr><td>host</td><td><code>www.example.com</code></td><td>given</td></tr>
+            <tr><td>backends</td><td><code>site-svc:80</code> (<code>/</code>), <code>api-svc:8080</code> (<code>/api</code>)</td><td>existing Services: <code>k get svc -n web</code></td></tr>
+            <tr><td>port</td><td><code>80</code> / <code>8080</code></td><td>the <strong>Service</strong> port, not the container port</td></tr>
+          </tbody>
+        </table>
+
         <h3>Ingress &mdash; create</h3>
         <p>The generator does the whole job &mdash; hand-writing the YAML is rarely worth it.</p>
-<pre><code>k create ingress NAME -n NS --rule="host/path=SVC:PORT"
-k create ingress site-ing -n web --rule="www.example.com/*=site-svc:80"
-k create ingress site-ing -n web \
-  --rule="www.example.com/*=site-svc:80" \
-  --rule="www.example.com/api*=api-svc:8080"
-k create ingress NAME -n NS --rule="..." --class=nginx
-k create ingress NAME -n NS --rule="..." --dry-run=client -o yaml &gt; ing.yaml</code></pre>
+<pre><code>k create ingress site-ing -n web --rule="www.example.com/*=site-svc:80"
+k create ingress site-ing -n web --rule="www.example.com/*=site-svc:80" --rule="www.example.com/api*=api-svc:8080"
+k create ingress site-ing -n web --rule="www.example.com/*=site-svc:80" --class=nginx
+k create ingress site-ing -n web --rule="www.example.com/*=site-svc:80" --dry-run=client -o yaml &gt; ing.yaml</code></pre>
         <p><code>--rule</code> = <code>host/path=service:port[,tls[=secret]]</code> &middot; trailing <code>*</code> on the path = <code>pathType: Prefix</code> &middot; no <code>*</code> = <code>Exact</code>.</p>
         <p><strong>The comma slot is TLS, never a second path.</strong> Two paths = repeat the whole <code>--rule</code> flag. Keep it on one line &mdash; a <code>\</code> followed by a space is not a continuation.</p>
 
-<pre><code>spec:
+<pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: site-ing
+  namespace: web
+spec:
   ingressClassName: nginx
   rules:
   - host: www.example.com
@@ -1253,11 +1269,13 @@ k create ingress NAME -n NS --rule="..." --dry-run=client -o yaml &gt; ing.yaml<
               number: 80</code></pre>
 
         <h3>Ingress &mdash; discover, then verify</h3>
-<pre><code>k get ingressclass                <span class="comment"># which class exists — don't assume nginx</span>
-k get svc -n NS                   <span class="comment"># backend name + port must match</span>
-k describe ing NAME -n NS
-k get endpoints SVC -n NS         <span class="comment"># empty = backend broken, not the Ingress</span>
-curl -H "Host: www.example.com" http://&lt;ingress-address&gt;/</code></pre>
+<pre><code>k get ingressclass                     <span class="comment"># which class exists — don't assume nginx</span>
+k get svc -n web                       <span class="comment"># backend name + port must match</span>
+k describe ing site-ing -n web         <span class="comment"># every rule + backend in one screen</span>
+k get endpoints site-svc -n web        <span class="comment"># empty = backend broken, not the Ingress</span>
+k get ing site-ing -n web              <span class="comment"># ADDRESS column — empty = no controller took it</span>
+curl -H "Host: www.example.com" http://&lt;ADDRESS&gt;/
+curl -H "Host: www.example.com" http://&lt;ADDRESS&gt;/api</code></pre>
         <ul>
           <li><code>port.number</code> must be the <strong>Service</strong> port, not the container port.</li>
           <li>No <code>ingressClassName</code> &rarr; controller ignores the object, <code>ADDRESS</code> stays empty.</li>
@@ -1266,18 +1284,19 @@ curl -H "Host: www.example.com" http://&lt;ingress-address&gt;/</code></pre>
           <li>Overlapping Prefix paths (<code>/</code> and <code>/api</code>) are not a conflict &mdash; <strong>longest match wins</strong>.</li>
           <li>Same host+path twice = duplicate rule; only one backend survives. Check the describe lists both paths.</li>
           <li><code>k get ingressclass</code> empty = no controller. The object still creates and still grades; nothing serves it.</li>
+          <li>Two paths on one host = ONE Ingress with two rules, not two Ingresses.</li>
         </ul>
 
         <h3>Ingress &rarr; Gateway API translation</h3>
         <table>
-          <thead><tr><th>Ingress</th><th>Gateway API</th></tr></thead>
+          <thead><tr><th>Ingress <span style="opacity:.6">(this example)</span></th><th>Gateway API</th></tr></thead>
           <tbody>
-            <tr><td><code>ingressClassName</code></td><td><code>Gateway.spec.gatewayClassName</code></td></tr>
-            <tr><td><code>rules[].host</code></td><td><code>HTTPRoute.spec.hostnames[]</code></td></tr>
-            <tr><td><code>paths[].path</code></td><td><code>rules[].matches[].path.value</code></td></tr>
+            <tr><td><code>ingressClassName: nginx</code></td><td><code>Gateway.spec.gatewayClassName: nginx</code></td></tr>
+            <tr><td><code>rules[].host: www.example.com</code></td><td><code>HTTPRoute.spec.hostnames: [www.example.com]</code></td></tr>
+            <tr><td><code>paths[].path: /api</code></td><td><code>rules[].matches[].path.value: /api</code></td></tr>
             <tr><td><code>pathType: Prefix</code></td><td><code>path.type: PathPrefix</code> &nbsp;&larr; <strong>different spelling</strong></td></tr>
-            <tr><td><code>backend.service.name/port</code></td><td><code>rules[].backendRefs[].name/port</code></td></tr>
-            <tr><td>&mdash;</td><td><code>HTTPRoute.spec.parentRefs[]</code> &rarr; the Gateway</td></tr>
+            <tr><td><code>backend.service.name: api-svc</code> + <code>port.number: 8080</code></td><td><code>rules[].backendRefs: [{name: api-svc, port: 8080}]</code></td></tr>
+            <tr><td>&mdash;</td><td><code>HTTPRoute.spec.parentRefs: [{name: web-gw}]</code> &rarr; the Gateway</td></tr>
           </tbody>
         </table>
 
