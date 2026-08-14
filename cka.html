@@ -524,7 +524,7 @@ k get svc                             <span class="comment"># service names + po
       <!-- ==================== OUTPUT & FILES ==================== -->
       <section class="tab-content" id="output">
         <h2>Output &amp; writing answers to files</h2>
-        <p><strong>When a task says &ldquo;use kubectl only&rdquo;</strong> &mdash; no <code>grep</code>, <code>awk</code> or <code>cut</code> &mdash; and wants values written to files, <code>custom-columns</code> and <code>jsonpath</code> are the only tools that do this.</p>
+        <p><strong>When a task says &ldquo;use kubectl only&rdquo;</strong> &mdash; no <code>grep</code>, <code>awk</code> or <code>cut</code> &mdash; and wants values written to files, <code>custom-columns</code> is the tool that does this. (jsonpath can too, but only copy it verbatim from the docs &mdash; composing a filter under a clock is not worth the minutes.)</p>
 
         <h3>Legend &mdash; one worked example, used everywhere below</h3>
         <table>
@@ -559,13 +559,12 @@ k get svc                             <span class="comment"># service names + po
           <tbody>
             <tr><td>letters, dots, commas only</td><td><strong>no</strong></td><td><code>-o custom-columns=NAME:.metadata.name</code></td></tr>
             <tr><td><code>[</code> <code>]</code> <code>*</code> or a space</td><td><strong>yes</strong></td><td><code>-o custom-columns='IP:.status.podIPs[*].ip'</code></td></tr>
-            <tr><td>any jsonpath</td><td><strong>always</strong></td><td><code>-o jsonpath='{.items[0].spec.nodeName}'</code></td></tr>
+            <tr><td>any jsonpath</td><td><strong>always</strong></td><td>only worth it as a verbatim copy from the docs &mdash; <code>custom-columns</code> does the same job with no quote nesting</td></tr>
           </tbody>
         </table>
         <ul>
           <li><code>[</code>, <code>]</code> and <code>*</code> are shell <strong>glob</strong> characters. Unquoted they usually survive &mdash; until a file in your cwd happens to match, and the command mangles with no error. Two keystrokes; just always single-quote anything with a bracket.</li>
           <li>jsonpath needs quotes unconditionally: the shell eats <code>{}</code> and <code>*</code>.</li>
-          <li>Inner quotes in a filter must be <strong>double</strong> inside the single-quoted string: <code>'{.status.addresses[?(@.type=="InternalIP")].address}'</code>.</li>
           <li>A stray unmatched <code>'</code> leaves the shell waiting with no output at all &mdash; if a command "does nothing", check the quote before anything else.</li>
         </ul>
 
@@ -575,7 +574,6 @@ k get svc                             <span class="comment"># service names + po
           <tbody>
             <tr><td>one value, one object</td><td><code>k get node cluster1-node01 -o wide</code> &rarr; read it off the screen</td><td>0 special chars</td></tr>
             <tr><td>one field per object, many objects</td><td><code>-o custom-columns=NODE:.spec.nodeName --no-headers</code></td><td>one dotted path</td></tr>
-            <tr><td>field inside a list, position varies</td><td><code>-o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'</code></td><td>quote nesting</td></tr>
           </tbody>
         </table>
         <p>Gamble worth taking: on kubeadm nodes <code>.status.addresses[0]</code> <em>is</em> the InternalIP (<code>[1]</code> is Hostname). Use <code>[0]</code>, confirm against <code>-o wide</code>, move on.</p>
@@ -585,21 +583,16 @@ k get svc                             <span class="comment"># service names + po
 k explain pod.spec --recursive | grep -i nodename</code></pre>
         <ul>
           <li><strong>A wrong path never errors &mdash; it prints <code>&lt;none&gt;</code>.</strong> Check the values, not the layout. <code>.spec.container[0]</code> (singular) is the classic; it's <code>containers</code>.</li>
-          <li><code>.items[*]</code> only exists on a LIST; a single object is addressed directly.</li>
         </ul>
 
-        <h3>One value per line with jsonpath</h3>
-<pre><code>k get po -n apps -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'
-k get po -n apps -o name                 <span class="comment"># prints pod/NAME — WITH the prefix</span></code></pre>
-
+        <h3>Flags worth knowing</h3>
         <table>
           <thead><tr><th>Flag</th><th>Does</th></tr></thead>
           <tbody>
             <tr><td><code>HEADER:.path</code></td><td>left of <code>:</code> = printed header, right = value path</td></tr>
             <tr><td><code>--no-headers</code></td><td>drop header row &mdash; <strong>mandatory</strong> for &ldquo;names only&rdquo;. No <code>=true</code> needed.</td></tr>
             <tr><td><code>--sort-by=.path</code></td><td>sorts as a STRING (so <code>10.42.0.9</code> lands last)</td></tr>
-            <tr><td><code>-o name</code></td><td>adds the <code>kind/</code> prefix</td></tr>
-            <tr><td><code>{range .items[*]}…{"\n"}{end}</code></td><td>one value per line; without <code>{"\n"}</code> it's all one line</td></tr>
+            <tr><td><code>-o name</code></td><td>prints <code>pod/web-0</code> &mdash; adds the <code>kind/</code> prefix</td></tr>
           </tbody>
         </table>
 
@@ -607,8 +600,6 @@ k get po -n apps -o name                 <span class="comment"># prints pod/NAME
         <ul>
           <li><code>--no-headers</code> omitted &rarr; the literal word <code>NAME</code> becomes line 1 of your answer.</li>
           <li><code>-o name</code> gives <code>pod/web-0</code>, not <code>web-0</code>.</li>
-          <li>jsonpath has <strong>no substring filter</strong> &mdash; filter by namespace or label, never by name fragment.</li>
-          <li>jsonpath emits no trailing newline &mdash; <code>cat</code> runs into the prompt. Harmless to a grader.</li>
           <li><strong><code>cat -A</code> the file before moving on</strong> &mdash; trailing spaces are invisible to plain <code>cat</code> and score zero.</li>
           <li>Redirect runs on the machine you typed it on: <code>ssh node sudo crictl logs X &gt; /root/f</code> writes locally, not on the node.</li>
         </ul>
@@ -675,7 +666,7 @@ k expose pod NAME --port=P [--name=X]</code></pre>
 
         <h3>Inspect</h3>
 
-<pre><code>k get pods [-A] [-n NS] [-o wide|yaml|json|jsonpath=...] [-l KEY=VAL]
+<pre><code>k get pods [-A] [-n NS] [-o wide|yaml] [-l KEY=VAL] [--show-labels]
 k describe pod NAME [-n NS]
 k logs POD [-n NS] [-f] [--previous] [-c CONTAINER] [--tail=N] [--since=10m]
 k exec -it POD [-n NS] [-c CONTAINER] -- CMD</code></pre>
