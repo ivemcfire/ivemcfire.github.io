@@ -526,44 +526,77 @@ k get svc                             <span class="comment"># service names + po
         <h2>Output &amp; writing answers to files</h2>
         <p><strong>When a task says &ldquo;use kubectl only&rdquo;</strong> &mdash; no <code>grep</code>, <code>awk</code> or <code>cut</code> &mdash; and wants values written to files, <code>custom-columns</code> and <code>jsonpath</code> are the only tools that do this.</p>
 
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>namespace</td><td><code>apps</code></td><td>given</td></tr>
+            <tr><td>objects</td><td>the Pods of Deployment <code>web</code></td><td>given</td></tr>
+            <tr><td>node</td><td><code>cluster1-node01</code></td><td>read it: <code>k get nodes</code></td></tr>
+            <tr><td>answer file</td><td><code>/root/answers/pods.txt</code></td><td>given &mdash; exact path, exact filename</td></tr>
+          </tbody>
+        </table>
+
+        <h3>The big one &mdash; then delete what you don't need</h3>
+<pre><code>k get po -n apps \
+  -o custom-columns='NAME:.metadata.name,NODE:.spec.nodeName,IP:.status.podIP' \
+  --no-headers --sort-by=.metadata.name &gt; /root/answers/pods.txt</code></pre>
+        <p>Every question below is this line with pieces removed. Learn one shape, trim it:</p>
+        <table>
+          <thead><tr><th>Task wants</th><th>Trim to</th></tr></thead>
+          <tbody>
+            <tr><td>just the names</td><td><code>-o custom-columns=NAME:.metadata.name --no-headers</code></td></tr>
+            <tr><td>just which node each runs on</td><td><code>-o custom-columns=NODE:.spec.nodeName --no-headers</code></td></tr>
+            <tr><td>name + node, sorted</td><td>drop the <code>IP</code> column, keep <code>--sort-by</code></td></tr>
+            <tr><td>one value, one object</td><td>don't build a column at all &mdash; <code>k get po web-0 -n apps -o wide</code>, read it, <code>echo &lt;value&gt; &gt; /root/answers/pods.txt</code></td></tr>
+            <tr><td>with a header row</td><td>drop <code>--no-headers</code> (rare &mdash; graders usually want bare values)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Quoting &mdash; when the <code>''</code> are required</h3>
+        <table>
+          <thead><tr><th>Path contains</th><th>Quote?</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td>letters, dots, commas only</td><td><strong>no</strong></td><td><code>-o custom-columns=NAME:.metadata.name</code></td></tr>
+            <tr><td><code>[</code> <code>]</code> <code>*</code> or a space</td><td><strong>yes</strong></td><td><code>-o custom-columns='IP:.status.podIPs[*].ip'</code></td></tr>
+            <tr><td>any jsonpath</td><td><strong>always</strong></td><td><code>-o jsonpath='{.items[0].spec.nodeName}'</code></td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>[</code>, <code>]</code> and <code>*</code> are shell <strong>glob</strong> characters. Unquoted they usually survive &mdash; until a file in your cwd happens to match, and the command mangles with no error. Two keystrokes; just always single-quote anything with a bracket.</li>
+          <li>jsonpath needs quotes unconditionally: the shell eats <code>{}</code> and <code>*</code>.</li>
+          <li>Inner quotes in a filter must be <strong>double</strong> inside the single-quoted string: <code>'{.status.addresses[?(@.type=="InternalIP")].address}'</code>.</li>
+          <li>A stray unmatched <code>'</code> leaves the shell waiting with no output at all &mdash; if a command "does nothing", check the quote before anything else.</li>
+        </ul>
+
         <h3>Cheapest first &mdash; climb only when the rung below can't do it</h3>
         <table>
           <thead><tr><th>Need</th><th>Reach for</th><th>Cost</th></tr></thead>
           <tbody>
-            <tr><td>one value, one object</td><td><code>k get node NAME -o wide</code> &rarr; read it off the screen</td><td>0 special chars</td></tr>
-            <tr><td>one field per object, many objects</td><td><code>-o custom-columns=H:.the.path --no-headers</code></td><td>one dotted path</td></tr>
+            <tr><td>one value, one object</td><td><code>k get node cluster1-node01 -o wide</code> &rarr; read it off the screen</td><td>0 special chars</td></tr>
+            <tr><td>one field per object, many objects</td><td><code>-o custom-columns=NODE:.spec.nodeName --no-headers</code></td><td>one dotted path</td></tr>
             <tr><td>field inside a list, position varies</td><td><code>-o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'</code></td><td>quote nesting</td></tr>
           </tbody>
         </table>
         <p>Gamble worth taking: on kubeadm nodes <code>.status.addresses[0]</code> <em>is</em> the InternalIP (<code>[1]</code> is Hostname). Use <code>[0]</code>, confirm against <code>-o wide</code>, move on.</p>
-        <ul>
-          <li><strong>A wrong path never errors &mdash; it prints <code>&lt;none&gt;</code>.</strong> Check the values, not the layout. <code>.spec.container[0]</code> (singular) is the classic; it's <code>containers</code>.</li>
-          <li><code>--no-headers</code> needs no <code>=true</code>.</li>
-          <li>jsonpath emits no trailing newline &mdash; <code>cat</code> runs into the prompt. Harmless to a grader.</li>
-          <li>Filter syntax: <code>[?(@.type=="InternalIP")]</code> &mdash; <code>@</code> is the current item; inner quotes must be double inside a single-quoted shell string.</li>
-        </ul>
-
-        <h3>Names to a file</h3>
-<pre><code>k get pod -n NS -o custom-columns=NAME:.metadata.name --no-headers &gt; /path/f
-k get pod -n NS -o name                  <span class="comment"># prints pod/NAME — WITH prefix</span>
-k get pod -n NS -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'</code></pre>
-
-        <h3>Any field to a file</h3>
-<pre><code>k get pod -n NS -o custom-columns=VAL:.spec.nodeName --no-headers &gt; /path/f
-k get pod -n NS -o jsonpath='{range .items[*]}{.status.podIP}{"\n"}{end}'</code></pre>
 
         <h3>Find the path first</h3>
-<pre><code>k get pod NAME -n NS -o yaml | grep -n -i FIELD
-k explain pod.spec --recursive | grep -i FIELD</code></pre>
+<pre><code>k get po web-0 -n apps -o yaml | grep -n -i nodename      <span class="comment"># the object IS the reference</span>
+k explain pod.spec --recursive | grep -i nodename</code></pre>
+        <ul>
+          <li><strong>A wrong path never errors &mdash; it prints <code>&lt;none&gt;</code>.</strong> Check the values, not the layout. <code>.spec.container[0]</code> (singular) is the classic; it's <code>containers</code>.</li>
+          <li><code>.items[*]</code> only exists on a LIST; a single object is addressed directly.</li>
+        </ul>
 
-        <h3>Multi-column &amp; sort</h3>
-<pre><code>k get po -A -o custom-columns=POD:.metadata.name,NS:.metadata.namespace --sort-by=.metadata.name</code></pre>
+        <h3>One value per line with jsonpath</h3>
+<pre><code>k get po -n apps -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'
+k get po -n apps -o name                 <span class="comment"># prints pod/NAME — WITH the prefix</span></code></pre>
 
         <table>
           <thead><tr><th>Flag</th><th>Does</th></tr></thead>
           <tbody>
             <tr><td><code>HEADER:.path</code></td><td>left of <code>:</code> = printed header, right = value path</td></tr>
-            <tr><td><code>--no-headers</code></td><td>drop header row &mdash; <strong>mandatory</strong> for &ldquo;names only&rdquo;</td></tr>
+            <tr><td><code>--no-headers</code></td><td>drop header row &mdash; <strong>mandatory</strong> for &ldquo;names only&rdquo;. No <code>=true</code> needed.</td></tr>
             <tr><td><code>--sort-by=.path</code></td><td>sorts as a STRING (so <code>10.42.0.9</code> lands last)</td></tr>
             <tr><td><code>-o name</code></td><td>adds the <code>kind/</code> prefix</td></tr>
             <tr><td><code>{range .items[*]}…{"\n"}{end}</code></td><td>one value per line; without <code>{"\n"}</code> it's all one line</td></tr>
@@ -573,13 +606,13 @@ k explain pod.spec --recursive | grep -i FIELD</code></pre>
         <h3>Gotchas</h3>
         <ul>
           <li><code>--no-headers</code> omitted &rarr; the literal word <code>NAME</code> becomes line 1 of your answer.</li>
-          <li><code>-o name</code> gives <code>pod/web</code>, not <code>web</code>.</li>
+          <li><code>-o name</code> gives <code>pod/web-0</code>, not <code>web-0</code>.</li>
           <li>jsonpath has <strong>no substring filter</strong> &mdash; filter by namespace or label, never by name fragment.</li>
-          <li><code>.items[*]</code> only exists on a LIST; a single object is addressed directly.</li>
-          <li>Single-quote the jsonpath &mdash; the shell eats <code>{}</code> and <code>*</code>.</li>
+          <li>jsonpath emits no trailing newline &mdash; <code>cat</code> runs into the prompt. Harmless to a grader.</li>
           <li><strong><code>cat -A</code> the file before moving on</strong> &mdash; trailing spaces are invisible to plain <code>cat</code> and score zero.</li>
+          <li>Redirect runs on the machine you typed it on: <code>ssh node sudo crictl logs X &gt; /root/f</code> writes locally, not on the node.</li>
         </ul>
-      
+
         <h3>When the answer is a bash script</h3>
 <pre><code>#!/bin/bash
 kubectl top node                            <span class="comment"># kubectl — NOT k</span></code></pre>
