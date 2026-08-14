@@ -290,7 +290,6 @@
 
     <header class="page-header">
       <h1>CKA cheat sheet</h1>
-      <em>Study-phase reference. Not usable during the actual exam &mdash; PSI proctored session is locked to kubernetes.io.</em>
     </header>
 
     <div class="tabs" role="tablist">
@@ -2058,33 +2057,58 @@ k get &lt;cr&gt; -A ; k describe &lt;cr&gt; &lt;name&gt; -n &lt;ns&gt;</code></p
         <h2>Gateway API &mdash; Ingress successor <span style="opacity:.6">(post-2025 addition)</span></h2>
         <p>apiGroup <code>gateway.networking.k8s.io</code>. Three layered objects.</p>
 
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
+        <p>Nothing on this page is a placeholder. Every command and manifest is runnable as written; swap these nouns for the ones in your question.</p>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>GatewayClass</td><td><code>nginx</code></td><td><strong>read it, never guess:</strong> <code>k get gatewayclass</code></td></tr>
+            <tr><td>Gateway</td><td><code>web-gw</code> in ns <code>store</code></td><td>given &mdash; the HTTPRoute's <code>parentRefs.name</code> must equal it</td></tr>
+            <tr><td>HTTPRoute</td><td><code>store-route</code> in ns <code>store</code></td><td>given</td></tr>
+            <tr><td>hostname</td><td><code>shop.example.com</code></td><td>given &mdash; a DNS name, nothing else</td></tr>
+            <tr><td>backends</td><td><code>web-svc:80</code>, <code>api-svc:8080</code>, <code>beta-svc:80</code></td><td>existing <strong>Services</strong>: <code>k get svc -n store</code></td></tr>
+            <tr><td>paths</td><td><code>/</code>, <code>/api</code>, <code>/checkout</code></td><td>given</td></tr>
+          </tbody>
+        </table>
+
         <h3>The three objects</h3>
         <table>
           <thead><tr><th>Object</th><th>Owner</th><th>Does</th></tr></thead>
           <tbody>
-            <tr><td>GatewayClass</td><td>provider</td><td>which controller (usually pre-installed)</td></tr>
-            <tr><td>Gateway</td><td>cluster op</td><td>listeners: ports/protocols/hosts</td></tr>
-            <tr><td>HTTPRoute</td><td>app dev</td><td>host/path &rarr; backend Service</td></tr>
+            <tr><td>GatewayClass <code>nginx</code></td><td>provider</td><td>which controller (usually pre-installed)</td></tr>
+            <tr><td>Gateway <code>web-gw</code></td><td>cluster op</td><td>listeners: ports/protocols/hosts</td></tr>
+            <tr><td>HTTPRoute <code>store-route</code></td><td>app dev</td><td>host/path &rarr; backend Service</td></tr>
           </tbody>
         </table>
 
-        <h3>Inspect</h3>
-<pre><code>k get gatewayclass
-k get gateway,httproute -A</code></pre>
+        <h3>Inspect first</h3>
+<pre><code>k get gatewayclass                  <span class="comment"># the ONLY source of gatewayClassName</span>
+k get gateway,httproute -A
+k get svc -n store                  <span class="comment"># backendRefs must name a real Service + port</span></code></pre>
 
-        <h3>Gateway + HTTPRoute (skeletons)</h3>
-<pre><code>kind: Gateway
+        <h3>Gateway + HTTPRoute</h3>
+<pre><code>apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: web-gw
+  namespace: store
 spec:
-  gatewayClassName: &lt;class&gt;      <span class="comment"># from k get gatewayclass</span>
+  gatewayClassName: nginx         <span class="comment"># from k get gatewayclass</span>
   listeners:
     - name: http
       protocol: HTTP
       port: 80
 ---
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
+metadata:
+  name: store-route
+  namespace: store
 spec:
   parentRefs:
     - name: web-gw                <span class="comment"># the Gateway name</span>
+  hostnames:
+    - shop.example.com            <span class="comment"># DNS names ONLY</span>
   rules:
     - matches:
         - path: { type: PathPrefix, value: / }
@@ -2092,9 +2116,9 @@ spec:
         - name: web-svc           <span class="comment"># a Service, not a pod</span>
           port: 80</code></pre>
 
-<h3>Verify &mdash; read <code>spec:</code> BEFORE <code>status:</code></h3>
-<pre><code>k get gateway &lt;n&gt; -n &lt;ns&gt; -o yaml | grep -A15 '^spec:'     <span class="comment"># what you asked for</span>
-k get gateway &lt;n&gt; -n &lt;ns&gt; -o yaml | grep -A20 '^status:'   <span class="comment"># what the controller did</span></code></pre>
+        <h3>Verify &mdash; read <code>spec:</code> BEFORE <code>status:</code></h3>
+<pre><code>k get gateway web-gw -n store -o yaml | grep -A15 '^spec:'     <span class="comment"># what you asked for</span>
+k get gateway web-gw -n store -o yaml | grep -A20 '^status:'   <span class="comment"># what the controller did</span></code></pre>
         <ul>
           <li><strong>A green <code>status:</code> block can describe the spec you thought you replaced.</strong> Four True conditions prove nothing if the edit never landed.</li>
           <li>No error out of <code>k edit</code> &ne; saved. Re-read <code>spec:</code>.</li>
@@ -2103,14 +2127,14 @@ k get gateway &lt;n&gt; -n &lt;ns&gt; -o yaml | grep -A20 '^status:'   <span cla
         <h3>Multiple rules on one HTTPRoute</h3>
 <pre><code>  rules:
   - backendRefs:                  <span class="comment"># catch-all, no matches:</span>
-    - name: web-service
+    - name: web-svc
       port: 80
   - matches:                      <span class="comment"># SECOND rule = its own dash</span>
     - path:
         type: PathPrefix
         value: /api
     backendRefs:
-    - name: api-service
+    - name: api-svc
       port: 8080</code></pre>
         <ul>
           <li>Each <code>-</code> under <code>rules:</code> is ONE rule with its own <code>matches</code> + <code>backendRefs</code>.</li>
@@ -2141,40 +2165,53 @@ k get gateway &lt;n&gt; -n &lt;ns&gt; -o yaml | grep -A20 '^status:'   <span cla
         <ul>
           <li><code>headers:</code> <strong>matches</strong> on a header. <code>filters: RequestHeaderModifier</code> <strong>adds</strong> one. Different jobs &mdash; swapping them routes everyone to the wrong backend with no error.</li>
           <li>Header match defaults to <code>type: Exact</code> (other value: <code>RegularExpression</code>).</li>
-          <li><code>hostnames:</code> takes DNS names only &mdash; never a header, never the route name.</li>
+          <li><code>hostnames:</code> takes DNS names only (<code>shop.example.com</code>) &mdash; never a header, never the route name.</li>
           <li>Most specific match wins regardless of file order (path length, then header count).</li>
           <li><strong>Never hand-align a second list item</strong> &mdash; yank the first (<code>7yy</code>, <code>G</code>, <code>p</code>) and edit the copy. <code>:set ts=2 sw=2 et</code> first.</li>
         </ul>
 
         <h3>Restrict which namespaces may attach routes</h3>
 <pre><code>  listeners:
-    - name: web
+    - name: http
       protocol: HTTP
       port: 80
       allowedRoutes:
         namespaces:
           from: Same              <span class="comment"># Same | All | Selector</span></code></pre>
 
-                <h3>Verify (the grade &mdash; conditions, not just created)</h3>
-<pre><code>k get gateway &lt;name&gt;                        <span class="comment"># PROGRAMMED True (+ADDRESS only if LB exists)</span>
-k describe gateway &lt;name&gt; -n &lt;ns&gt;           <span class="comment"># listener: Attached Routes: 1</span>
-k describe httproute &lt;name&gt; | grep -B2 -A8 Conditions
+        <h3>Verify (the grade &mdash; conditions, not just created)</h3>
+<pre><code>k get gateway web-gw -n store                  <span class="comment"># PROGRAMMED True (+ADDRESS only if LB exists)</span>
+k describe gateway web-gw -n store             <span class="comment"># listener: Attached Routes: 1</span>
+k describe httproute store-route -n store | grep -B2 -A8 Conditions
 <span class="comment"># want: Accepted True + "references resolved"</span></code></pre>
         <ul>
           <li><strong><code>Attached Routes: 1</code> on the listener is the proof <code>parentRefs</code> actually bound.</strong> A route can read <code>Accepted: True</code> from its own controller and still be ignored by the Gateway.</li>
           <li><strong><code>Conflicted: Status: False</code> is HEALTHY</strong> &mdash; negative-polarity condition, <code>False</code> = no conflict. Don't "fix" it.</li>
         </ul>
 
+        <h3>Coming from an Ingress</h3>
+        <table>
+          <thead><tr><th>Ingress</th><th>Gateway API</th></tr></thead>
+          <tbody>
+            <tr><td><code>ingressClassName: nginx</code></td><td><code>gatewayClassName: nginx</code> on the Gateway</td></tr>
+            <tr><td><code>host: shop.example.com</code></td><td><code>hostnames: [shop.example.com]</code> on the HTTPRoute</td></tr>
+            <tr><td><code>pathType: Prefix</code></td><td><code>path: {type: PathPrefix}</code> &mdash; <strong>renamed</strong></td></tr>
+            <tr><td><code>backend.service.name/port.number</code></td><td><code>backendRefs: [{name, port}]</code></td></tr>
+            <tr><td>one object</td><td>two: Gateway + HTTPRoute</td></tr>
+          </tbody>
+        </table>
+
         <h3>Gotchas</h3>
         <ul>
           <li>HTTPRoute <code>parentRefs.name</code> MUST match the Gateway (+ns if cross-ns).</li>
-          <li><code>gatewayClassName</code> must be a real class &mdash; check first.</li>
+          <li><code>gatewayClassName</code> must be a real class &mdash; <code>k get gatewayclass</code> first. A cluster can ship GatewayClass <code>nginx</code> while its IngressClass is <code>traefik</code>; the two are unrelated.</li>
           <li><code>backendRefs</code> &rarr; a <strong>Service</strong>. Migration Q's compare vs single-object Ingress.</li>
           <li><code>rules:</code> is a <strong>LIST</strong> &mdash; deleting the <code>matches:</code> block must keep the dash: <code>- backendRefs:</code>.</li>
           <li>Docs-noun sweep after paste: pass 1 = names (<code>example-gateway</code>!), pass 2 = class/path/port. Your own <code>parentRefs</code> tells you the Gateway's required name.</li>
         </ul>
         <h3>Docs path</h3>
-        <ul><li>k8s.io search <strong>"gateway api"</strong>.</li></ul>
+        <ul><li><strong>gateway-api.sigs.k8s.io</strong> &rarr; Guides; Ctrl+F <code>backendRefs:</code>. Migration page: <em>Migrating from Ingress</em>, Ctrl+F <code>PathPrefix</code>.</li>
+        <li>k8s.io search <strong>"gateway api"</strong> for the concept page.</li></ul>
       </section>
 
     </main>
