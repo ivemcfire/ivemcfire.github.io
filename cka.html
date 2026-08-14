@@ -293,12 +293,12 @@
     </header>
 
     <div class="tabs" role="tablist">
-      <button class="tab-button active" data-tab="setup">Setup</button>
-      <button class="tab-button" data-tab="checklist">Checklist</button>
+      <button class="tab-button active" data-tab="checklist">Checklist</button>
       <button class="tab-button" data-tab="fatal">Fatal 7</button>
       <button class="tab-button" data-tab="vim">Vim</button>
       <button class="tab-button" data-tab="output">Output &amp; Files</button>
       <button class="tab-button" data-tab="workloads">Workloads</button>
+      <button class="tab-button" data-tab="sts">StatefulSets</button>
       <button class="tab-button" data-tab="scheduling">Scheduling</button>
       <button class="tab-button" data-tab="debug">Debug</button>
       <button class="tab-button" data-tab="storage">Storage &amp; Config</button>
@@ -313,18 +313,18 @@
 
     <main>
 
-      <!-- ==================== SETUP ==================== -->
-      <section class="tab-content active" id="setup">
-        <h2>Lab setup &mdash; almost nothing to do</h2>
+      <!-- ==================== CHECKLIST ==================== -->
+      <section class="tab-content active" id="checklist">
+        <h2>Mechanical checklist &mdash; the leaks that cost points when the knowledge was fine</h2>
 
         <div class="warning">
-          <code>alias k=kubectl</code> + completion are <strong>PRE-SET</strong> in both KodeKloud and the real CKA (PSI) exam. Do NOT waste clock typing them. Old guides that tell you to are outdated.
+          Built from a 17-question simulator sit where <strong>not one point was lost to a concept</strong>. Every loss was mechanical. Run this list, not more theory.
         </div>
 
-        <h3>Verify (k is already there)</h3>
-
-<pre><code>type k &amp;&amp; k get po          <span class="comment"># k get po + TAB expands to pods</span></code></pre>
-
+        <h3>Before you start &mdash; there is no setup</h3>
+        <div class="warning">
+          <code>alias k=kubectl</code> + completion are <strong>PRE-SET</strong> in both KodeKloud and the real CKA (PSI) exam. There is nothing to configure. Do not waste clock on a setup block &mdash; guides that tell you to are outdated. One check, then work: <code>type k &amp;&amp; k get po</code>.
+        </div>
         <table>
           <thead><tr><th>Snippet</th><th>What</th></tr></thead>
           <tbody>
@@ -332,79 +332,29 @@
             <tr><td><code>--grace-period=0 --force</code></td><td>instant delete &middot; <code>k delete pod x --grace-period=0 --force</code></td></tr>
           </tbody>
         </table>
+        <ul>
+          <li>Type these in full. Custom exports (<code>$do</code>, <code>$now</code>) are lost across every SSH hop and new terminal &mdash; not worth the habit.</li>
+          <li>The exam is <strong>terminal + vim/nano + a Firefox docs window</strong>. No VS Code, no IDE. Don't plan around one.</li>
+        </ul>
 
-        <h3>Editor: nano (default choice)</h3>
-
-        <p>Nano handles YAML correctly out of the box. No setup needed. Just <code>nano file.yaml</code>, edit, <code>Ctrl-O</code> save, <code>Ctrl-X</code> exit.</p>
-
-        <table>
-          <thead><tr><th>Action</th><th>nano</th></tr></thead>
-          <tbody>
-            <tr><td>Save</td><td><code>Ctrl-O</code> &rarr; Enter</td></tr>
-            <tr><td>Exit</td><td><code>Ctrl-X</code></td></tr>
-            <tr><td>Search</td><td><code>Ctrl-W</code></td></tr>
-            <tr><td>Cut line</td><td><code>Ctrl-K</code></td></tr>
-            <tr><td>Paste</td><td><code>Ctrl-U</code></td></tr>
-            <tr><td>Go to line</td><td><code>Ctrl-_</code> then number</td></tr>
-          </tbody>
-        </table>
-
-        <p>Editor choice: see the <strong>Vim</strong> tab. <code>k edit</code> defaults to vim, so survival vim is the safer bet.</p>
-
-        <h3>Paste, don't type (kills exact-name fails)</h3>
-
+        <h3>Paste, don't type &mdash; kills exact-name fails</h3>
         <div class="warning">
-          Never <em>transcribe</em> a string the grader checks. Select it and paste it.
+          Never <em>transcribe</em> a string the grader checks. Select it and paste it. Terminal paste = <code>Ctrl+Shift+V</code>.
         </div>
-
         <ul>
           <li><strong>Paste the nouns:</strong> resource names, namespaces, image tags, ports, paths &mdash; straight from the question text (it's selectable). No typo = no silent zero.</li>
           <li><strong>Paste docs YAML</strong> skeletons, then paste the question's names into them.</li>
           <li><strong>Always paste:</strong> base64 secrets, tokens, join commands, long flags.</li>
           <li><strong>Type the verbs:</strong> short imperative commands (<code>k get</code>, <code>k create</code>, <code>k describe</code>) &mdash; faster typed, and a typo just errors instead of silently failing.</li>
+          <li>Memorize-vs-lookup in one line: <strong>verbs typed, nouns pasted.</strong></li>
         </ul>
-
-        <p>Maps to memorize-vs-lookup: <strong>verbs typed, nouns pasted.</strong> Terminal paste = <code>Ctrl+Shift+V</code>.</p>
-
-        <h3>Don't let a pasted command auto-run</h3>
-
         <div class="warning">
           Docs "copy" buttons and triple-click grab the trailing newline &mdash; that newline is <strong>Enter</strong>, so a pasted command fires before you can read it.
         </div>
-
         <ul>
           <li><strong>Single-line command:</strong> type <code>#</code> first, then paste. The whole line is commented &mdash; it prints, doesn't run. Read it, up-arrow, strip the <code>#</code>, run. (<code>#</code> beats <code>echo</code>: no <code>$</code>/quote/backtick expansion.)</li>
           <li><strong>Multi-line / YAML:</strong> <code>#</code> only protects the first line. Paste into the editor instead (vim <code>:set paste</code> first).</li>
         </ul>
-
-        <h3>No IDE in the exam</h3>
-
-        <div class="warning">
-          The post-2025 remote-desktop CKA is <strong>terminal + vim/nano + a Firefox docs window</strong>. No VS Code, no code-server, no IDE. Don't plan around one.
-        </div>
-
-        <h3>When the answer is a bash script</h3>
-
-<pre><code>#!/bin/bash
-kubectl top node                            <span class="comment"># kubectl — NOT k</span></code></pre>
-
-        <table>
-          <thead><tr><th>Rule</th><th>Why</th></tr></thead>
-          <tbody>
-            <tr><td>Write <code>kubectl</code>, never <code>k</code></td><td>The alias is interactive-shell only; a script runs in a fresh non-interactive shell. <strong>#1 way to fail a script question.</strong></td></tr>
-            <tr><td><code>#!/bin/bash</code> first line</td><td>Needed only for <code>./foo.sh</code>; harmless otherwise.</td></tr>
-            <tr><td><code>chmod +x</code> anyway</td><td><code>bash foo.sh</code> ignores the exec bit &mdash; but you don't know how the grader invokes it.</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <!-- ==================== CHECKLIST ==================== -->
-      <section class="tab-content" id="checklist">
-        <h2>Mechanical checklist &mdash; the leaks that cost points when the knowledge was fine</h2>
-
-        <div class="warning">
-          Built from a 17-question simulator sit where <strong>not one point was lost to a concept</strong>. Every loss was mechanical. Run this list, not more theory.
-        </div>
 
         <h3>After you write anything</h3>
         <ul>
@@ -467,7 +417,7 @@ k get svc                             <span class="comment"># service names + po
 
         <ol>
           <li><strong>Over-running one question.</strong> Past 15 minutes: flag it and move. The most repeated failure story is running out of time before returning to flagged questions. Budget ~7 min/question, two-pass, bank the cheap ones first.</li>
-          <li><strong>Wrong namespace / wrong context / wrong node.</strong> A correct answer in the wrong place scores zero. <code>k config use-context &lt;name&gt;</code> is the first action of every question; explicit <code>-n</code> on every graded command.</li>
+          <li><strong>Wrong namespace / wrong host.</strong> A correct answer in the wrong place scores zero. The question names a host &rarr; <code>ssh &lt;host&gt;</code> is the FIRST command and <code>hostname</code> proves it landed; explicit <code>-n</code> on every graded command. (Cluster switching is the rarer case &mdash; <code>k config use-context &lt;name&gt;</code> when a question actually names a context.)</li>
           <li><strong>Not verifying before moving on.</strong> Exercise the object, don't re-read it. Endpoints populated &ne; something listening. <code>auth can-i --as</code> matches a username string, not an existing ServiceAccount.</li>
           <li><strong>Static pod edited with kubectl.</strong> It is a FILE in <code>/etc/kubernetes/manifests/</code> on the control plane. Never <code>k delete</code>, never <code>k edit</code>.</li>
           <li><strong>ConfigMap changed without a restart.</strong> <code>env</code> / <code>envFrom</code> / <code>subPath</code> mounts &rarr; <code>k rollout restart deploy &lt;name&gt; -n &lt;ns&gt;</code>. A plain volume mount self-syncs.</li>
@@ -555,6 +505,20 @@ k get svc                             <span class="comment"># service names + po
           <li>Clean generated YAML fast: cursor on first junk line (<code>status:</code>) &rarr; <code>dG</code> wipes to end.</li>
           <li>Stuck and need out: <code>Esc</code> first, then <code>:q!</code>.</li>
         </ul>
+      
+        <h3>nano &mdash; the other option</h3>
+        <p>Nano handles YAML correctly out of the box, no setup: <code>nano file.yaml</code>, edit, <code>Ctrl-O</code> save, <code>Ctrl-X</code> exit. But <code>k edit</code> opens <strong>vim</strong> unless you <code>export KUBE_EDITOR=nano</code> &mdash; which is lost on every SSH hop. Survival vim is the safer bet.</p>
+        <table>
+          <thead><tr><th>Action</th><th>nano</th></tr></thead>
+          <tbody>
+            <tr><td>Save</td><td><code>Ctrl-O</code> &rarr; Enter</td></tr>
+            <tr><td>Exit</td><td><code>Ctrl-X</code></td></tr>
+            <tr><td>Search</td><td><code>Ctrl-W</code></td></tr>
+            <tr><td>Cut line</td><td><code>Ctrl-K</code></td></tr>
+            <tr><td>Paste</td><td><code>Ctrl-U</code></td></tr>
+            <tr><td>Go to line</td><td><code>Ctrl-_</code> then number</td></tr>
+          </tbody>
+        </table>
       </section>
 
       <!-- ==================== OUTPUT & FILES ==================== -->
@@ -615,6 +579,18 @@ k explain pod.spec --recursive | grep -i FIELD</code></pre>
           <li>Single-quote the jsonpath &mdash; the shell eats <code>{}</code> and <code>*</code>.</li>
           <li><strong><code>cat -A</code> the file before moving on</strong> &mdash; trailing spaces are invisible to plain <code>cat</code> and score zero.</li>
         </ul>
+      
+        <h3>When the answer is a bash script</h3>
+<pre><code>#!/bin/bash
+kubectl top node                            <span class="comment"># kubectl — NOT k</span></code></pre>
+        <table>
+          <thead><tr><th>Rule</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>Write <code>kubectl</code>, never <code>k</code></td><td>The alias is interactive-shell only; a script runs in a fresh non-interactive shell. <strong>#1 way to fail a script question.</strong></td></tr>
+            <tr><td><code>#!/bin/bash</code> first line</td><td>Needed only for <code>./foo.sh</code>; harmless otherwise.</td></tr>
+            <tr><td><code>chmod +x</code> anyway</td><td><code>bash foo.sh</code> ignores the exec bit &mdash; but you don't know how the grader invokes it.</td></tr>
+          </tbody>
+        </table>
       </section>
 
       <!-- ==================== WORKLOADS ==================== -->
@@ -804,60 +780,7 @@ cat /path/file                                  <span class="comment"># wrong-bu
           <li>An edit that <em>looks</em> applied may not have landed. Always re-read the field you just set.</li>
         </ul>
 
-        <h3>Which controller owns these Pods?</h3>
-
-        <p>Read the pod NAME &mdash; it's deterministic.</p>
-
-        <table>
-          <thead><tr><th>Pod name</th><th>Owner</th></tr></thead>
-          <tbody>
-            <tr><td><code>cache-0</code>, <code>cache-1</code> (ordinal)</td><td>StatefulSet</td></tr>
-            <tr><td><code>web-6d4cf56db6-x7k2p</code> (hash + random)</td><td>Deployment &rarr; ReplicaSet</td></tr>
-            <tr><td><code>logger-abcde</code> (one random suffix)</td><td>DaemonSet, bare ReplicaSet, or Job</td></tr>
-            <tr><td><code>backup-28931400-9xk4t</code></td><td>CronJob &rarr; Job</td></tr>
-            <tr><td><code>kube-apiserver-controlplane</code> (node-name suffix)</td><td>static pod</td></tr>
-            <tr><td>exact name, no suffix</td><td>bare Pod &mdash; nothing to scale</td></tr>
-          </tbody>
-        </table>
-
-<pre><code>k describe po X | grep -i "controlled by"    <span class="comment"># when the name is ambiguous</span>
-k -n NS get sts                              <span class="comment"># faster if you know there's one owner</span></code></pre>
-        <ul>
-          <li><strong>"Not a Deployment" does NOT imply StatefulSet.</strong> Read the name, don't infer.</li>
-        </ul>
-
-        <h3>StatefulSet</h3>
-<pre><code>k -n NS scale sts NAME --replicas 1     <span class="comment"># k scale takes deploy/sts/rs/rc</span></code></pre>
-        <ul>
-          <li>Scale-down removes the <strong>highest ordinal first</strong>, one at a time.</li>
-          <li><strong>The PVC of a removed pod is NOT deleted</strong> &mdash; by design, don't hunt it as a leftover.</li>
-          <li><code>volumeClaimTemplates</code>: recognise it, don't author it.</li>
-        </ul>
-
-        <h3>DaemonSet</h3>
-
-        <p>No <code>replicas</code> field at all &mdash; <code>k scale ds</code> is an error. Coverage changes via <code>nodeSelector</code> / tolerations. <code>DESIRED</code> in <code>k get ds</code> mirrors node count; DESIRED 3 on 4 nodes means one node is tainted or excluded.</p>
-
-        <p><strong>No generator exists</strong> &mdash; make a Deployment and convert it:</p>
-
-        <table>
-          <thead><tr><th>Step</th><th>Change</th></tr></thead>
-          <tbody>
-            <tr><td>1</td><td><code>kind: Deployment</code> &rarr; <code>DaemonSet</code></td></tr>
-            <tr><td>2</td><td>delete <code>replicas:</code></td></tr>
-            <tr><td>3</td><td>delete <code>strategy: {}</code> (DS uses <code>updateStrategy</code>)</td></tr>
-            <tr><td>4</td><td>delete <code>status: {}</code> + <code>creationTimestamp: null</code></td></tr>
-          </tbody>
-        </table>
-
-<pre><code>      tolerations:                              <span class="comment"># pod-spec level, sibling of containers:</span>
-      - effect: NoSchedule
-        key: node-role.kubernetes.io/control-plane</code></pre>
-        <ul>
-          <li><strong>Labels go in THREE places</strong> &mdash; metadata, <code>selector.matchLabels</code>, <code>template.metadata.labels</code>. Selector and template must match exactly. <strong>Replace</strong> the generator's <code>app: &lt;name&gt;</code>, don't append.</li>
-          <li>"Run on controlplanes too" = tolerate the taint. <strong>Read the key off <code>k describe nodes | grep -i taint</code></strong> &mdash; docs still show <code>master</code>, removed in 1.25.</li>
-          <li><code>k rollout restart/status/undo</code> works on a DS, same verbs as Deployment.</li>
-        </ul>
+        <p>Controllers other than Deployment &mdash; StatefulSet and DaemonSet, and reading a pod's owner off its name &mdash; have their own tab: <strong>StatefulSets</strong>.</p>
 
         <h3>QoS class &mdash; who gets evicted first</h3>
 <pre><code>k -n NS describe po | grep -E "^Name:|^QoS Class:"    <span class="comment"># pairs name + class in one pass</span></code></pre>
@@ -878,7 +801,135 @@ k -n NS get sts                              <span class="comment"># faster if y
         <h3>Docs path</h3>
 
         <ul>
-          <li>kubernetes.io/docs/concepts/workloads/controllers/statefulset/</li>
+          <li>kubernetes.io/docs/concepts/workloads/controllers/deployment/ &mdash; Ctrl+F <code>strategy:</code></li>
+          <li>kubernetes.io/docs/concepts/configuration/manage-resources-containers/ &mdash; requests/limits + QoS</li>
+        </ul>
+      </section>
+
+      <!-- ==================== STATEFULSET / DAEMONSET ==================== -->
+      <section class="tab-content" id="sts">
+        <h2>StatefulSet &amp; DaemonSet &mdash; the two non-Deployment controllers</h2>
+
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
+        <p>Nothing on this page is a placeholder. Every command is runnable as written; swap these nouns for the ones in your question.</p>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>namespace</td><td><code>apps</code></td><td>given &mdash; <code>-n</code> on every command</td></tr>
+            <tr><td>StatefulSet</td><td><code>cache</code>, 3 replicas, <code>redis:7</code></td><td>given</td></tr>
+            <tr><td>headless Service</td><td><code>cache-svc</code> (<code>clusterIP: None</code>)</td><td>given &mdash; <code>serviceName:</code> must equal it</td></tr>
+            <tr><td>volumeClaimTemplate</td><td><code>data</code>, 1Gi</td><td>given &mdash; makes PVCs named <code>data-cache-0…</code></td></tr>
+            <tr><td>DaemonSet</td><td><code>logger</code>, <code>fluentd:v1.16</code></td><td>given</td></tr>
+            <tr><td>nodes</td><td><code>cluster1-controlplane</code>, <code>-node01</code>, <code>-node02</code></td><td>read them: <code>k get nodes</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Which controller owns these Pods?</h3>
+        <p>Read the pod NAME &mdash; it's deterministic. This is the actual exam skill: the question names a pod, you must find its owner.</p>
+        <table>
+          <thead><tr><th>Pod name</th><th>Owner</th></tr></thead>
+          <tbody>
+            <tr><td><code>cache-0</code>, <code>cache-1</code> (ordinal)</td><td>StatefulSet</td></tr>
+            <tr><td><code>web-6d4cf56db6-x7k2p</code> (hash + random)</td><td>Deployment &rarr; ReplicaSet</td></tr>
+            <tr><td><code>logger-abcde</code> (one random suffix)</td><td>DaemonSet, bare ReplicaSet, or Job</td></tr>
+            <tr><td><code>backup-28931400-9xk4t</code></td><td>CronJob &rarr; Job</td></tr>
+            <tr><td><code>kube-apiserver-controlplane</code> (node-name suffix)</td><td>static pod</td></tr>
+            <tr><td>exact name, no suffix</td><td>bare Pod &mdash; nothing to scale</td></tr>
+          </tbody>
+        </table>
+<pre><code>k describe po cache-0 -n apps | grep -i "controlled by"    <span class="comment"># when the name is ambiguous</span>
+k get sts,ds,deploy -n apps                                <span class="comment"># faster if you know there's one owner</span></code></pre>
+        <ul>
+          <li><strong>"Not a Deployment" does NOT imply StatefulSet.</strong> Read the name, don't infer.</li>
+        </ul>
+
+        <h3>StatefulSet &mdash; the shape</h3>
+<pre><code>apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cache
+  namespace: apps
+spec:
+  serviceName: cache-svc        <span class="comment"># MUST match the headless Service name</span>
+  replicas: 3
+  selector:
+    matchLabels: { app: cache }
+  template:
+    metadata:
+      labels: { app: cache }    <span class="comment"># must equal the selector, exactly</span>
+    spec:
+      containers:
+      - name: redis
+        image: redis:7
+        volumeMounts:
+        - name: data            <span class="comment"># == volumeClaimTemplates[].name</span>
+          mountPath: /data
+  volumeClaimTemplates:         <span class="comment"># recognise it; rarely authored on the CKA</span>
+  - metadata: { name: data }
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources: { requests: { storage: 1Gi } }</code></pre>
+        <p>The headless Service it needs &mdash; one command, no YAML:</p>
+<pre><code>k create service clusterip cache-svc -n apps --tcp=6379:6379 --clusterip=None</code></pre>
+
+        <h3>StatefulSet &mdash; operate</h3>
+<pre><code>k get sts cache -n apps                       <span class="comment"># READY 3/3</span>
+k get po -n apps -l app=cache                 <span class="comment"># cache-0, cache-1, cache-2 — always ordinal</span>
+k scale sts cache -n apps --replicas 1        <span class="comment"># k scale takes deploy/sts/rs/rc</span>
+k get pvc -n apps                             <span class="comment"># data-cache-0, data-cache-1, data-cache-2</span>
+k rollout status sts/cache -n apps</code></pre>
+        <ul>
+          <li>Scale-down removes the <strong>highest ordinal first</strong>, one at a time; scale-up adds in order and waits for each to be Ready.</li>
+          <li><strong>The PVC of a removed pod is NOT deleted</strong> &mdash; by design. After scaling 3&rarr;1 you still see <code>data-cache-1</code> and <code>data-cache-2</code>. Don't hunt them as leftovers.</li>
+          <li>PVC name = <code>&lt;template&gt;-&lt;sts&gt;-&lt;ordinal&gt;</code> &rarr; <code>data-cache-0</code>. Recognising this tells you which controller made a stray PVC.</li>
+          <li>Stable DNS per pod: <code>cache-0.cache-svc.apps.svc.cluster.local</code>. That is what the headless Service is for &mdash; a mismatched <code>serviceName:</code> gives you running pods with no DNS.</li>
+          <li><code>volumeClaimTemplates</code> and <code>serviceName</code> are <strong>immutable</strong> &mdash; changing either means delete + recreate.</li>
+          <li><code>k delete sts cache -n apps --cascade=orphan</code> leaves the pods running &mdash; the "delete the controller, keep the workload" ask.</li>
+        </ul>
+
+        <h3>DaemonSet</h3>
+        <p>No <code>replicas</code> field at all &mdash; <code>k scale ds</code> is an error. Coverage changes via <code>nodeSelector</code> / tolerations. <code>DESIRED</code> in <code>k get ds</code> mirrors eligible node count; DESIRED 2 on a 3-node cluster means one node is tainted or excluded.</p>
+        <p><strong>No generator exists</strong> &mdash; make a Deployment and convert it:</p>
+<pre><code>k create deployment logger -n apps --image=fluentd:v1.16 --dry-run=client -o yaml &gt; ds.yaml</code></pre>
+        <table>
+          <thead><tr><th>Step</th><th>Change in <code>ds.yaml</code></th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>kind: Deployment</code> &rarr; <code>DaemonSet</code></td></tr>
+            <tr><td>2</td><td>delete <code>replicas:</code></td></tr>
+            <tr><td>3</td><td>delete <code>strategy: {}</code> (DS uses <code>updateStrategy</code>)</td></tr>
+            <tr><td>4</td><td>delete <code>status: {}</code> + <code>creationTimestamp: null</code></td></tr>
+          </tbody>
+        </table>
+<pre><code>      tolerations:                              <span class="comment"># pod-spec level, sibling of containers:</span>
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane</code></pre>
+<pre><code>k apply -f ds.yaml
+k get ds logger -n apps                       <span class="comment"># DESIRED == CURRENT == READY</span>
+k get po -n apps -o wide -l app=logger        <span class="comment"># one per node — check the NODE column</span>
+k describe nodes | grep -i taint              <span class="comment"># read the real taint key, never type it from docs</span></code></pre>
+        <ul>
+          <li><strong>Labels go in THREE places</strong> &mdash; metadata, <code>selector.matchLabels</code>, <code>template.metadata.labels</code>. Selector and template must match exactly. <strong>Replace</strong> the generator's <code>app: logger</code>, don't append a second block.</li>
+          <li>"Run on the control plane too" = tolerate the taint. Docs still show <code>node-role.kubernetes.io/master</code>, removed in 1.25 &mdash; it is <code>control-plane</code> now.</li>
+          <li>Missing one pod after apply? Compare <code>k get ds</code> DESIRED against <code>k get nodes</code>. A short DESIRED is a taint/selector problem, not a crash.</li>
+          <li><code>k rollout restart/status/undo</code> works on a DS, same verbs as Deployment.</li>
+        </ul>
+
+        <h3>Side by side</h3>
+        <table>
+          <thead><tr><th></th><th>StatefulSet</th><th>DaemonSet</th></tr></thead>
+          <tbody>
+            <tr><td>replicas field</td><td>yes &mdash; <code>k scale</code> works</td><td><strong>none</strong> &mdash; <code>k scale ds</code> errors</td></tr>
+            <tr><td>pod names</td><td><code>cache-0</code>, ordinal, stable</td><td><code>logger-abcde</code>, random</td></tr>
+            <tr><td>how many</td><td>what you ask for</td><td>one per eligible node</td></tr>
+            <tr><td>storage</td><td><code>volumeClaimTemplates</code> &rarr; PVC per pod</td><td>usually <code>hostPath</code></td></tr>
+            <tr><td>needs a Service</td><td>yes, headless</td><td>no</td></tr>
+            <tr><td>generator</td><td>none &mdash; docs or convert</td><td>none &mdash; convert a Deployment</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Docs path</h3>
+        <ul>
+          <li>kubernetes.io/docs/concepts/workloads/controllers/statefulset/ &mdash; Ctrl+F <code>volumeClaimTemplates:</code></li>
           <li>kubernetes.io/docs/concepts/workloads/controllers/daemonset/ &mdash; search <strong>"daemonset tolerations"</strong> for the control-plane example</li>
           <li>kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/</li>
         </ul>
