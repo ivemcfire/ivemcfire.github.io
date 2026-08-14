@@ -485,10 +485,19 @@ k get svc                             <span class="comment"># service names + po
           <tbody>
             <tr><td>Copy (yank) current line</td><td><code>yy</code></td></tr>
             <tr><td>Paste below / above</td><td><code>p</code> / <code>P</code></td></tr>
-            <tr><td>Undo</td><td><code>u</code></td></tr>
+            <tr><td>Undo</td><td><code>u</code> (normal mode)</td></tr>
             <tr><td>Redo</td><td><code>Ctrl-r</code></td></tr>
+            <tr><td><strong>Undo WHILE TYPING</strong></td><td><code>Alt-u</code> &mdash; the terminal sends it as <code>Esc</code>+<code>u</code>: leaves insert mode and undoes, one keystroke</td></tr>
+            <tr><td>Undo without leaving insert mode</td><td><code>Ctrl-o</code> then <code>u</code> &mdash; <code>Ctrl-o</code> runs ONE normal command, then you're still typing</td></tr>
+            <tr><td>Wipe the line you're typing</td><td><code>Ctrl-u</code> (insert mode) &mdash; deletes back to where the insert started</td></tr>
+            <tr><td>Undo everything on the current line</td><td><code>U</code> (normal mode)</td></tr>
           </tbody>
         </table>
+        <ul>
+          <li><strong>One insert session = one undo.</strong> Typing ten lines then pressing <code>u</code> removes all ten &mdash; press <code>Esc</code> now and then to break the change into steps you can undo separately.</li>
+          <li><code>Alt-u</code> relies on the terminal sending <code>Esc</code>+<code>u</code>, which is the default nearly everywhere. If it does nothing, fall back to <code>Esc</code> then <code>u</code>.</li>
+          <li>Undone too far? <code>Ctrl-r</code> redoes. Lost entirely? <code>:e!</code> reloads the file from disk and throws away every change.</li>
+        </ul>
 
         <h3>YAML paste gotcha</h3>
 
