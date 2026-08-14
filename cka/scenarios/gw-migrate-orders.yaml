@@ -1,0 +1,31 @@
+# Ingress -> Gateway API migration with a header match (CKA retake prep, 2026-08-14).
+# The shape to learn: `headers:` is a SIBLING of `path:` inside ONE match item.
+# Two conditions in the same match item = AND. A separate dash under `matches:` = OR.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: orders-route
+  namespace: orders
+spec:
+  parentRefs:
+  - name: orders-gw
+  hostnames:
+  - "orders.internal"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /checkout
+      headers:
+      - name: x-channel
+        value: beta
+    backendRefs:
+    - name: checkout-beta-svc
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /checkout
+    backendRefs:
+    - name: checkout-svc
+      port: 80
