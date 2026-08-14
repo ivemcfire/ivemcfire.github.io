@@ -1927,58 +1927,82 @@ helm template bitnami/nginx    <span class="comment"># render locally, no instal
         </ul>
 
         <h2>Kustomize &mdash; template-free overlays <span style="opacity:.6">(post-2025 addition)</span></h2>
+        <p>Built into kubectl via <code>-k</code> &mdash; no separate binary. Patches, not variables.</p>
+
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
+        <p>Nothing on this page is a placeholder. Every command and field is runnable as written; swap these nouns for the ones in your question.</p>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>base dir</td><td><code>/root/app/base</code></td><td>given &mdash; already contains a working <code>kustomization.yaml</code></td></tr>
+            <tr><td>overlay dir</td><td><code>/root/app/overlay/prod</code></td><td>given &mdash; this is the dir you edit and apply</td></tr>
+            <tr><td>workload in the base</td><td>Deployment <code>web</code>, image <code>nginx:1.25</code></td><td>read it: <code>k kustomize /root/app/base</code></td></tr>
+            <tr><td>target namespace</td><td><code>prod</code></td><td>given</td></tr>
+            <tr><td>target replicas</td><td><code>4</code></td><td>given</td></tr>
+            <tr><td>target image tag</td><td><code>1.27</code></td><td>given</td></tr>
+            <tr><td>name prefix / label</td><td><code>prod-</code> / <code>env: prod</code></td><td>given</td></tr>
+          </tbody>
+        </table>
+
+<pre><code>/root/app/base/kustomization.yaml     <span class="comment"># resources: deployment.yaml, service.yaml</span>
+/root/app/base/deployment.yaml        <span class="comment"># Deployment web, nginx:1.25</span>
+/root/app/base/service.yaml
+/root/app/overlay/prod/kustomization.yaml   <span class="comment"># ← the file you write</span></code></pre>
+
         <h3>Requirement &rarr; field</h3>
         <p>The docs page has a <strong>Kustomize Feature List</strong> table &mdash; match each line of the task to a row, copy the snippet.</p>
         <table>
-          <thead><tr><th>Task says</th><th>Field</th></tr></thead>
+          <thead><tr><th>Task says</th><th>Field, filled in for this example</th></tr></thead>
           <tbody>
-            <tr><td>builds on the base</td><td><code>resources: - ../base</code></td></tr>
-            <tr><td>namespace X</td><td><code>namespace</code></td></tr>
-            <tr><td>N replicas</td><td><code>replicas: [{name, count}]</code></td></tr>
-            <tr><td>image tag X</td><td><code>images: [{name, newTag}]</code></td></tr>
-            <tr><td>label on every resource</td><td><code>labels: [{pairs, includeSelectors: true}]</code></td></tr>
-            <tr><td>name prefixed / suffixed</td><td><code>namePrefix</code> / <code>nameSuffix</code></td></tr>
+            <tr><td>builds on the base</td><td><code>resources: [../../base]</code></td></tr>
+            <tr><td>namespace <code>prod</code></td><td><code>namespace: prod</code></td></tr>
+            <tr><td>4 replicas</td><td><code>replicas: [{name: web, count: 4}]</code></td></tr>
+            <tr><td>image tag <code>1.27</code></td><td><code>images: [{name: nginx, newTag: "1.27"}]</code></td></tr>
+            <tr><td>label on every resource</td><td><code>labels: [{pairs: {env: prod}, includeSelectors: true}]</code></td></tr>
+            <tr><td>names prefixed / suffixed</td><td><code>namePrefix: prod-</code> / <code>nameSuffix: -v2</code></td></tr>
           </tbody>
         </table>
-        <ul>
-          <li><strong><code>replicas[].name</code> is the RESOURCE name; <code>images[].name</code> is the IMAGE name.</strong> Crossing them renders cleanly with the change silently missing &mdash; no error.</li>
-          <li><code>resources:</code> entries can be a file, a directory with its own kustomization, or a git URL. A directory is built fully first, then this file's transformations apply on top.</li>
-          <li><strong>Paths are relative to the <code>kustomization.yaml</code>, never to your shell's cwd.</strong></li>
-          <li><code>apiVersion</code> / <code>kind</code> are optional in a kustomization file.</li>
-          <li>Quote tags: <code>newTag: "1.27"</code> &mdash; unquoted it parses as a float.</li>
-          <li><code>includeSelectors: true</code> is fine on first apply; adding it later fails &mdash; selectors are immutable.</li>
-          <li>The base stays independently applyable: <code>k apply -k base/</code> deploys the unmodified version.</li>
-        </ul>
 
-        <p>Built into kubectl via <code>-k</code> &mdash; no separate binary. Patches, not variables.</p>
-
-        <h3>Commands</h3>
-<pre><code>k kustomize ./dir      <span class="comment"># render to stdout (preview, no apply)</span>
-k apply -k ./dir       <span class="comment"># build + apply</span>
-k delete -k ./dir</code></pre>
-
-        <h3>kustomization.yaml <span style="opacity:.6">(must be named exactly this)</span></h3>
-<pre><code>apiVersion: kustomize.config.k8s.io/v1beta1
+        <h3>The overlay file <span style="opacity:.6">(must be named exactly <code>kustomization.yaml</code>)</span></h3>
+<pre><code><span class="comment"># /root/app/overlay/prod/kustomization.yaml</span>
+apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - deployment.yaml
-  - service.yaml
-namespace: prod          <span class="comment"># force ns on all</span>
-namePrefix: dev-
-commonLabels:
-  app: web
+  - ../../base           <span class="comment"># relative to THIS file</span>
+namespace: prod
+namePrefix: prod-
+replicas:
+  - name: web            <span class="comment"># the RESOURCE name</span>
+    count: 4
 images:
-  - name: nginx
-    newTag: "1.27"       <span class="comment"># swap tag, no file edit</span></code></pre>
+  - name: nginx          <span class="comment"># the IMAGE name</span>
+    newTag: "1.27"       <span class="comment"># quoted, or 1.27 parses as a float</span>
+labels:
+  - pairs:
+      env: prod
+    includeSelectors: true</code></pre>
+        <p><code>commonLabels: {env: prod}</code> is the older spelling of that last block &mdash; still accepted, and shorter to type if you meet it in a base.</p>
+
+        <h3>Commands</h3>
+<pre><code>k kustomize /root/app/overlay/prod       <span class="comment"># render to stdout — PREVIEW, applies nothing</span>
+k apply -k /root/app/overlay/prod        <span class="comment"># build + apply</span>
+k delete -k /root/app/overlay/prod
+k apply -k /root/app/base                <span class="comment"># the base still applies on its own</span>
+k kustomize /root/app/overlay/prod | grep -E 'name:|replicas:|image:'   <span class="comment"># prove the 3 edits landed</span></code></pre>
 
         <h3>Gotchas</h3>
         <ul>
-          <li>File MUST be <code>kustomization.yaml</code>; <code>-k</code> points at the <strong>dir</strong>, not the file.</li>
-          <li><code>k kustomize</code> = preview; <code>k apply -k</code> = apply. Preview first.</li>
-          <li>Overlays: <code>resources: [../../base]</code> (relative to the base dir).</li>
+          <li><strong><code>replicas[].name</code> is the RESOURCE name; <code>images[].name</code> is the IMAGE name.</strong> Here both happen to differ (<code>web</code> vs <code>nginx</code>) &mdash; crossing them renders cleanly with the change silently missing, no error.</li>
+          <li><strong>Paths are relative to the <code>kustomization.yaml</code>, never to your shell's cwd.</strong> From <code>overlay/prod</code> the base is <code>../../base</code>.</li>
+          <li><code>-k</code> points at the <strong>directory</strong>, not the file. The file must be named <code>kustomization.yaml</code>.</li>
+          <li>Preview with <code>k kustomize</code> before <code>k apply -k</code> &mdash; a wrong field renders silently.</li>
+          <li><code>resources:</code> entries can be a file, a directory with its own kustomization, or a git URL. A directory is built fully first, then this file's transformations apply on top.</li>
+          <li><code>apiVersion</code> / <code>kind</code> are optional in a kustomization file.</li>
+          <li><code>includeSelectors: true</code> is fine on first apply; adding it to a live workload later fails &mdash; selectors are immutable.</li>
+          <li><code>namePrefix: prod-</code> means the applied object is <code>prod-web</code> &mdash; verify with that name, not <code>web</code>.</li>
         </ul>
         <h3>Docs path</h3>
-        <ul><li>k8s.io search <strong>"kustomize"</strong>.</li></ul>
+        <ul><li>k8s.io search <strong>"kustomize"</strong> &rarr; <em>Declarative Management of Kubernetes Objects Using Kustomize</em>; Ctrl+F the <strong>Kustomize Feature List</strong> table.</li></ul>
       </section>
 
       <section class="tab-content" id="crd">
