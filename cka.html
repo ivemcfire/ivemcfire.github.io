@@ -939,6 +939,23 @@ k describe nodes | grep -i taint              <span class="comment"># read the r
       <section class="tab-content" id="scheduling">
         <h2>Scheduling &mdash; Labels, Taints/Tolerations, nodeSelector, Priority</h2>
 
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
+        <p>Nothing on this page is a placeholder. Every command is runnable as written; swap these nouns for the ones in your question.</p>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>namespace</td><td><code>apps</code></td><td>given &mdash; <code>-n</code> on every command</td></tr>
+            <tr><td>nodes</td><td><code>cluster1-controlplane</code>, <code>cluster1-node01</code>, <code>cluster1-node02</code></td><td><strong>read them:</strong> <code>k get nodes</code> &mdash; never type a node name from memory</td></tr>
+            <tr><td>node label</td><td><code>size=Large</code> on <code>cluster1-node01</code></td><td>you set it, or read <code>k get node cluster1-node01 --show-labels</code></td></tr>
+            <tr><td>taint</td><td><code>spray=mortein:NoSchedule</code> on <code>cluster1-node02</code></td><td>read the real key: <code>k describe node &lt;n&gt; | grep -i taint</code></td></tr>
+            <tr><td>workload</td><td>Pod / Deployment <code>web</code>, <code>nginx</code></td><td>given</td></tr>
+            <tr><td>PriorityClasses</td><td><code>high-priority</code> 999999999, <code>batch-low</code> 1000</td><td>given</td></tr>
+          </tbody>
+        </table>
+        <div class="warning">
+          <strong>Docs give STRUCTURE, the cluster gives VALUES.</strong> Node names, label keys and taint keys are read off the object every single time &mdash; that is the one habit this whole tab depends on.
+        </div>
+
         <h3>PriorityClass &amp; preemption</h3>
 <pre><code>k create priorityclass high-priority --value=999999999 --global-default=true
 k create priorityclass batch-low --value=1000 --global-default=false
@@ -955,8 +972,9 @@ k get priorityclass</code></pre>
       priorityClassName: high-priority   <span class="comment"># Pod spec level, sibling of containers:</span>
       containers:
       - name: web</code></pre>
-<pre><code>k get events -n NS --sort-by=.lastTimestamp | tail -20   <span class="comment"># Preempted / Preempting</span>
-k describe node NODE | grep -A5 "Allocated resources"</code></pre>
+<pre><code>k get po -n apps -o wide                                    <span class="comment"># NOMINATED NODE column = preemption in flight</span>
+k get events -n apps --sort-by=.lastTimestamp | tail -20    <span class="comment"># Preempted / Preempting</span>
+k describe node cluster1-node01 | grep -A5 "Allocated resources"</code></pre>
         <table>
           <thead><tr><th>Signal</th><th>Means</th></tr></thead>
           <tbody>
@@ -970,29 +988,28 @@ k describe node NODE | grep -A5 "Allocated resources"</code></pre>
           <li><strong><code>nodeName:</code> bypasses the scheduler</strong> &rarr; no preemption, no affinity, no taint checks; a ReplicaSet will loop forever recreating rejected Pods. Use <code>nodeSelector</code>.</li>
           <li><code>priorityClassName</code> is a <strong>Pod</strong> field; <code>resources</code> is a <strong>container</strong> field.</li>
           <li>Making your HIGHEST class <code>globalDefault</code> is exam-only &mdash; real clusters default to a LOW class.</li>
-          <li><strong>Preemption only fires when the Pod is Pending for lack of room.</strong> Empty node &rarr; nothing evicted &rarr; looks broken but isn't.</li>
+          <li><strong>Preemption only fires when the Pod is Pending for lack of room.</strong> Empty node &rarr; nothing evicted &rarr; looks broken but isn't. On a multi-worker cluster, fill or pin to ONE node or it never fires.</li>
           <li>Victim chosen by <strong>lowest priority</strong>, not age or size.</li>
           <li>Only ONE class may be <code>globalDefault</code>. A second is <strong>not rejected</strong> &mdash; smallest value silently wins. Check first.</li>
           <li><code>globalDefault</code> affects only Pods created <em>afterwards</em> with no <code>priorityClassName</code>.</li>
         </ul>
 
-        <h3>Labels &amp; selectors</h3>
-
         <h3>Labels &amp; selectors &mdash; query</h3>
-<pre><code>k get po -l env=dev                   <span class="comment"># equality filter</span>
-k get po -l env=prod,bu=finance       <span class="comment"># comma = AND (no spaces)</span>
-k get po -l 'env in (dev,prod)'       <span class="comment"># set-based</span>
-k get po -l env -l '!tier'            <span class="comment"># key exists / key absent</span>
-k get all -l env=prod                 <span class="comment"># ALL object types, not just pods</span>
-k get po --show-labels                <span class="comment"># every label, one column</span>
-k get po -L env -L tier               <span class="comment"># labels as their own columns</span>
-k get po --no-headers | wc -l         <span class="comment"># count (or subtract the header)</span></code></pre>
+<pre><code>k get po -n apps -l env=dev                   <span class="comment"># equality filter</span>
+k get po -n apps -l env=prod,bu=finance       <span class="comment"># comma = AND (no spaces)</span>
+k get po -n apps -l 'env in (dev,prod)'       <span class="comment"># set-based</span>
+k get po -n apps -l env -l '!tier'            <span class="comment"># key exists / key absent</span>
+k get all -n apps -l env=prod                 <span class="comment"># ALL object types, not just pods</span>
+k get po -n apps --show-labels                <span class="comment"># every label, one column</span>
+k get po -n apps -L env -L tier               <span class="comment"># labels as their own columns</span>
+k get po -n apps -l env=prod --no-headers | wc -l   <span class="comment"># count</span></code></pre>
 
         <h3>Labels &mdash; set / change / remove</h3>
-<pre><code>k label po web tier=frontend          <span class="comment"># add</span>
-k label po web env=prod --overwrite   <span class="comment"># change existing (needs flag)</span>
-k label po web tier-                  <span class="comment"># remove (trailing dash)</span>
-k label nodes node01 size=Large       <span class="comment"># label a node (for nodeSelector)</span></code></pre>
+<pre><code>k label po web -n apps tier=frontend          <span class="comment"># add</span>
+k label po web -n apps env=prod --overwrite   <span class="comment"># change existing (needs flag)</span>
+k label po web -n apps tier-                  <span class="comment"># remove (trailing dash)</span>
+k label nodes cluster1-node01 size=Large      <span class="comment"># label a node (for nodeSelector)</span>
+k get nodes -L size                           <span class="comment"># verify: the label as a column</span></code></pre>
 
         <div class="warning">
           Selector <strong>must match</strong> labels or it silently breaks: a Service with the wrong <code>spec.selector</code> = <strong>0 endpoints</strong>; a ReplicaSet/Deployment whose <code>selector.matchLabels</code> &ne; template labels is rejected at create (<code>`selector` does not match template `labels`</code>). The selector is immutable after create &mdash; fix the template to match it.
@@ -1009,9 +1026,9 @@ k label nodes node01 size=Large       <span class="comment"># label a node (for 
         <p>Toleration only <strong>permits</strong>, never <strong>attracts</strong> &mdash; a tolerating pod may still land elsewhere. "Only this pod, only on this node" = taint the node (repel others) <strong>+</strong> nodeSelector (pull this pod). One alone isn't enough.</p>
 
         <h3>Taints (imperative)</h3>
-<pre><code>k taint nodes node01 spray=mortein:NoSchedule        <span class="comment"># key=value:effect</span>
-k describe node node01 | grep -i taint               <span class="comment"># check</span>
-k taint nodes node01 spray=mortein:NoSchedule-       <span class="comment"># remove (trailing dash)</span></code></pre>
+<pre><code>k taint nodes cluster1-node02 spray=mortein:NoSchedule     <span class="comment"># key=value:effect</span>
+k describe node cluster1-node02 | grep -i taint            <span class="comment"># check</span>
+k taint nodes cluster1-node02 spray=mortein:NoSchedule-    <span class="comment"># remove (trailing dash)</span></code></pre>
         <table>
           <thead><tr><th>Effect</th><th>Meaning</th></tr></thead>
           <tbody>
@@ -1020,7 +1037,7 @@ k taint nodes node01 spray=mortein:NoSchedule-       <span class="comment"># rem
             <tr><td><code>NoExecute</code></td><td>block <strong>+ evict</strong> already-running non-tolerating pods</td></tr>
           </tbody>
         </table>
-        <p>Control-plane ships with <code>node-role.kubernetes.io/control-plane:NoSchedule</code> &mdash; that's why workloads avoid it.</p>
+        <p>Control-plane ships with <code>node-role.kubernetes.io/control-plane:NoSchedule</code> &mdash; that's why workloads avoid <code>cluster1-controlplane</code>.</p>
 
         <h3>Toleration / nodeSelector (pod YAML, under <code>spec:</code>)</h3>
 <pre><code>  tolerations:               <span class="comment"># spec level - sibling of containers:</span>
@@ -1030,9 +1047,10 @@ k taint nodes node01 spray=mortein:NoSchedule-       <span class="comment"># rem
     effect: "NoSchedule"
   nodeSelector:
     size: Large              <span class="comment"># exact equality ONLY (no OR/NotIn)</span></code></pre>
+<pre><code>k get po web -n apps -o wide      <span class="comment"># the NODE column is the only proof it landed right</span></code></pre>
 
         <h3>nodeName &mdash; pin to one node, one line (under <code>spec:</code>)</h3>
-<pre><code>  nodeName: cluster4-node01</code></pre>
+<pre><code>  nodeName: cluster1-node01</code></pre>
         <ul>
           <li>Skips the scheduler entirely; that node's kubelet takes the pod. Use it when the task just says "on node X".</li>
           <li>Wrong or nonexistent name &rarr; <strong>Pending forever with NO event</strong> (the scheduler never ran). nodeSelector/affinity give you <code>FailedScheduling</code> instead.</li>
@@ -1047,23 +1065,25 @@ k taint nodes node01 spray=mortein:NoSchedule-       <span class="comment"># rem
         - matchExpressions:
           - { key: size, operator: In, values: [Large, Medium] }</code></pre>
         <p>Operators: <code>In</code> &middot; <code>NotIn</code> &middot; <code>Exists</code> &middot; <code>DoesNotExist</code> &middot; <code>Gt</code> &middot; <code>Lt</code>.</p>
+        <p>Pin to a specific node by NAME: <code>{ key: kubernetes.io/hostname, operator: In, values: [cluster1-node01] }</code>.</p>
 
         <h3>Gotchas</h3>
         <ul>
           <li><strong>Pin to a node by NAME &rarr; key <code>kubernetes.io/hostname</code>.</strong> <code>node-role.kubernetes.io/*</code> labels have EMPTY values &mdash; they can never match a node name.</li>
-          <li><strong>Read identifiers off the object, never from memory:</strong> <code>k get nodes</code> for names, <code>k get node X --show-labels</code> for keys.</li>
+          <li><strong>Read identifiers off the object, never from memory:</strong> <code>k get nodes</code> for names, <code>k get node cluster1-node01 --show-labels</code> for keys.</li>
           <li>Affinity needs all three levels: <code>nodeAffinity:</code> &rarr; <code>requiredDuringSchedulingIgnoredDuringExecution:</code> &rarr; <code>nodeSelectorTerms:</code>. Skipping the middle one = rejected.</li>
           <li>Affinity is a POD property &mdash; in a Deployment it goes at <code>template.spec.affinity</code> (6sp, sibling of <code>containers:</code>).</li>
           <li><strong><code>operator: Exists</code> &rarr; NO <code>value:</code> line</strong> (matches any value); <code>operator: Equal</code> &rarr; <code>value:</code> required. Both together = the Pod is rejected: <em>value must be empty when operator is Exists</em>.</li>
           <li>Toleration <code>value</code> is string-exact &mdash; a typo (<code>mortain</code> &ne; <code>mortein</code>) leaves the pod Pending: the "but I added a toleration!" trap. Paste the noun.</li>
           <li>No matching node (nodeSelector / required affinity) = pod <strong>Pending</strong> forever.</li>
-          <li><code>Pending</code> diagnosis: <code>k describe po X</code> &rarr; Events &rarr; "untolerated taint" / "didn't match node selector".</li>
+          <li><code>Pending</code> diagnosis: <code>k describe po web -n apps</code> &rarr; Events &rarr; "untolerated taint" / "didn't match node selector".</li>
           <li>comma = AND in selectors; <code>get all</code> excludes cm/secret/pvc/ingress/netpol.</li>
         </ul>
 
         <h3>Docs path</h3>
         <ul>
-          <li>Labels = memorize. k8s.io search <strong>"taints and tolerations"</strong> &middot; <strong>"assign pods to nodes"</strong> (affinity).</li>
+          <li>Labels = memorize. k8s.io search <strong>"taints and tolerations"</strong> &middot; <strong>"assign pods to nodes"</strong> (affinity, Ctrl+F <code>nodeAffinity:</code>).</li>
+          <li>PriorityClass: <em>concepts/scheduling-eviction/pod-priority-preemption</em>, Ctrl+F <code>globalDefault</code>.</li>
         </ul>
       </section>
 
