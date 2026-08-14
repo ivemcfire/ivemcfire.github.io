@@ -891,8 +891,46 @@ spec:
     spec:
       accessModes: ["ReadWriteOnce"]
       resources: { requests: { storage: 1Gi } }</code></pre>
-        <p>The headless Service it needs &mdash; one command, no YAML:</p>
+        <h3>Headless Service &mdash; what it is and why the StatefulSet needs one</h3>
+        <p>A <strong>headless</strong> Service is a Service with <code>clusterIP: None</code>. It gets no virtual IP and does no load-balancing. Its only job is DNS.</p>
+        <table>
+          <thead><tr><th></th><th>Normal ClusterIP Service</th><th>Headless (<code>clusterIP: None</code>)</th></tr></thead>
+          <tbody>
+            <tr><td><code>CLUSTER-IP</code> column</td><td>an IP, e.g. <code>10.96.0.42</code></td><td>the literal word <code>None</code></td></tr>
+            <tr><td>DNS for the Service name</td><td>&rarr; the one virtual IP</td><td>&rarr; <strong>the pod IPs</strong>, all of them</td></tr>
+            <tr><td>traffic</td><td>kube-proxy load-balances to a random pod</td><td>client picks &mdash; no proxying at all</td></tr>
+            <tr><td>per-pod DNS name</td><td>none</td><td><strong><code>cache-0.cache-svc.apps.svc.cluster.local</code></strong></td></tr>
+            <tr><td>used by</td><td>stateless apps behind one address</td><td>StatefulSets, and anything needing to address a specific replica</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Why a StatefulSet needs it:</strong> the point of a StatefulSet is that <code>cache-0</code> is a distinct, addressable member &mdash; a database primary, a quorum peer. A load-balanced IP would hand you a random pod, which is exactly what you don't want. The headless Service is what turns <code>spec.serviceName</code> into a stable per-pod DNS name.</p>
+
+<pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: cache-svc               <span class="comment"># must equal sts.spec.serviceName</span>
+  namespace: apps
+spec:
+  clusterIP: None               <span class="comment"># ← this one line makes it headless</span>
+  selector:
+    app: cache                  <span class="comment"># same labels the sts template sets</span>
+  ports:
+  - port: 6379
+    targetPort: 6379</code></pre>
+        <p>Or skip the YAML entirely:</p>
 <pre><code>k create service clusterip cache-svc -n apps --tcp=6379:6379 --clusterip=None</code></pre>
+<pre><code>k get svc cache-svc -n apps                    <span class="comment"># CLUSTER-IP column reads None</span>
+k get endpoints cache-svc -n apps              <span class="comment"># one IP per ready pod — empty = selector mismatch</span>
+k run tmp -n apps --image=busybox:1.28 --rm -it --restart=Never -- nslookup cache-svc
+k run tmp -n apps --image=busybox:1.28 --rm -it --restart=Never -- nslookup cache-0.cache-svc</code></pre>
+        <ul>
+          <li><code>nslookup cache-svc</code> on a headless Service returns <strong>every pod IP</strong>, not one VIP. That output <em>is</em> the proof it's headless.</li>
+          <li>Per-pod name pattern: <code>&lt;pod&gt;.&lt;service&gt;.&lt;namespace&gt;.svc.cluster.local</code>. Inside the same namespace <code>cache-0.cache-svc</code> is enough.</li>
+          <li><strong><code>serviceName</code> must match the Service's name exactly.</strong> Mismatch = pods run fine, ordinals look right, and no per-pod DNS name ever resolves &mdash; a silent failure with no error anywhere.</li>
+          <li>The Service's <code>selector</code> must match the StatefulSet's pod labels, same as any Service. Wrong selector = empty <code>endpoints</code>.</li>
+          <li>A headless Service still works if it exists <em>before</em> the pods &mdash; create it first, or the first pods start with no DNS until it appears.</li>
+          <li>Headless is not StatefulSet-only: any Service can set <code>clusterIP: None</code> when the client should see all backends (peer discovery, gRPC client-side LB).</li>
+        </ul>
 
         <h3>StatefulSet &mdash; operate</h3>
 <pre><code>k get sts cache -n apps                       <span class="comment"># READY 3/3</span>
