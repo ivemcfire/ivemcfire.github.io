@@ -2073,6 +2073,35 @@ k get gateway &lt;n&gt; -n &lt;ns&gt; -o yaml | grep -A20 '^status:'   <span cla
           <li>Adding a backendRef to an existing rule's list = load-balancing between backends, <strong>not</strong> a new path route.</li>
         </ul>
 
+        <h3>Match on a header &mdash; AND vs OR</h3>
+<pre><code>  rules:
+  - matches:
+    - path:                     <span class="comment"># `- path:` OPENS the match item</span>
+        type: PathPrefix
+        value: /checkout
+      headers:                  <span class="comment"># sibling of path:, same item = AND</span>
+      - name: x-channel
+        value: beta
+    backendRefs:
+    - name: beta-svc
+      port: 80</code></pre>
+        <table>
+          <thead><tr><th>Dash position</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>new dash under <code>rules:</code></td><td>a separate routing decision</td></tr>
+            <tr><td>new dash under <code>matches:</code></td><td>an alternative way to match &mdash; <strong>OR</strong></td></tr>
+            <tr><td><code>headers:</code> beside <code>path:</code>, one item</td><td>both must hold &mdash; <strong>AND</strong></td></tr>
+            <tr><td>new dash under <code>headers:</code></td><td>another header that must ALSO match &mdash; AND</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>headers:</code> <strong>matches</strong> on a header. <code>filters: RequestHeaderModifier</code> <strong>adds</strong> one. Different jobs &mdash; swapping them routes everyone to the wrong backend with no error.</li>
+          <li>Header match defaults to <code>type: Exact</code> (other value: <code>RegularExpression</code>).</li>
+          <li><code>hostnames:</code> takes DNS names only &mdash; never a header, never the route name.</li>
+          <li>Most specific match wins regardless of file order (path length, then header count).</li>
+          <li><strong>Never hand-align a second list item</strong> &mdash; yank the first (<code>7yy</code>, <code>G</code>, <code>p</code>) and edit the copy. <code>:set ts=2 sw=2 et</code> first.</li>
+        </ul>
+
         <h3>Restrict which namespaces may attach routes</h3>
 <pre><code>  listeners:
     - name: web
