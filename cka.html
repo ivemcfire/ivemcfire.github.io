@@ -1769,28 +1769,44 @@ k create clusterrolebinding node-read --clusterrole=node-reader \
         <h2>Helm &mdash; package manager <span style="opacity:.6">(post-2025 addition)</span></h2>
         <p><strong>helm.sh/docs is now an allowed exam tab.</strong> Lookup-class &mdash; know the ~8 commands + the values flow.</p>
 
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
+        <p>Nothing on this page is a placeholder. Every command is runnable as written; swap these seven nouns for the ones in your question.</p>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>repo name</td><td><code>bitnami</code></td><td>you choose it at <code>repo add</code></td></tr>
+            <tr><td>repo URL</td><td><code>https://charts.bitnami.com/bitnami</code></td><td>given in the question</td></tr>
+            <tr><td>chart</td><td><code>nginx</code> &rarr; referenced as <code>bitnami/nginx</code></td><td>given in the question</td></tr>
+            <tr><td>chart version</td><td><code>15.5.2</code></td><td>given; <code>--version</code> only works on a <em>repo</em> ref</td></tr>
+            <tr><td>release name</td><td><code>web</code></td><td>given &mdash; this is your handle for upgrade/rollback/uninstall</td></tr>
+            <tr><td>namespace</td><td><code>demo</code></td><td>given &mdash; <code>-n</code> on <strong>every</strong> helm command</td></tr>
+            <tr><td>local dir</td><td><code>/root/charts</code></td><td>given when the task wants the chart on disk</td></tr>
+          </tbody>
+        </table>
+
         <h3>Repo URL + local path + pinned version</h3>
 <pre><code>helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 helm pull bitnami/nginx --version 15.5.2 --untar --untardir /root/charts
-helm install web /root/charts/nginx -n demo --create-namespace
+helm install web /root/charts/nginx -n demo --create-namespace --set replicaCount=3
 helm list -n demo</code></pre>
-        <p><strong>Why a task gives you both a URL and a path: you pull from one and install from the other.</strong> <code>--version</code> works on a repo reference (<code>bitnami/nginx</code>); a local path ignores it, because a local chart's version lives in its <code>Chart.yaml</code>. <code>--untardir</code> lands the chart at <code>&lt;dir&gt;/&lt;chartname&gt;/</code>, so the install path ends with the chart name.</p>
-        <p><code>helm search repo &lt;chart&gt; --versions | head -3</code> is only worth the keystrokes when a pinned version errors as not found.</p>
+        <p><strong>Why a task gives you both a URL and a path: you pull from one and install from the other.</strong> <code>--version</code> works on a repo reference (<code>bitnami/nginx</code>); a local path ignores it, because a local chart's version lives in its <code>Chart.yaml</code>. <code>--untardir</code> lands the chart at <code>&lt;dir&gt;/&lt;chartname&gt;/</code>, so the install path ends with the chart name (<code>/root/charts/nginx</code>).</p>
+        <p><code>--create-namespace</code> creates <code>demo</code> if absent &mdash; no separate <code>k create ns</code>. <code>--set replicaCount=3</code> sets a <em>chart</em> value at install time, no file needed.</p>
+        <p><code>helm search repo bitnami/nginx --versions | head -3</code> is only worth the keystrokes when a pinned version errors as not found.</p>
         <p><strong>A path in the question? <code>ls</code> IT BEFORE CHOOSING FLAGS.</strong> &ldquo;Deploy from the repository&rdquo; plus a path does <em>not</em> mean <code>pull</code>:</p>
         <table>
           <thead><tr><th>At the path</th><th>It is</th><th>Command</th></tr></thead>
           <tbody>
-            <tr><td><code>Chart.yaml</code> + <code>templates/</code></td><td>chart dir</td><td><code>helm install REL /path -n NS</code></td></tr>
-            <tr><td>a single <code>.yaml</code></td><td>values file</td><td><code>helm install REL repo/chart --version X -f /path</code></td></tr>
-            <tr><td>nothing yet</td><td>you must pull first</td><td><code>helm pull … --untar --untardir /path</code></td></tr>
+            <tr><td><code>Chart.yaml</code> + <code>templates/</code></td><td>chart dir</td><td><code>helm install web /root/charts/nginx -n demo</code></td></tr>
+            <tr><td>a single <code>.yaml</code></td><td>values file</td><td><code>helm install web bitnami/nginx --version 15.5.2 -n demo -f /root/custom-values.yaml</code></td></tr>
+            <tr><td>nothing yet</td><td>you must pull first</td><td><code>helm pull bitnami/nginx --version 15.5.2 --untar --untardir /root/charts</code></td></tr>
           </tbody>
         </table>
 
         <h3><code>helm list</code> shows less than you think</h3>
 <pre><code>helm list -A          <span class="comment"># every namespace — DEPLOYED only</span>
 helm list -A -a       <span class="comment"># every namespace — ALL states incl. failed/pending</span>
-helm status REL -n NS
+helm status web -n demo
 k get secret -A | grep sh.helm.release   <span class="comment"># helm's own records</span></code></pre>
         <p><strong>An empty <code>helm list -A</code> means &ldquo;no HEALTHY release&rdquo;, not &ldquo;no release&rdquo;.</strong> <code>-A</code> = all namespaces; <code>-a</code> = all states. Different flags. Helm also reads your current kubeconfig context &mdash; wrong cluster reports nothing.</p>
 
@@ -1798,29 +1814,30 @@ k get secret -A | grep sh.helm.release   <span class="comment"># helm's own reco
         <table>
           <thead><tr><th>Task says</th><th>Command</th></tr></thead>
           <tbody>
-            <tr><td>"replace the existing one, then uninstall the old"</td><td><code>install &lt;new-release&gt; &lt;chart&gt;</code> then <code>uninstall &lt;old-release&gt;</code></td></tr>
-            <tr><td>"update the release to version X" / "set replicas to 3"</td><td><code>upgrade &lt;same-release&gt; &lt;chart&gt;</code></td></tr>
-            <tr><td>unsure whether it exists</td><td><code>upgrade --install &lt;release&gt; &lt;chart&gt;</code></td></tr>
-            <tr><td>"roll back"</td><td><code>helm history &lt;rel&gt;</code> then <code>helm rollback &lt;rel&gt; &lt;REV&gt;</code></td></tr>
+            <tr><td>"install" / "deploy"</td><td><code>helm install web bitnami/nginx -n demo --create-namespace</code></td></tr>
+            <tr><td>"update the release to version X" / "set replicas to 3"</td><td><code>helm upgrade web bitnami/nginx -n demo --set replicaCount=3</code></td></tr>
+            <tr><td>"replace the existing one, then uninstall the old"</td><td><code>helm install web2 bitnami/nginx -n demo</code> then <code>helm uninstall web -n demo</code></td></tr>
+            <tr><td>unsure whether it exists</td><td><code>helm upgrade --install web bitnami/nginx -n demo</code></td></tr>
+            <tr><td>"roll back"</td><td><code>helm history web -n demo</code> then <code>helm rollback web 1 -n demo</code></td></tr>
           </tbody>
         </table>
         <ul>
           <li><code>install</code> = NEW release, fails if the name exists. <code>upgrade</code> = same release, revision +1, keeps history.</li>
           <li>Release NAME is your handle; CHART is the package. One chart &rarr; many releases.</li>
-          <li>A chart can be a path: <code>helm install my-rel /root/new-version</code> (dir with Chart.yaml + values.yaml + templates/).</li>
-          <li><code>helm lint &lt;chart&gt;</code> is the "validate" verb; <code>helm install --dry-run</code> also validates.</li>
-          <li>Proof of which version is live: <code>helm list</code> &rarr; CHART (<code>name-0.1.1</code>) + APP VERSION.</li>
+          <li>A chart can be a path: <code>helm install web /root/charts/nginx -n demo</code> (dir with Chart.yaml + values.yaml + templates/).</li>
+          <li><code>helm lint /root/charts/nginx</code> is the "validate" verb; <code>helm install --dry-run</code> also validates.</li>
+          <li>Proof of which version is live: <code>helm list -n demo</code> &rarr; CHART (<code>nginx-15.5.2</code>) + APP VERSION.</li>
         </ul>
 
         <h3>Which values? two different questions</h3>
-<pre><code>helm show values &lt;repo/chart&gt;          <span class="comment"># the CHART'S DEFAULTS</span>
-helm show values &lt;chart&gt; | grep -i replica
-helm get values &lt;release&gt; -n &lt;ns&gt;      <span class="comment"># YOUR RELEASE'S OVERRIDES (-a = merged with defaults)</span>
-helm get metadata &lt;release&gt; -n &lt;ns&gt;    <span class="comment"># chart name + VERSION + revision of a live release</span>
-k get po,svc -n &lt;ns&gt;                   <span class="comment"># what is ACTUALLY running</span></code></pre>
+<pre><code>helm show values bitnami/nginx --version 15.5.2 &gt; /root/defaults.yaml   <span class="comment"># the CHART'S DEFAULTS → file</span>
+helm show values bitnami/nginx | grep -i replica
+helm get values web -n demo        <span class="comment"># YOUR RELEASE'S OVERRIDES (-a = merged with defaults)</span>
+helm get metadata web -n demo      <span class="comment"># chart name + VERSION + revision of a live release</span>
+k get po,svc -n demo               <span class="comment"># what is ACTUALLY running</span></code></pre>
         <ul>
-          <li><code>show values</code> prints the chart's <strong>entire</strong> <code>values.yaml</code> with its defaults &mdash; not a subset. Redirect it to a file (<code>&gt; defaults.yaml</code>) when the task asks for one; your own override file repeats only the lines you change.</li>
-          <li>An override file is <strong>nested YAML</strong> (<code>service:</code> then two spaces, <code>type: NodePort</code>). Dotted <code>service.type</code> is <code>--set</code> syntax only &mdash; in a file it silently becomes a key nobody reads.</li>
+          <li><code>show values</code> prints the chart's <strong>entire</strong> <code>values.yaml</code> with its defaults &mdash; not a subset. Redirect it to a file when the task asks for one; your own override file repeats only the lines you change.</li>
+          <li><strong>An override file is nested YAML.</strong> <code>service:</code> newline, two spaces, <code>type: NodePort</code>. Flat <code>service.type: NodePort</code> creates a root key literally named <code>service.type</code>; the chart reads <code>.Values.service.type</code>, your override is silently ignored and you get the chart default. The dotted form is <code>--set</code> ONLY.</li>
           <li>Chart values (<code>replicaCount</code>, <code>service.type</code>) are defined by the chart. They are <strong>not helm flags</strong> &mdash; they never appear in <code>helm --help</code> or on helm.sh/docs.</li>
           <li><code>helm get values</code> is a false-green on its own: it reports what you asked for, not what is running.</li>
         </ul>
@@ -1830,43 +1847,43 @@ k get po,svc -n &lt;ns&gt;                   <span class="comment"># what is ACT
           <thead><tr><th>Column in <code>helm list</code></th><th>What it is</th><th>Moves when</th></tr></thead>
           <tbody>
             <tr><td><code>REVISION</code></td><td>helm's release counter</td><td>every <code>upgrade</code> AND every <code>rollback</code></td></tr>
-            <tr><td><code>CHART</code></td><td>chart package version (<code>nginx-25.0.16</code>)</td><td>you install a different chart version</td></tr>
+            <tr><td><code>CHART</code></td><td>chart package version (<code>nginx-15.5.2</code>)</td><td>you install a different chart version</td></tr>
             <tr><td><code>APP VERSION</code></td><td>the app's own version (<code>1.31.3</code>), from Chart.yaml</td><td>the maintainer ships a new app</td></tr>
           </tbody>
         </table>
         <ul>
-          <li><code>helm rollback &lt;rel&gt; 2</code> does NOT set the counter back to 2 &mdash; it creates a <strong>new</strong> revision whose content matches 2. Judge a rollback by cluster state, not the number.</li>
-          <li><code>helm history &lt;rel&gt; -n &lt;ns&gt;</code> shows the chain.</li>
-          <li><strong>A values FILE is nested YAML</strong> (<code>service:</code> then indented <code>type:</code>). Flat <code>service.type: X</code> creates a root key literally named <code>service.type</code>; the chart reads <code>.Values.service.type</code>, your override is silently ignored and you get the chart default. The dotted form is <code>--set</code> ONLY.</li>
-          <li><code>--create-namespace</code> on install/upgrade &mdash; no separate <code>k create ns</code> needed.</li>
+          <li><code>helm rollback web 2 -n demo</code> does NOT set the counter back to 2 &mdash; it creates a <strong>new</strong> revision whose content matches 2. Judge a rollback by cluster state, not the number.</li>
+          <li><code>helm history web -n demo</code> shows the chain.</li>
           <li><strong><code>-f</code> takes VALUES files only</strong> &mdash; <code>Chart.yaml</code> is metadata; feeding it to <code>-f</code> is meaningless.</li>
           <li>Editing <code>values.yaml</code> does nothing until the next <code>install</code>/<code>upgrade</code>.</li>
           <li><code>-n</code> and <code>--namespace</code> are the same flag &mdash; don't pass both. Order is <code>helm install &lt;RELEASE&gt; &lt;CHART&gt;</code>, flags after.</li>
         </ul>
 
         <h3>Repos &amp; search</h3>
-<pre><code>helm repo add <span class="comment">&lt;name&gt; &lt;url&gt;</span>
+<pre><code>helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
-helm search repo <span class="comment">&lt;term&gt;</span></code></pre>
+helm repo list
+helm search repo nginx
+helm search repo bitnami/nginx --versions | head -3</code></pre>
 
         <h3>Install / manage</h3>
-<pre><code>helm install &lt;release&gt; &lt;repo/chart&gt; -n &lt;ns&gt; --create-namespace
-helm upgrade --install &lt;release&gt; &lt;chart&gt;   <span class="comment"># idempotent upsert</span>
-helm uninstall &lt;release&gt; -n &lt;ns&gt;
-helm ls -A                                  <span class="comment"># all releases</span>
-helm history &lt;release&gt; ; helm rollback &lt;release&gt; &lt;REV&gt;</code></pre>
+<pre><code>helm install web bitnami/nginx -n demo --create-namespace --set replicaCount=3
+helm upgrade --install web bitnami/nginx -n demo   <span class="comment"># idempotent upsert</span>
+helm uninstall web -n demo
+helm ls -A                                         <span class="comment"># all releases</span>
+helm history web -n demo ; helm rollback web 1 -n demo</code></pre>
 
         <h3>Values (the exam move)</h3>
-<pre><code>helm show values &lt;repo/chart&gt; &gt; values.yaml   <span class="comment"># dump defaults, edit</span>
-helm install &lt;rel&gt; &lt;chart&gt; -f values.yaml
-helm install &lt;rel&gt; &lt;chart&gt; --set key=val,key2=val2
-helm template &lt;chart&gt;    <span class="comment"># render locally, no install</span></code></pre>
+<pre><code>helm show values bitnami/nginx &gt; values.yaml   <span class="comment"># dump defaults, edit</span>
+helm install web bitnami/nginx -n demo -f values.yaml
+helm install web bitnami/nginx -n demo --set replicaCount=3,service.type=NodePort
+helm template bitnami/nginx    <span class="comment"># render locally, no install</span></code></pre>
 
         <h3>Gotchas</h3>
         <ul>
-          <li><code>-n &lt;ns&gt;</code> per command &mdash; releases are namespaced.</li>
+          <li><code>-n demo</code> per command &mdash; releases are namespaced.</li>
           <li>Precedence: <code>--set</code> &gt; <code>-f</code> &gt; chart defaults (last wins).</li>
-          <li><code>repo/chart</code> ref only resolves after <code>repo add</code> + <code>repo update</code>.</li>
+          <li><code>bitnami/nginx</code> only resolves after <code>repo add</code> + <code>repo update</code>.</li>
         </ul>
         <h3>Docs path</h3>
         <ul><li><strong>helm.sh/docs</strong> &rarr; "Helm Commands" / "Values Files"; <code>helm &lt;cmd&gt; --help</code>.</li></ul>
