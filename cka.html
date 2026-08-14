@@ -1943,23 +1943,64 @@ kubelet-1.35.0            <span class="comment"># dnf: HYPHEN, bare version reso
       <section class="tab-content" id="rbac">
         <h2>RBAC &mdash; ServiceAccount &rarr; Role &rarr; Binding</h2>
 
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
+        <p>Nothing on this page is a placeholder. Every command is runnable as written; swap these nouns for the ones in your question.</p>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>namespace</td><td><code>finance</code></td><td>given &mdash; <code>-n</code> on all three namespaced creates</td></tr>
+            <tr><td>ServiceAccount</td><td><code>auditor</code></td><td>given</td></tr>
+            <tr><td>Role</td><td><code>pod-reader</code> &mdash; get/list/watch on pods</td><td>given, verbs spelled out in the task</td></tr>
+            <tr><td>RoleBinding</td><td><code>auditor-bind</code></td><td>given</td></tr>
+            <tr><td>ClusterRole / Binding</td><td><code>node-reader</code> / <code>node-read</code></td><td>given &mdash; cluster-scoped, no namespace</td></tr>
+            <tr><td>consumer Pod</td><td><code>api</code> in <code>finance</code></td><td>given</td></tr>
+          </tbody>
+        </table>
+
         <h3>The chain (4 nouns, always this order)</h3>
         <p><strong>SA &rarr; Role &rarr; RoleBinding &rarr; verify</strong> = <em>who &rarr; what they can do &rarr; glue &rarr; prove</em>. Memorize the shape; look up the flags with <code>--help</code>.</p>
 
         <h3>Namespaced (Role + RoleBinding) &mdash; <code>-n</code> on ALL THREE creates</h3>
 <pre><code>k create sa auditor -n finance
 k create role pod-reader -n finance --verb=get,list,watch --resource=pods
-k create rolebinding auditor-bind -n finance --role=pod-reader \
-     --serviceaccount=finance:auditor   <span class="comment"># ns:name</span></code></pre>
+k create rolebinding auditor-bind -n finance --role=pod-reader --serviceaccount=finance:auditor</code></pre>
 
-        <h3>Verify (impersonate the SA)</h3>
-<pre><code>k auth can-i list   pods --as=system:serviceaccount:finance:auditor -n finance  <span class="comment"># yes</span>
-k auth can-i delete pods --as=system:serviceaccount:finance:auditor -n finance  <span class="comment"># no</span></code></pre>
+        <h3>Two resources with DIFFERENT verb sets = two rules</h3>
+        <p>One <code>k create role</code> applies every verb to every resource. When the task says <em>read pods, and also create deployments</em>, that is two rules &mdash; make the role, then add the second rule in the editor:</p>
+<pre><code>k create role app-manager -n finance --verb=get,list,watch --resource=pods
+k edit role app-manager -n finance</code></pre>
+<pre><code>rules:
+- apiGroups: [""]                 <span class="comment"># "" = core group (pods, services, configmaps)</span>
+  resources: ["pods"]
+  verbs: ["get","list","watch"]
+- apiGroups: ["apps"]             <span class="comment"># deployments live in apps</span>
+  resources: ["deployments"]
+  verbs: ["create"]</code></pre>
+        <ul>
+          <li>Same verbs for several resources? One rule, comma list: <code>--resource=pods,services</code>.</li>
+          <li>Restrict to named objects: <code>--resource-name=web --resource-name=api</code> (no wildcard, and it blocks <code>list</code>).</li>
+          <li>Forgot which apiGroup a kind is in: <code>k api-resources | grep -i deployment</code> &rarr; the APIVERSION column.</li>
+        </ul>
+
+        <h3>Verify (impersonate the SA &mdash; test an ALLOWED and a DENIED verb)</h3>
+<pre><code>k auth can-i list   pods --as=system:serviceaccount:finance:auditor -n finance   <span class="comment"># yes</span>
+k auth can-i delete pods --as=system:serviceaccount:finance:auditor -n finance   <span class="comment"># no</span>
+k describe rolebinding auditor-bind -n finance    <span class="comment"># Role: + Subjects: — proves the glue</span></code></pre>
+        <p><strong>A <code>yes</code> alone proves nothing.</strong> A too-broad role also answers yes; the denied probe is what shows the scope is right.</p>
 
         <h3>Cluster-wide (ClusterRole + ClusterRoleBinding) &mdash; NO <code>-n</code></h3>
 <pre><code>k create clusterrole node-reader --verb=get,list,watch --resource=nodes
-k create clusterrolebinding node-read --clusterrole=node-reader \
-     --serviceaccount=finance:auditor</code></pre>
+k create clusterrolebinding node-read --clusterrole=node-reader --serviceaccount=finance:auditor
+k auth can-i list nodes --as=system:serviceaccount:finance:auditor</code></pre>
+        <table>
+          <thead><tr><th>Combination</th><th>Grants</th></tr></thead>
+          <tbody>
+            <tr><td>Role + RoleBinding</td><td>in that one namespace</td></tr>
+            <tr><td>ClusterRole + ClusterRoleBinding</td><td>cluster-wide, plus cluster-scoped kinds (nodes, PVs)</td></tr>
+            <tr><td><strong>ClusterRole + RoleBinding</strong></td><td>the ClusterRole's rules, <strong>limited to the binding's namespace</strong> &mdash; the reuse trick</td></tr>
+            <tr><td>Role + ClusterRoleBinding</td><td>invalid &mdash; does not exist</td></tr>
+          </tbody>
+        </table>
 
         <h3>The two SA syntaxes (the slip)</h3>
         <table>
@@ -1976,23 +2017,28 @@ k create clusterrolebinding node-read --clusterrole=node-reader \
           <li><code>--serviceaccount=</code> with no namespace &rarr; defaults to <code>default:auditor</code> &rarr; binds nothing.</li>
           <li>All three namespaced creates need <code>-n</code> &mdash; silent zero otherwise.</li>
           <li>Multiple verbs/resources = comma list, no spaces: <code>--verb=get,list,watch</code>.</li>
-          <li>Bind to a user/group instead of an SA: <code>--user=jane</code> / <code>--group=devs</code>.</li>
+          <li>Bind to a user/group instead of an SA: <code>--user=jane</code> / <code>--group=devs</code>. Users are not objects &mdash; nothing to create.</li>
+          <li>Bindings are <strong>immutable in roleRef</strong> &mdash; pointing a binding at a different Role means delete and recreate.</li>
+          <li>RBAC is additive only. There is no deny rule; you cannot subtract a permission granted elsewhere.</li>
         </ul>
 
         <h3>Make a Pod use a ServiceAccount</h3>
-<pre><code>k -n NS run api --image nginx:1-alpine --dry-run=client -o yaml &gt; p.yaml
+<pre><code>k run api -n finance --image nginx:1-alpine --dry-run=client -o yaml &gt; p.yaml
 <span class="comment"># hand-add under spec:, sibling of containers:</span>
-  serviceAccountName: secret-reader</code></pre>
+  serviceAccountName: auditor</code></pre>
+<pre><code>k apply -f p.yaml
+k get po api -n finance -o yaml | grep -i serviceaccount    <span class="comment"># verify it landed</span></code></pre>
         <ul>
-          <li><strong><code>k run</code> has no flag for it</strong> &mdash; generate, then hand-add the one line.</li>
+          <li><strong><code>k run</code> has no flag for it</strong> &mdash; generate, then hand-add the one line. (<code>k set serviceaccount deploy/web auditor -n finance</code> works for a Deployment.)</li>
+          <li>A live Pod's SA is immutable &mdash; delete and re-apply, same as env.</li>
           <li>Token auto-mounted at <code>/var/run/secrets/kubernetes.io/serviceaccount/</code> &mdash; three files: <code>token</code>, <code>ca.crt</code>, <code>namespace</code>.</li>
-          <li>Denied? <code>k auth can-i list secrets --as system:serviceaccount:NS:SA</code> separates an RBAC denial from everything else.</li>
+          <li>Denied at runtime? <code>k auth can-i list secrets --as=system:serviceaccount:finance:auditor -n finance</code> separates an RBAC denial from everything else.</li>
         </ul>
 
         <h3>Docs path</h3>
         <ul>
           <li>Imperative flags &rarr; <code>k create role --help</code> / <code>k create rolebinding --help</code> (EXAMPLES &mdash; faster than docs, works offline).</li>
-          <li>YAML form &rarr; k8s.io search <strong>"Role and RoleBinding"</strong>.</li>
+          <li>YAML form &rarr; k8s.io search <strong>"Role and RoleBinding"</strong>, Ctrl+F <code>apiGroups:</code>.</li>
         </ul>
       </section>
 
