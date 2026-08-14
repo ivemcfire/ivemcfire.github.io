@@ -1573,6 +1573,24 @@ k run t --image=busybox:1.28 -n ns --rm -it --restart=Never -- wget -qO- --timeo
       <section class="tab-content" id="cluster">
         <h2>Cluster Ops &mdash; etcd, node maintenance, kubeadm upgrade</h2>
 
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
+        <p>Nothing on this page is a placeholder. Every command is runnable as written; swap these nouns for the ones in your question.</p>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>control plane host</td><td><code>cluster1-controlplane</code></td><td>the question names the host &rarr; <code>ssh</code> there FIRST, <code>hostname</code> proves it landed</td></tr>
+            <tr><td>worker host</td><td><code>cluster1-node01</code></td><td><code>k get nodes</code> &mdash; never type a node name from memory</td></tr>
+            <tr><td>cluster version</td><td><code>1.35.0</code> &rarr; upgrade to <code>1.35.1</code></td><td>read it: <code>k get nodes</code> / <code>kubeadm upgrade plan</code></td></tr>
+            <tr><td>etcd snapshot</td><td><code>/opt/etcd-backup.db</code></td><td>given &mdash; exact path, exact filename</td></tr>
+            <tr><td>restore dir</td><td><code>/var/lib/etcd-from-backup</code></td><td>given, or you choose a NEW dir</td></tr>
+            <tr><td>CNI</td><td>DaemonSet <code>canal</code> in <code>kube-system</code></td><td>read it: <code>k get ds -n kube-system</code></td></tr>
+            <tr><td>broken workload</td><td>Deployment <code>frontend</code> in ns <code>apps</code></td><td>given &mdash; the symptom, not the cause</td></tr>
+          </tbody>
+        </table>
+        <div class="warning">
+          <strong><code>kubeadm</code>, <code>crictl</code>, <code>systemctl</code> and <code>journalctl</code> exist only ON the node</strong> &mdash; the bastion has <code>kubectl</code> only. Every command in this tab that touches a file or a unit runs after <code>ssh cluster1-controlplane</code> (or <code>-node01</code>). <code>bash: kubeadm: command not found</code> on the bastion is not a broken lab.
+        </div>
+
         <h3>Paths &mdash; every file the exam can break</h3>
         <table>
           <thead><tr><th>Path</th><th>What</th><th>Fault you'll see</th></tr></thead>
@@ -1647,10 +1665,10 @@ etcdutl snapshot status /opt/etcd-backup.db --write-out=table</code></pre>
         </ul>
 
         <h3>Node maintenance &mdash; cordon / drain / uncordon</h3>
-<pre><code>k cordon node01                       <span class="comment"># block NEW pods (no evict)</span>
-k drain node01 --ignore-daemonsets    <span class="comment"># cordon + EVICT existing</span>
+<pre><code>k cordon cluster1-node01                       <span class="comment"># block NEW pods (no evict)</span>
+k drain cluster1-node01 --ignore-daemonsets    <span class="comment"># cordon + EVICT existing</span>
 <span class="comment"># ... OS upgrade / reboot happens here ...</span>
-k uncordon node01                     <span class="comment"># reopen for scheduling</span></code></pre>
+k uncordon cluster1-node01                     <span class="comment"># reopen for scheduling</span></code></pre>
         <table>
           <thead><tr><th>Flag</th><th>When</th></tr></thead>
           <tbody>
@@ -1666,23 +1684,23 @@ k uncordon node01                     <span class="comment"># reopen for schedul
 
         <h3>kubeadm cluster upgrade (lookup-class &mdash; follow docs order)</h3>
 <pre><code><span class="comment"># --- control plane node ---</span>
-apt-get install -y kubeadm=1.NN.x-*        <span class="comment"># 1. binary FIRST</span>
+apt-get install -y kubeadm=1.35.1-1.1       <span class="comment"># 1. binary FIRST</span>
 kubeadm upgrade plan                        <span class="comment"># 2. check</span>
-kubeadm upgrade apply v1.NN.x               <span class="comment"># 3. CP uses 'apply'</span>
-k drain controlplane --ignore-daemonsets
-apt-get install -y kubelet=1.NN.x-* kubectl=1.NN.x-*   <span class="comment"># 4. kubelet LAST</span>
+kubeadm upgrade apply v1.35.1               <span class="comment"># 3. CP uses 'apply'</span>
+k drain cluster1-controlplane --ignore-daemonsets
+apt-get install -y kubelet=1.35.1-1.1 kubectl=1.35.1-1.1   <span class="comment"># 4. kubelet LAST</span>
 systemctl daemon-reload &amp;&amp; systemctl restart kubelet
-k uncordon controlplane
+k uncordon cluster1-controlplane
 
 <span class="comment"># --- each worker ---</span>
-k drain node01 --ignore-daemonsets          <span class="comment"># from CP</span>
-<span class="comment"># ssh node01:</span>
-apt-get install -y kubeadm=1.NN.x-*
+k drain cluster1-node01 --ignore-daemonsets   <span class="comment"># from the bastion</span>
+<span class="comment"># ssh cluster1-node01:</span>
+apt-get install -y kubeadm=1.35.1-1.1
 kubeadm upgrade node                        <span class="comment"># workers use 'node', NOT apply</span>
-apt-get install -y kubelet=1.NN.x-*
+apt-get install -y kubelet=1.35.1-1.1
 systemctl daemon-reload &amp;&amp; systemctl restart kubelet
-<span class="comment"># back on CP:</span>
-k uncordon node01</code></pre>
+<span class="comment"># back on the bastion:</span>
+k uncordon cluster1-node01</code></pre>
         <table>
           <thead><tr><th>Trap</th><th>Rule</th></tr></thead>
           <tbody>
@@ -1693,7 +1711,7 @@ k uncordon node01</code></pre>
         </table>
 
         <h3>kubectl is dead (refused :6443) &mdash; the ladder</h3>
-<pre><code>ssh &lt;controlplane&gt;                          <span class="comment"># crictl/systemctl live ON the node</span>
+<pre><code>ssh cluster1-controlplane                   <span class="comment"># crictl/systemctl/kubeadm live ON the node</span>
 crictl ps -a | grep -i apiserver
 <span class="comment">#   Exited container  -> apiserver crashing -> crictl logs -> fix manifest</span>
 <span class="comment">#   NO container      -> kubelet never acted -> keep climbing:</span>
@@ -1707,7 +1725,7 @@ journalctl -u kubelet | tail                <span class="comment"># hostname in 
             <tr><td>unit "could not be found" (it IS the answer)</td><td><code>apt-get install --reinstall -y kubelet</code> &mdash; then VERIFY <code>Active:</code>; may still need <code>systemctl start kubelet</code></td></tr>
             <tr><td><code>Active: inactive (dead)</code> / disabled</td><td><code>systemctl enable --now kubelet</code></td></tr>
             <tr><td>misconfig</td><td><code>kubelet.conf</code>=kubeconfig &middot; <code>config.yaml</code>=settings &middot; <code>manifests/</code>=static pods</td></tr>
-            <tr><td><strong>unit <code>active (running)</code> but node NotReady</strong></td><td>kubelet is talking to the wrong API endpoint &mdash; <code>grep server: /etc/kubernetes/kubelet.conf</code>, must be <code>https://&lt;cp&gt;:6443</code>. <code>active</code> is NOT proof of health.</td></tr>
+            <tr><td><strong>unit <code>active (running)</code> but node NotReady</strong></td><td>kubelet is talking to the wrong API endpoint &mdash; <code>grep server: /etc/kubernetes/kubelet.conf</code>, must be <code>https://&lt;cp-ip&gt;:6443</code>. <code>active</code> is NOT proof of health.</td></tr>
             <tr><td>apiserver Exited</td><td><code>crictl logs</code> &rarr; fix the manifest FILE (never <code>k delete</code> a static pod)</td></tr>
           </tbody>
         </table>
@@ -1725,7 +1743,7 @@ journalctl -u kubelet | tail                <span class="comment"># hostname in 
         </table>
 <pre><code>grep -n etcd /etc/kubernetes/manifests/kube-apiserver.yaml
 grep -n -E "listen-client-urls|trusted-ca-file" /etc/kubernetes/manifests/etcd.yaml
-ssh &lt;healthy-cp&gt; grep -n etcd /etc/kubernetes/manifests/kube-apiserver.yaml   <span class="comment"># reference copy, one terminal</span></code></pre>
+ssh cluster1-controlplane grep -n etcd /etc/kubernetes/manifests/kube-apiserver.yaml   <span class="comment"># reference copy, one terminal</span></code></pre>
         <ul>
           <li>Container IDs churn on a crashloop &mdash; <code>crictl logs $(crictl ps -a --name kube-apiserver -q | head -1)</code>, or skip it: the manifest is a file and doesn't vanish.</li>
           <li>Back up <strong>outside</strong> <code>/etc/kubernetes/manifests/</code> &mdash; a <code>.bak</code> left inside is read as a second static pod.</li>
@@ -1738,12 +1756,12 @@ ssh &lt;healthy-cp&gt; grep -n etcd /etc/kubernetes/manifests/kube-apiserver.yam
         </ul>
 
         <h3>Static pods &mdash; files on the node, not kubectl</h3>
-<pre><code>ssh &lt;node&gt;
+<pre><code>ssh cluster1-controlplane
 grep staticPodPath /var/lib/kubelet/config.yaml       <span class="comment"># confirm the dir</span>
 
 <span class="comment"># generate on the bastion, copy it over - never hand-type</span>
 k run metrics-agent --image busybox:1.28 --dry-run=client -o yaml -- sleep 3600 &gt; ma.yaml
-scp ma.yaml &lt;node&gt;:/etc/kubernetes/manifests/metrics-agent.yaml
+scp ma.yaml cluster1-controlplane:/etc/kubernetes/manifests/metrics-agent.yaml
 
 <span class="comment"># DELETE = move the file out. k delete pod just recreates it.</span>
 mv /etc/kubernetes/manifests/metrics-agent.yaml /root/</code></pre>
@@ -1757,7 +1775,7 @@ mv /etc/kubernetes/manifests/metrics-agent.yaml /root/</code></pre>
         </ul>
 
         <h3>Control-plane component broken &mdash; the ladder</h3>
-<pre><code>k describe po &lt;pending-pod&gt;
+<pre><code>k describe po -n apps -l app=frontend
 <span class="comment">#   Events: &lt;none&gt; + Node: &lt;none&gt;  -&gt; the SCHEDULER is not running</span>
 <span class="comment">#   a truly unschedulable pod gets a loud FailedScheduling; a missing scheduler is SILENT</span>
 k get po -n kube-system              <span class="comment"># which component: ImagePull/CrashLoop/absent</span>
@@ -1775,12 +1793,12 @@ k get po -n kube-system              <span class="comment"># which component: Im
 
         <h3>Node NotReady but kubectl still works &mdash; CNI layer</h3>
 <pre><code>k get nodes                                  <span class="comment"># one node NotReady</span>
-k describe node &lt;n&gt; | grep -i -A2 ready
+k describe node cluster1-node01 | grep -i -A2 ready
 <span class="comment">#   NetworkReady=false ... cni plugin not initialized  -> CNI, not kubelet</span>
 
-k get ds -n kube-system &lt;cni&gt; -o yaml &gt; backup.yaml   <span class="comment"># back up BEFORE touching</span>
-k delete pod -n kube-system &lt;cni-pod-on-that-node&gt;    <span class="comment"># DS respawns it, rewrites the config</span>
-k apply -f &lt;cni-manifest&gt;                             <span class="comment"># exam variant: task supplies the URL</span></code></pre>
+k get ds canal -n kube-system -o yaml &gt; backup.yaml   <span class="comment"># back up BEFORE touching</span>
+k delete pod -n kube-system canal-xxxxx    <span class="comment"># DS respawns it, rewrites the config</span>
+k apply -f &lt;url-from-the-question&gt;                             <span class="comment"># exam variant: task supplies the URL</span></code></pre>
         <ul>
           <li>Also CNI: pod stuck <code>ContainerCreating</code> with no IP, or <code>FailedCreatePodSandBox</code>.</li>
           <li><code>kubectl</code> runs from the BASTION &mdash; workers have no admin kubeconfig.</li>
@@ -1792,8 +1810,8 @@ k apply -f &lt;cni-manifest&gt;                             <span class="comment
 
         <h4>Given a repo URL &mdash; one command, don't hand-write a file</h4>
 <pre><code>dnf config-manager --add-repo &lt;url&gt;      <span class="comment"># writes the .repo file for you</span>
-dnf install -y &lt;pkg&gt;-&lt;version&gt;
-systemctl enable --now &lt;service&gt;
+dnf install -y kubelet-1.35.1
+systemctl enable --now kubelet
 dnf repolist                             <span class="comment"># repo id is derived from the URL</span></code></pre>
         <table>
           <thead><tr><th>Situation</th><th>Command</th></tr></thead>
