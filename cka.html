@@ -1777,7 +1777,7 @@ helm install web /root/charts/nginx -n demo --create-namespace
 helm list -n demo</code></pre>
         <p><strong>Why a task gives you both a URL and a path: you pull from one and install from the other.</strong> <code>--version</code> works on a repo reference (<code>bitnami/nginx</code>); a local path ignores it, because a local chart's version lives in its <code>Chart.yaml</code>. <code>--untardir</code> lands the chart at <code>&lt;dir&gt;/&lt;chartname&gt;/</code>, so the install path ends with the chart name.</p>
         <p><code>helm search repo &lt;chart&gt; --versions | head -3</code> is only worth the keystrokes when a pinned version errors as not found.</p>
-        <p><code>ls</code> the path to tell which case you're in:</p>
+        <p><strong>A path in the question? <code>ls</code> IT BEFORE CHOOSING FLAGS.</strong> &ldquo;Deploy from the repository&rdquo; plus a path does <em>not</em> mean <code>pull</code>:</p>
         <table>
           <thead><tr><th>At the path</th><th>It is</th><th>Command</th></tr></thead>
           <tbody>
@@ -1815,9 +1815,12 @@ k get secret -A | grep sh.helm.release   <span class="comment"># helm's own reco
         <h3>Which values? two different questions</h3>
 <pre><code>helm show values &lt;repo/chart&gt;          <span class="comment"># the CHART'S DEFAULTS</span>
 helm show values &lt;chart&gt; | grep -i replica
-helm get values &lt;release&gt; -n &lt;ns&gt;      <span class="comment"># YOUR RELEASE'S OVERRIDES</span>
+helm get values &lt;release&gt; -n &lt;ns&gt;      <span class="comment"># YOUR RELEASE'S OVERRIDES (-a = merged with defaults)</span>
+helm get metadata &lt;release&gt; -n &lt;ns&gt;    <span class="comment"># chart name + VERSION + revision of a live release</span>
 k get po,svc -n &lt;ns&gt;                   <span class="comment"># what is ACTUALLY running</span></code></pre>
         <ul>
+          <li><code>show values</code> prints the chart's <strong>entire</strong> <code>values.yaml</code> with its defaults &mdash; not a subset. Redirect it to a file (<code>&gt; defaults.yaml</code>) when the task asks for one; your own override file repeats only the lines you change.</li>
+          <li>An override file is <strong>nested YAML</strong> (<code>service:</code> then two spaces, <code>type: NodePort</code>). Dotted <code>service.type</code> is <code>--set</code> syntax only &mdash; in a file it silently becomes a key nobody reads.</li>
           <li>Chart values (<code>replicaCount</code>, <code>service.type</code>) are defined by the chart. They are <strong>not helm flags</strong> &mdash; they never appear in <code>helm --help</code> or on helm.sh/docs.</li>
           <li><code>helm get values</code> is a false-green on its own: it reports what you asked for, not what is running.</li>
         </ul>
