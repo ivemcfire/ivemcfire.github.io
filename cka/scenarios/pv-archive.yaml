@@ -1,0 +1,16 @@
+# Static PV for the sim's storage question (CKA retake prep, 2026-08-14).
+# hostPath + DirectoryOrCreate so the path never has to be pre-created on a node.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-archive
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: slow-archive
+  hostPath:
+    path: /mnt/archive
+    type: DirectoryOrCreate
