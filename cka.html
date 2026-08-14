@@ -1123,70 +1123,104 @@ k taint nodes cluster1-node02 spray=mortein:NoSchedule-    <span class="comment"
       <!-- ==================== DEBUG ==================== -->
       <section class="tab-content" id="debug">
         <h2>Debug pods &mdash; one-shot pods for in-cluster testing</h2>
-
         <p>Spin a one-shot pod to test from INSIDE the cluster. Most Services/Networking and DNS questions need this &mdash; ClusterIP services are not reachable from the bastion/control-plane node.</p>
 
-        <h3>One-shot patterns (all use <code>--rm -it --restart=Never</code>)</h3>
-
-<pre><code><span class="comment"># Shell into busybox &mdash; ALWAYS pin :1.28 (latest's wget AND nslookup lie)</span>
-k run tmp --image=busybox:1.28 --rm -it --restart=Never -- sh
-
-<span class="comment"># HTTP test (wget is built into busybox)</span>
-k run tmp --image=busybox:1.28 --rm -it --restart=Never -- wget -O- web-svc:80
-
-<span class="comment"># DNS lookup &mdash; USE busybox:1.28 (latest's nslookup is broken)</span>
-k run tmp --image=busybox:1.28 --rm -it --restart=Never -- nslookup web-svc
-
-<span class="comment"># curl (needs a richer image)</span>
-k run tmp --image=nicolaka/netshoot --rm -it --restart=Never -- curl web-svc:80
-
-<span class="comment"># Long-running debug pod (stay open, exec in later)</span>
-k run debug --image=busybox --restart=Never -- sleep 3600
-k exec -it debug -- sh</code></pre>
-
-        <h3>Flag breakdown</h3>
-
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
         <table>
-          <thead>
-            <tr><th>Flag</th><th>Meaning</th></tr>
-          </thead>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
           <tbody>
-            <tr><td><code>--rm</code></td><td>delete pod when it exits (no stale pods between drills)</td></tr>
-            <tr><td><code>-it</code></td><td>interactive + TTY (output streams to your terminal)</td></tr>
-            <tr><td><code>--restart=Never</code></td><td>makes it a Pod, not a Deployment</td></tr>
-            <tr><td><code>--</code></td><td><strong>END of kubectl args.</strong> Everything after = command run inside the pod. Without it, kubectl errors on "unknown flag."</td></tr>
-            <tr><td><code>-O-</code> (wget)</td><td>output to <strong>stdout</strong> &mdash; the <code>-</code> is the filename. Capital O, not zero.</td></tr>
+            <tr><td>namespace</td><td><code>apps</code></td><td>given &mdash; <strong>probe from the namespace the policy allows</strong></td></tr>
+            <tr><td>target Service</td><td><code>web-svc</code> port <code>80</code></td><td>read it: <code>k get svc -n apps</code></td></tr>
+            <tr><td>probe pod</td><td><code>tmp</code>, image <code>busybox:1.28</code></td><td>yours &mdash; disposable</td></tr>
+            <tr><td>probe label</td><td><code>app=client</code></td><td>whatever the NetworkPolicy allows</td></tr>
+            <tr><td>running pod to inspect</td><td><code>web-0</code> in <code>apps</code></td><td>given</td></tr>
           </tbody>
         </table>
 
-        <h3>Gotchas</h3>
+        <h3>One-shot patterns (all use <code>--rm -it --restart=Never</code>)</h3>
+<pre><code><span class="comment"># Shell in — ALWAYS pin :1.28 (latest's wget AND nslookup lie)</span>
+k run tmp -n apps --image=busybox:1.28 --rm -it --restart=Never -- sh
 
+<span class="comment"># HTTP test (wget is built into busybox)</span>
+k run tmp -n apps --image=busybox:1.28 --rm -it --restart=Never -- wget -O- web-svc:80
+
+<span class="comment"># HTTP test with a timeout — never hang the terminal on a dropped packet</span>
+k run tmp -n apps --image=busybox:1.28 --rm -it --restart=Never -- wget -O- -T 5 web-svc:80
+
+<span class="comment"># DNS lookup — busybox:1.28 (latest's nslookup is broken)</span>
+k run tmp -n apps --image=busybox:1.28 --rm -it --restart=Never -- nslookup web-svc
+
+<span class="comment"># NetworkPolicy probe — right namespace AND right label, or you test the wrong path</span>
+k run tmp -n apps --labels app=client --image=busybox:1.28 --rm -it --restart=Never -- wget -O- -T 5 web-svc:80
+
+<span class="comment"># curl (needs a richer image)</span>
+k run tmp -n apps --image=nicolaka/netshoot --rm -it --restart=Never -- curl web-svc:80
+
+<span class="comment"># Long-running debug pod (stay open, exec in later)</span>
+k run debug -n apps --image=busybox:1.28 --restart=Never -- sleep 3600
+k exec -it debug -n apps -- sh</code></pre>
+
+        <h3>Debug something already running</h3>
+<pre><code>k debug -it web-0 -n apps --image=busybox:1.28 --target=nginx   <span class="comment"># ephemeral container, shares the pod's netns</span>
+k debug node/cluster1-node01 -it --image=busybox:1.28           <span class="comment"># node's filesystem under /host</span>
+k exec -it web-0 -n apps -- sh                                  <span class="comment"># when the image HAS a shell</span></code></pre>
+        <ul>
+          <li><code>k debug</code> is the answer when the image is distroless / has no shell &mdash; <code>k exec</code> fails there with <code>executable file not found</code>.</li>
+          <li><code>--target=&lt;container&gt;</code> puts you in that container's process namespace; without it you only share the network.</li>
+        </ul>
+
+        <h3>Flag breakdown</h3>
+        <table>
+          <thead><tr><th>Flag</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>--rm</code></td><td>delete pod when it exits (no stale pods between questions)</td></tr>
+            <tr><td><code>-it</code></td><td>interactive + TTY (output streams to your terminal)</td></tr>
+            <tr><td><code>--restart=Never</code></td><td>makes it a Pod, not a Deployment</td></tr>
+            <tr><td><code>--labels k=v</code></td><td>labels the probe pod &mdash; required for NetworkPolicy tests</td></tr>
+            <tr><td><code>--</code></td><td><strong>END of kubectl args.</strong> Everything after = command run inside the pod. Without it, kubectl errors on "unknown flag."</td></tr>
+            <tr><td><code>-O-</code> (wget)</td><td>output to <strong>stdout</strong> &mdash; the <code>-</code> is the filename. Capital O, not zero.</td></tr>
+            <tr><td><code>-T 5</code> (wget)</td><td>5-second timeout &mdash; a blocked probe returns instead of hanging</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Reading the result</h3>
+        <table>
+          <thead><tr><th>Probe says</th><th>Means</th></tr></thead>
+          <tbody>
+            <tr><td>HTML / <code>index.html saved</code></td><td>allowed and serving</td></tr>
+            <tr><td><code>connection refused</code></td><td>traffic ARRIVED &mdash; nothing listening on that port. Not a policy block.</td></tr>
+            <tr><td><code>wget: download timed out</code></td><td>packets dropped &mdash; NetworkPolicy or no route</td></tr>
+            <tr><td><code>bad address 'web-svc'</code></td><td>DNS failed &mdash; check egress policy port 53 before anything else</td></tr>
+          </tbody>
+        </table>
+        <div class="warning">
+          <strong>A probe run seconds after <code>k apply</code> can pass through.</strong> The CNI needs a moment to program the dataplane. Re-probe before believing an "allowed" result on a policy you just created.
+        </div>
+
+        <h3>Gotchas</h3>
         <ul>
           <li><code>--</code> is not optional. Forgetting it = "unknown flag" error.</li>
           <li><code>--restart=Never</code> is ONE token with <code>=</code>. Typing <code>-- restart Never</code> puts everything after the first <code>--</code> into the container command.</li>
-          <li>NetworkPolicy allow-probe: run it in the ALLOWED <strong>namespace</strong> with the ALLOWED <strong>label</strong> (<code>-n &lt;ns&gt; --labels k=v</code>). Right label + wrong ns = you're testing the deny path. The output names the ns: <code>pod &lt;ns&gt;/&lt;name&gt;</code>.</li>
+          <li>NetworkPolicy probe: run it in the ALLOWED <strong>namespace</strong> with the ALLOWED <strong>label</strong>. Right label + wrong ns = you're testing the deny path. The output names the ns: <code>pod apps/tmp</code>.</li>
           <li><code>-O-</code> = capital-O-dash. <code>-0-</code> (zero) silently fails.</li>
           <li><code>busybox:latest</code> lies &mdash; broken <code>nslookup</code> AND a <code>wget</code> that returns a false <code>connection refused</code>. Pin <code>busybox:1.28</code> for <strong>all</strong> probes.</li>
-          <li><strong><code>connection refused</code> &ne; blocked.</strong> Refused/RST = traffic reached the host, nothing listening (or a reject-CNI policy). <code>timeout</code> = packets dropped (drop-CNI policy / no route). Different diagnoses.</li>
-          <li><strong><code>Running</code> &ne; serving.</strong> STATUS=Running only means the container's main process is alive. A <code>-- sleep</code> override &rarr; Running but the app never started &rarr; port closed. Confirm with a probe, not the phase.</li>
-          <li>Service DNS: <code>&lt;svc&gt;</code> works in same namespace. Cross-namespace: <code>&lt;svc&gt;.&lt;ns&gt;</code> or <code>&lt;svc&gt;.&lt;ns&gt;.svc.cluster.local</code>. Bare pods get NO DNS &mdash; target them by IP.</li>
+          <li><strong><code>Running</code> &ne; serving.</strong> STATUS=Running only means the main process is alive. A <code>-- sleep</code> override &rarr; Running but the app never started &rarr; port closed. Confirm with a probe, not the phase.</li>
+          <li>Service DNS: <code>web-svc</code> works in the same namespace. Cross-namespace: <code>web-svc.apps</code> or <code>web-svc.apps.svc.cluster.local</code>. Bare pods get NO DNS &mdash; target them by IP.</li>
           <li>Without <code>--rm</code>, the pod stays Completed and clutters <code>k get pods</code> for the rest of the question.</li>
         </ul>
 
         <h3>In-pod commands (BusyBox)</h3>
-
-<pre><code>hostname           <span class="comment"># pod name</span>
-hostname -i        <span class="comment"># pod IP</span>
-nslookup &lt;svc&gt;     <span class="comment"># CoreDNS check (busybox:1.28)</span>
-wget -O- &lt;svc&gt;:&lt;port&gt;
-nc -zv &lt;svc&gt; &lt;port&gt;
-cat /etc/resolv.conf</code></pre>
+<pre><code>hostname                  <span class="comment"># pod name</span>
+hostname -i               <span class="comment"># pod IP</span>
+nslookup web-svc          <span class="comment"># CoreDNS check (busybox:1.28)</span>
+wget -O- -T 5 web-svc:80
+nc -zv web-svc 80
+cat /etc/resolv.conf      <span class="comment"># search domains + the CoreDNS ClusterIP</span></code></pre>
 
         <h3>Docs path</h3>
-
         <ul>
-          <li>kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/</li>
-          <li>Search: <strong>"debug pod"</strong></li>
+          <li>kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/ &mdash; Ctrl+F <code>kubectl debug</code></li>
+          <li>Search: <strong>"debug pod"</strong> &middot; <strong>"debug service"</strong></li>
         </ul>
       </section>
 
@@ -1457,7 +1491,7 @@ k get po -n NS --show-labels     <span class="comment"># confirm the real labels
           <li>Task says <em>modify</em> &rarr; smallest additive edit. Never delete an existing <code>from</code> item to make room.</li>
           <li>Deny-all &rarr; you author the whole <code>ingress:</code> block. Existing allow-list &rarr; you append one <code>- podSelector:</code> item.</li>
           <li><code>k edit</code> printing <code>Edit cancelled, no changes made</code> = object untouched. In vim <code>:wq</code>, not <code>:q!</code>.</li>
-          <li>Editor-free append: <code>k patch netpol NAME -n NS --type=json -p '[{"op":"add","path":"/spec/ingress/0/ports","value":[{"port":80,"protocol":"TCP"}]}]'</code></li>
+          <li><strong>Edit in the editor, not with a patch one-liner.</strong> <code>k edit netpol web-policy -n apps</code> &mdash; a JSON patch for a nested list is untypeable under time pressure and the grader reads cluster state, not your method.</li>
           <li>Two labels in one <code>matchLabels</code> = AND on the same pod (and a duplicate YAML key). Two sources = two <code>- podSelector:</code> items.</li>
         </ul>
 
