@@ -2284,51 +2284,84 @@ k kustomize /root/app/overlay/prod | grep -E 'name:|replicas:|image:'   <span cl
 
       <section class="tab-content" id="crd">
         <h2>CRDs &amp; Operators <span style="opacity:.6">(post-2025 addition)</span></h2>
+        <p>The exam does not ask you to <em>write</em> a CRD. It gives you one already installed and asks you to read it, or to create a CR of that kind.</p>
 
-        <h3>A CR for a CRD you didn't write</h3>
-<pre><code>k get crd | grep -i &lt;keyword&gt;          <span class="comment"># verticalpodautoscalers.autoscaling.k8s.io</span>
-k api-resources | grep -i &lt;keyword&gt;    <span class="comment"># KIND + APIVERSION columns</span>
-k explain &lt;plural&gt;.spec                <span class="comment"># field names + types</span></code></pre>
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>namespace</td><td><code>apps</code></td><td>given &mdash; the CR usually lives in its target's namespace</td></tr>
+            <tr><td>CRD</td><td><code>verticalpodautoscalers.autoscaling.k8s.io</code></td><td><strong>read it:</strong> <code>k get crd</code></td></tr>
+            <tr><td>kind / apiVersion</td><td><code>VerticalPodAutoscaler</code> / <code>autoscaling.k8s.io/v1</code></td><td><strong>read it:</strong> <code>k api-resources | grep -i vertical</code></td></tr>
+            <tr><td>short name</td><td><code>vpa</code></td><td>the SHORTNAMES column of <code>k api-resources</code></td></tr>
+            <tr><td>the CR you create</td><td><code>analytics-vpa</code></td><td>given</td></tr>
+            <tr><td>target workload</td><td>Deployment <code>analytics</code> in <code>apps</code></td><td>given</td></tr>
+          </tbody>
+        </table>
+        <div class="warning">
+          <strong>Never guess an apiVersion.</strong> It is <code>&lt;group&gt;/&lt;version&gt;</code> from <code>k api-resources</code> &mdash; never the CRD's object name, never invented from the kind.
+        </div>
+
+        <h3>Discovery ladder &mdash; three commands, in this order</h3>
+<pre><code>k get crd | grep -i vertical            <span class="comment"># does the kind exist at all?</span>
+k api-resources | grep -i vertical      <span class="comment"># NAME | SHORTNAMES | APIVERSION | NAMESPACED | KIND</span>
+k explain verticalpodautoscalers.spec   <span class="comment"># field names + types, no browser</span>
+k explain verticalpodautoscalers.spec --recursive | head -40</code></pre>
+        <p>Already have a working CR in the cluster? <code>k get vpa -A -o yaml</code> is a correct, version-exact example &mdash; better than any docs page, and it costs no browser trip.</p>
+
+        <h3>Create a CR of somebody else's kind</h3>
 <pre><code>apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
   name: analytics-vpa
-  namespace: cka24456          <span class="comment"># ns goes HERE, not in targetRef</span>
+  namespace: apps              <span class="comment"># ns goes HERE, not in targetRef</span>
 spec:
   targetRef:
     apiVersion: apps/v1        <span class="comment"># targetRef = apiVersion/kind/name ONLY</span>
     kind: Deployment
-    name: analytics-deployment
+    name: analytics
   updatePolicy:
     updateMode: "Auto"         <span class="comment"># Off | Initial | Recreate | Auto</span></code></pre>
+<pre><code>k apply -f vpa.yaml
+k get vpa -n apps
+k describe vpa analytics-vpa -n apps</code></pre>
         <ul>
-          <li>apiVersion is <code>&lt;group&gt;/&lt;version&gt;</code> &mdash; <strong>never the CRD object name</strong>, and never guessed. Read it off the cluster.</li>
+          <li><code>targetRef</code> carries the <strong>target's</strong> apiVersion (<code>apps/v1</code>), not the CR's. Two different apiVersions in one file is correct here.</li>
           <li>The CR normally must live in its target's namespace.</li>
           <li>Blank status columns right after apply are normal (the controller needs samples) &mdash; not graded.</li>
+          <li>Namespaced or not? The NAMESPACED column of <code>k api-resources</code>. A cluster-scoped CR with <code>-n</code> errors.</li>
         </ul>
 
-        <h3>Inspect the API</h3>
-<pre><code>k get crd                       <span class="comment"># installed custom kinds</span>
-k api-resources | grep &lt;group&gt;
-k explain &lt;cr&gt;.spec --recursive
-k get &lt;cr&gt; -A ; k describe &lt;cr&gt; &lt;name&gt; -n &lt;ns&gt;</code></pre>
-
-        <h3>Install flow (operator)</h3>
+        <h3>Extract a field from an unfamiliar CRD</h3>
+        <p>The common exam shape: "write X for every &lt;custom kind&gt; to a file." You do not need to know the kind &mdash; find the path, then project it.</p>
+<pre><code>k get vpa -A -o yaml | grep -n -i mode          <span class="comment"># find the path on a real object</span>
+k get vpa -A -o custom-columns='NAME:.metadata.name,MODE:.spec.updatePolicy.updateMode' --no-headers &gt; /root/vpa.txt
+cat /root/vpa.txt</code></pre>
         <ul>
-          <li>Apply operator: <code>k apply -f operator.yaml</code> (or <code>helm install</code>)</li>
-          <li>Confirm kinds registered: <code>k get crd</code></li>
-          <li>Create a CR of the new kind (normal <code>k apply -f cr.yaml</code>)</li>
-          <li>Verify: <code>k get &lt;cr&gt;</code> + watch the controller pod act</li>
+          <li>A wrong path prints <code>&lt;none&gt;</code> instead of erroring &mdash; check the values, not the layout.</li>
+          <li>Quote the path when it contains <code>[</code>, <code>]</code> or <code>*</code>.</li>
+        </ul>
+
+        <h3>Operator = CRD + controller</h3>
+<pre><code>k apply -f operator.yaml            <span class="comment"># or: helm install ...</span>
+k get crd                           <span class="comment"># kinds now registered</span>
+k get po -n &lt;operator-ns&gt;           <span class="comment"># the controller must be Running</span>
+k apply -f cr.yaml                  <span class="comment"># your custom resource</span>
+k get vpa -n apps</code></pre>
+        <ul>
+          <li><strong>No controller pod &rarr; CRs just sit there.</strong> The object being created is not proof anything acted on it.</li>
+          <li>A CRD is only the schema. Deleting the CRD deletes every CR of that kind &mdash; irreversibly.</li>
         </ul>
 
         <h3>Gotchas</h3>
         <ul>
-          <li>CRD <code>metadata.name</code> MUST be <code>&lt;plural&gt;.&lt;group&gt;</code>.</li>
-          <li>Operator = CRD + a controller pod. No controller &rarr; CRs just sit there.</li>
+          <li>CRD <code>metadata.name</code> MUST be <code>&lt;plural&gt;.&lt;group&gt;</code> &mdash; e.g. <code>verticalpodautoscalers.autoscaling.k8s.io</code>.</li>
           <li>Exactly one version has <code>storage: true</code>.</li>
+          <li><code>k explain</code> works on custom kinds only after the CRD is installed &mdash; "server doesn't have resource type" means the CRD is missing, not that you typed it wrong.</li>
+          <li>Short names come from the CRD; <code>k get vpa</code> and <code>k get verticalpodautoscalers</code> are the same command.</li>
         </ul>
         <h3>Docs path</h3>
-        <ul><li>k8s.io search <strong>"CustomResourceDefinition"</strong> / "operator pattern".</li></ul>
+        <ul><li>k8s.io search <strong>"CustomResourceDefinition"</strong> / <strong>"operator pattern"</strong> &mdash; but the cluster (<code>k api-resources</code>, <code>k explain</code>) answers faster than the browser here.</li></ul>
       </section>
 
       <section class="tab-content" id="gateway">
