@@ -1090,6 +1090,21 @@ cat /etc/resolv.conf</code></pre>
       <section class="tab-content" id="storage">
         <h2>Storage &amp; Config &mdash; PV / PVC, ConfigMap, Secret</h2>
 
+        <h3>Legend &mdash; one worked example, used everywhere below</h3>
+        <p>Nothing on this page is a placeholder. Every manifest and command is runnable as written; swap these nouns for the ones in your question.</p>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>namespace</td><td><code>data</code></td><td>given &mdash; <code>-n</code> on every command</td></tr>
+            <tr><td>StorageClass</td><td><code>fast-local</code></td><td>given, or read it: <code>k get sc</code></td></tr>
+            <tr><td>PersistentVolume</td><td><code>pv-log</code>, 1Gi, path <code>/opt/data</code></td><td>given &mdash; cluster-scoped, no namespace</td></tr>
+            <tr><td>PersistentVolumeClaim</td><td><code>pvc-log</code>, 1Gi, RWO</td><td>given &mdash; lives in ns <code>data</code></td></tr>
+            <tr><td>node holding the disk</td><td><code>cluster1-controlplane</code></td><td>read it: <code>k get nodes</code></td></tr>
+            <tr><td>consumer</td><td>Pod <code>web</code>, mount <code>/usr/share/nginx/html</code></td><td>given</td></tr>
+            <tr><td>ConfigMap / Secret</td><td><code>app-cfg</code> / <code>db-sec</code></td><td>given, with their keys</td></tr>
+          </tbody>
+        </table>
+
         <h3>StorageClass</h3>
         <p>Two shapes to know: edit an existing StorageClass, and create a new one. Both are short.</p>
 <pre><code>apiVersion: storage.k8s.io/v1
@@ -1101,40 +1116,49 @@ volumeBindingMode: WaitForFirstConsumer     <span class="comment"># or Immediate
 reclaimPolicy: Retain                       <span class="comment"># or Delete (default)</span></code></pre>
         <p><strong>StorageClass has no <code>spec:</code></strong> &mdash; <code>provisioner</code>, <code>volumeBindingMode</code> and <code>reclaimPolicy</code> are top-level keys.</p>
 <pre><code>k get sc                                    <span class="comment"># (default) marker appears in the name column</span>
-k patch sc fast-local -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-k patch sc old-default -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'</code></pre>
+k annotate sc fast-local storageclass.kubernetes.io/is-default-class=true --overwrite
+k annotate sc local-path storageclass.kubernetes.io/is-default-class=false --overwrite</code></pre>
         <ul>
           <li>Default = annotation <code>storageclass.kubernetes.io/is-default-class: "true"</code>. Clear the old one &mdash; two defaults is undefined behaviour.</li>
+          <li><code>k annotate --overwrite</code> beats a <code>patch</code> one-liner here: no quoting, no JSON, nothing to mistype.</li>
           <li>Most SC fields are <strong>immutable</strong>: to change a provisioner or binding mode, delete and recreate. Annotations patch fine.</li>
           <li><code>WaitForFirstConsumer</code> delays binding until a Pod is scheduled, so the volume lands on the right node. <code>Immediate</code> binds at once.</li>
         </ul>
 
-        <h3>PV + PVC + Pod (static bind, hostPath)</h3>
+        <h3>PV + PVC + Pod (static bind)</h3>
 <pre><code>apiVersion: v1
 kind: PersistentVolume
-metadata: { name: pv-log }
+metadata:
+  name: pv-log                              <span class="comment"># cluster-scoped — no namespace</span>
 spec:
   capacity: { storage: 1Gi }
   accessModes: ["ReadWriteOnce"]
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: manual
-  hostPath: { path: /mnt/data }
+  persistentVolumeReclaimPolicy: Retain     <span class="comment"># NOT reclaimPolicy</span>
+  storageClassName: fast-local
+  hostPath: { path: /opt/data }             <span class="comment"># see below: local: when nodeAffinity is required</span>
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
-metadata: { name: pvc-log }
+metadata:
+  name: pvc-log
+  namespace: data
 spec:
   accessModes: ["ReadWriteOnce"]
   resources: { requests: { storage: 1Gi } }
-  storageClassName: manual
+  storageClassName: fast-local
+  volumeName: pv-log                        <span class="comment"># optional: pre-bind to THIS pv</span>
 ---
-<span class="comment"># in pod.spec:</span>
+<span class="comment"># in pod.spec (Pod web, ns data):</span>
   volumes:
-  - name: data
+  - name: data-vol
     persistentVolumeClaim: { claimName: pvc-log }
   <span class="comment"># container.volumeMounts:</span>
-  - name: data          <span class="comment"># MUST == volumes[].name</span>
+  - name: data-vol      <span class="comment"># MUST == volumes[].name</span>
     mountPath: /usr/share/nginx/html</code></pre>
+<pre><code>k get pv pv-log                             <span class="comment"># STATUS Bound + CLAIM data/pvc-log</span>
+k get pvc pvc-log -n data
+k describe pvc pvc-log -n data              <span class="comment"># Pending? the events say which field mismatched</span>
+k exec web -n data -- df -h /usr/share/nginx/html</code></pre>
 
         <h3>Local PV &mdash; the three names that get typo'd</h3>
 <pre><code>spec:
@@ -1149,19 +1173,21 @@ spec:
           operator: In
           values: [cluster1-controlplane]</code></pre>
         <ul>
-          <li>PVC pre-bind is <code>volumeName: &lt;pv-name&gt;</code> &mdash; sibling of <code>resources:</code>, and the field is <strong>not</strong> <code>volume:</code>.</li>
+          <li>PVC pre-bind is <code>volumeName: pv-log</code> &mdash; sibling of <code>resources:</code>, and the field is <strong>not</strong> <code>volume:</code>.</li>
           <li><strong>PV affinity &ne; Pod affinity.</strong> PV = <code>spec.nodeAffinity.required</code>. Pod = <code>spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</code>.</li>
           <li>Strict decoding catches all of these: <code>unknown field "spec.reclaimPolicy"</code> / <code>"spec.volume"</code>. Read the error &mdash; it names the field.</li>
+          <li>A <code>local:</code> PV without <code>nodeAffinity</code> is rejected; <code>hostPath:</code> does not take one.</li>
         </ul>
 
         <h3>ResourceQuota interaction</h3>
-<pre><code>k describe quota &lt;name&gt; -n &lt;ns&gt;      <span class="comment"># Used vs Hard</span>
-k describe rs &lt;replicaset&gt;           <span class="comment"># the quota error lands HERE, not on the pods</span>
+<pre><code>k describe quota storage-quota -n data   <span class="comment"># Used vs Hard</span>
+k describe rs -n data                    <span class="comment"># the quota error lands HERE, not on the pods</span>
 <span class="comment"># exceeded quota: requested: requests.memory=128Mi, used: 256Mi, limited: 300Mi</span></code></pre>
         <ul>
           <li><code>requests</code> and <code>limits</code> are DIFFERENT fields &mdash; "don't change the limits" still lets you lower <code>requests</code>.</li>
           <li>Max pods = floor(hard / per-pod request). Check every resource in the quota; the tightest wins.</li>
           <li><strong>Tight-quota deadlock:</strong> editing the Deployment makes a new ReplicaSet, but the OLD pods still hold the quota so the new RS creates nothing. Delete the old RS to release it.</li>
+          <li>Get the number right in ONE edit &mdash; each retry churns another ReplicaSet under the same quota.</li>
         </ul>
 
         <h3>accessModes &amp; binding</h3>
@@ -1176,14 +1202,16 @@ k describe rs &lt;replicaset&gt;           <span class="comment"># the quota err
         </table>
         <ul>
           <li>PVC binds only if: <code>storageClassName</code> equal &middot; modes &sube; &middot; PV capacity &ge; request.</li>
-          <li>Static bind (no provisioner): set <code>storageClassName: manual</code> (or <code>""</code>) on BOTH.</li>
+          <li>Static bind (no provisioner): the same <code>storageClassName</code> on BOTH &mdash; here <code>fast-local</code>; <code>manual</code> or <code>""</code> work the same way.</li>
           <li>reclaim: <code>Retain</code> &middot; <code>Delete</code> (dynamic default) &middot; <code>Recycle</code> (dead).</li>
+          <li><code>WaitForFirstConsumer</code> means the PVC stays <code>Pending</code> until a Pod uses it &mdash; that is not a fault.</li>
         </ul>
 
         <h3>ConfigMap / Secret (imperative)</h3>
-<pre><code>k create configmap app-cfg --from-literal=KEY=val --from-literal=K2=v2
-k create configmap app-cfg --from-file=config.txt
-k create secret generic db-sec --from-literal=password=s3cret
+<pre><code>k create configmap app-cfg -n data --from-literal=APP_MODE=prod --from-literal=LOG_LEVEL=debug
+k create configmap app-cfg -n data --from-file=default.conf
+k create secret generic db-sec -n data --from-literal=password=s3cret
+k get cm app-cfg -n data -o yaml         <span class="comment"># confirm the KEY names before you reference them</span>
 <span class="comment"># consume: envFrom:[configMapRef|secretRef] | valueFrom.configMapKeyRef | volume</span></code></pre>
 
         <h3>Mounting ONE key as a file &mdash; <code>subPath</code></h3>
@@ -1198,9 +1226,9 @@ k create secret generic db-sec --from-literal=password=s3cret
         </ul>
 
         <h3>Env on a live Pod is immutable</h3>
-<pre><code>k get po X -n NS -o yaml &gt; web.yaml    <span class="comment"># add envFrom/env to the container</span>
-k delete po X -n NS
-k get po -n NS                        <span class="comment"># CONFIRM it's gone before applying</span>
+<pre><code>k get po web -n data -o yaml &gt; web.yaml   <span class="comment"># add envFrom/env to the container</span>
+k delete po web -n data
+k get po -n data                         <span class="comment"># CONFIRM it's gone before applying</span>
 k apply -f web.yaml</code></pre>
         <ul>
           <li><code>k apply</code> on a running Pod returns <code>Forbidden: pod updates may not change fields other than spec.containers[*].image&hellip;</code>.</li>
@@ -1209,8 +1237,9 @@ k apply -f web.yaml</code></pre>
 
         <h3>Gotchas</h3>
         <ul>
-          <li>volume <code>name</code> must == volumeMount <code>name</code> &mdash; mismatch = silent no-mount, no error.</li>
-          <li>PVC stuck <code>Pending</code> = no PV matches (class/access/size). <code>k describe pvc</code> tells you why.</li>
+          <li>volume <code>name</code> must == volumeMount <code>name</code> (<code>data-vol</code> in both) &mdash; mismatch = silent no-mount, no error.</li>
+          <li>PVC stuck <code>Pending</code> = no PV matches (class/access/size). <code>k describe pvc pvc-log -n data</code> tells you why.</li>
+          <li>PV is cluster-scoped, PVC is namespaced. <code>-n</code> on the PVC, never on the PV.</li>
           <li><code>emptyDir: {}</code> = scratch (dies with pod). Can't shrink a PVC. RWO &ne; multi-node.</li>
           <li>Secret values are base64 &mdash; <code>--from-literal</code> encodes for you.</li>
         </ul>
@@ -1218,7 +1247,8 @@ k apply -f web.yaml</code></pre>
         <h3>Docs path</h3>
         <ul>
           <li>kubernetes.io: "Configure a Pod to Use a PersistentVolume" &middot; "Persistent Volumes"</li>
-          <li>Search: <strong>"persistent volume"</strong>, <strong>"configmap"</strong></li>
+          <li>Local PV + nodeAffinity block: <em>concepts/storage/volumes</em>, Ctrl+F <code>nodeAffinity:</code></li>
+          <li>Search: <strong>"persistent volume"</strong>, <strong>"configmap"</strong>, <strong>"storage classes"</strong></li>
         </ul>
       </section>
 
