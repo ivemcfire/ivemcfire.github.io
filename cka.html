@@ -1495,18 +1495,67 @@ curl -H "Host: www.example.com" http://&lt;ADDRESS&gt;/api</code></pre>
           </tbody>
         </table>
 
-        <h3>NetworkPolicy</h3>
+        <h3>NetworkPolicy &mdash; legend, one worked example</h3>
+        <p>Nothing in this block is a placeholder. Every command is runnable as written; swap these nouns for the ones in your question.</p>
+        <table>
+          <thead><tr><th>Slot</th><th>Value used here</th><th>Where it comes from</th></tr></thead>
+          <tbody>
+            <tr><td>namespace</td><td><code>prod</code></td><td>given &mdash; wrong ns = 0 points</td></tr>
+            <tr><td>protected pod (TO)</td><td><code>db</code>, label <code>app=db</code>, port <code>80</code></td><td><strong>read the real label:</strong> <code>k get po -n prod --show-labels</code></td></tr>
+            <tr><td>allowed source (FROM)</td><td><code>web</code>, label <code>app=web</code></td><td>same &mdash; read it, don't autopilot <code>app:</code></td></tr>
+            <tr><td>allowed namespace</td><td><code>dev</code></td><td>matched via <code>kubernetes.io/metadata.name: dev</code></td></tr>
+            <tr><td>policy</td><td><code>allow-web-to-db</code></td><td>given</td></tr>
+            <tr><td>probe pod</td><td><code>t</code>, <code>busybox:1.28</code></td><td>yours &mdash; disposable</td></tr>
+          </tbody>
+        </table>
+
+        <h3>The model (the whole game)</h3>
+        <table>
+          <thead><tr><th>Slot</th><th>Means</th></tr></thead>
+          <tbody>
+            <tr><td><code>spec.podSelector</code> (top)</td><td>WHO you protect &mdash; the destination (<code>app=db</code>). <code>{}</code> = all pods in ns.</td></tr>
+            <tr><td><code>ingress.from[].podSelector</code></td><td>WHO is allowed in &mdash; the source (<code>app=web</code>).</td></tr>
+          </tbody>
+        </table>
+        <p>Read the task &mdash; "traffic <strong>TO</strong> db <strong>FROM</strong> web" &mdash; straight into the two slots. The two selectors are <strong>different pods</strong>. A wrong key on the top selector matches nothing &rarr; the policy applies to no pod &rarr; silent allow-all. <code>policyTypes</code> listed with no matching rules = deny-all that direction (<code>Egress</code> alone cuts DNS).</p>
+
+        <h3>Allow ingress pod &rarr; pod (the 90% case)</h3>
+<pre><code>apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-to-db
+  namespace: prod
+spec:
+  podSelector:
+    matchLabels: { app: db }       <span class="comment"># protected (TO)</span>
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels: { app: web }  <span class="comment"># allowed (FROM)</span>
+    ports:                         <span class="comment"># optional; omit = all ports</span>
+    - { protocol: TCP, port: 80 }</code></pre>
+
+        <h3>Variants &mdash; swap the <code>from</code> block</h3>
+        <ul>
+          <li>From a whole namespace: <code>- namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: dev}}</code></li>
+          <li>ns <strong>AND</strong> pod (a specific pod in <code>dev</code>): both selectors in <strong>ONE</strong> <code>-</code> item &mdash; <code>namespaceSelector</code> dashed, <code>podSelector</code> its no-dash sibling.</li>
+          <li>ns <strong>OR</strong> pod: two separate <code>-</code> items.</li>
+          <li>Deny-all ingress: <code>podSelector: {}</code> + <code>policyTypes: [Ingress]</code> + no ingress rules.</li>
+          <li>Egress: <code>policyTypes: [Egress]</code> + <code>egress: [{to: [...], ports: [...]}]</code>.</li>
+        </ul>
 
         <h3>Triage &mdash; "A can't reach B, N policies exist, fix the right one"</h3>
         <p>Only two things can block A&rarr;B: an <strong>Ingress</strong> policy selecting <strong>B</strong>, or an <strong>Egress</strong> policy selecting <strong>A</strong>. Everything else in the namespace is noise.</p>
-<pre><code>k get netpol -n NS               <span class="comment"># POD-SELECTOR column alone eliminates most policies</span>
-k describe netpol -n NS          <span class="comment"># every allow-list in ONE screen</span>
-k get po -n NS --show-labels     <span class="comment"># confirm the real labels</span></code></pre>
+<pre><code>k get netpol -n prod                <span class="comment"># POD-SELECTOR column alone eliminates most policies</span>
+k describe netpol -n prod           <span class="comment"># every allow-list in ONE screen</span>
+k get po -n prod --show-labels      <span class="comment"># confirm the real labels</span>
+k get ns --show-labels              <span class="comment"># the built-in kubernetes.io/metadata.name</span></code></pre>
         <p>Diagnose off <code>describe</code> &mdash; no <code>k edit</code> needed:</p>
         <table>
           <thead><tr><th>describe line</th><th>spec</th></tr></thead>
           <tbody>
-            <tr><td><code>PodSelector: app=backend</code></td><td><code>spec.podSelector</code> &mdash; who is governed</td></tr>
+            <tr><td><code>PodSelector: app=db</code></td><td><code>spec.podSelector</code> &mdash; who is governed</td></tr>
             <tr><td><code>Allowing ingress traffic: &lt;none&gt;</code></td><td><code>spec.ingress</code> absent = <strong>deny-all</strong></td></tr>
             <tr><td><code>To Port … From: PodSelector …</code></td><td><code>spec.ingress</code> = the entire allow-list</td></tr>
             <tr><td><code>To Port: &lt;any&gt;</code></td><td><code>ports:</code> missing = all ports allowed (over-permissive)</td></tr>
@@ -1517,8 +1566,8 @@ k get po -n NS --show-labels     <span class="comment"># confirm the real labels
           <li><strong>Deny-all doesn't identify the blocker &mdash; the SELECTOR does.</strong> Several policies can be deny-all on different workloads.</li>
           <li>Task says <em>modify</em> &rarr; smallest additive edit. Never delete an existing <code>from</code> item to make room.</li>
           <li>Deny-all &rarr; you author the whole <code>ingress:</code> block. Existing allow-list &rarr; you append one <code>- podSelector:</code> item.</li>
+          <li><strong>Edit in the editor, not with a patch one-liner.</strong> <code>k edit netpol allow-web-to-db -n prod</code> &mdash; a nested-list patch is untypeable under time pressure and the grader reads cluster state, not your method.</li>
           <li><code>k edit</code> printing <code>Edit cancelled, no changes made</code> = object untouched. In vim <code>:wq</code>, not <code>:q!</code>.</li>
-          <li><strong>Edit in the editor, not with a patch one-liner.</strong> <code>k edit netpol web-policy -n apps</code> &mdash; a JSON patch for a nested list is untypeable under time pressure and the grader reads cluster state, not your method.</li>
           <li>Two labels in one <code>matchLabels</code> = AND on the same pod (and a duplicate YAML key). Two sources = two <code>- podSelector:</code> items.</li>
         </ul>
 
@@ -1528,7 +1577,7 @@ k get po -n NS --show-labels     <span class="comment"># confirm the real labels
   - to:                                  <span class="comment"># the destination you want</span>
     - podSelector:
         matchLabels:
-          app: backend
+          app: db
     ports:
     - protocol: TCP
       port: 80
@@ -1544,58 +1593,32 @@ k get po -n NS --show-labels     <span class="comment"># confirm the real labels
         <ul>
           <li>Shorter DNS allow: omit <code>to:</code> and give only <code>ports:</code> &mdash; that port, any destination.</li>
           <li>Probe by IP as well as by name. Name fails while IP works = the DNS symptom.</li>
-          <li><strong><code>kubernetes.io/metadata.name</code> is not on the NetworkPolicy docs page</strong> &mdash; its examples use hand-made labels. Use <code>k get ns --show-labels</code>; the docs home for it is <em>Well-Known Labels, Annotations and Taints</em>.</li>
-        </ul>
-
-        <h3>The model (the whole game)</h3>
-        <table>
-          <thead><tr><th>Slot</th><th>Means</th></tr></thead>
-          <tbody>
-            <tr><td><code>spec.podSelector</code> (top)</td><td>WHO you protect &mdash; the destination. <code>{}</code> = all pods in ns.</td></tr>
-            <tr><td><code>ingress.from[].podSelector</code></td><td>WHO is allowed in &mdash; the source.</td></tr>
-          </tbody>
-        </table>
-        <p>Read the task &mdash; "traffic <strong>TO</strong> x <strong>FROM</strong> y" &mdash; straight into the two slots. The two selectors are <strong>different pods</strong>: read each one's real label off the question, don't autopilot <code>app:</code>. A wrong key on the top selector matches nothing &rarr; the policy applies to no pod &rarr; silent allow-all. <code>policyTypes</code> listed with no matching rules = deny-all that direction (<code>Egress</code> alone cuts DNS).</p>
-
-        <h3>Allow ingress pod &rarr; pod (the 90% case)</h3>
-<pre><code>apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata: { name: allow-web-to-db, namespace: prod }
-spec:
-  podSelector:
-    matchLabels: { app: db }       <span class="comment"># protected (TO)</span>
-  policyTypes: [Ingress]
-  ingress:
-  - from:
-    - podSelector:
-        matchLabels: { app: web }  <span class="comment"># allowed (FROM)</span>
-    ports:                         <span class="comment"># optional; omit = all ports</span>
-    - { protocol: TCP, port: 80 }</code></pre>
-
-        <h3>Variants &mdash; swap the <code>from</code> block</h3>
-        <ul>
-          <li>From a namespace: <code>- namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: dev}}</code></li>
-          <li>ns <strong>AND</strong> pod: both selectors in <strong>one</strong> <code>-</code> item &middot; ns <strong>OR</strong> pod: two separate <code>-</code> items.</li>
-          <li>Deny-all ingress: <code>podSelector: {}</code> + <code>policyTypes: [Ingress]</code> + no ingress rules.</li>
-          <li>Egress: <code>policyTypes: [Egress]</code> + <code>egress: [{to: [...], ports: [...]}]</code>.</li>
+          <li><strong><code>kubernetes.io/metadata.name</code> is not on the NetworkPolicy docs page</strong> &mdash; its examples use hand-made labels. Read it off <code>k get ns --show-labels</code>; its docs home is <em>Well-Known Labels, Annotations and Taints</em>.</li>
         </ul>
 
         <h3>Verify both directions (always) &mdash; busybox:1.28</h3>
-<pre><code><span class="comment"># destination IP</span>
-k get pod DST -n ns -o wide
-<span class="comment"># allowed: prober carries the trusted LABEL -> serves the page</span>
-k run t --image=busybox:1.28 --labels=&lt;allowed-label&gt; -n ns --rm -it --restart=Never -- wget -qO- --timeout=2 &lt;ip&gt;:80
-<span class="comment"># blocked: no label -> blocked (policy working)</span>
-k run t --image=busybox:1.28 -n ns --rm -it --restart=Never -- wget -qO- --timeout=2 &lt;ip&gt;:80</code></pre>
-        <p>Policy trusts the <strong>label</strong>, not the pod name/image &mdash; the allowed prober just needs the right label. It also needs a working tool: nginx has no <code>wget</code>, so use busybox, and pin <code>:1.28</code> (latest's wget returns a false <code>connection refused</code>).</p>
+<pre><code>k get po -n prod -o wide -l app=db                <span class="comment"># the destination IP</span>
+
+<span class="comment"># ALLOWED: prober carries the trusted label -> page comes back</span>
+k run t -n prod --labels app=web --image=busybox:1.28 --rm -it --restart=Never -- wget -qO- -T 5 10.244.1.7:80
+
+<span class="comment"># BLOCKED: no label -> must fail (this is the half that proves the policy)</span>
+k run t -n prod --image=busybox:1.28 --rm -it --restart=Never -- wget -qO- -T 5 10.244.1.7:80
+
+<span class="comment"># cross-ns case: run the allowed probe IN the allowed namespace</span>
+k run t -n dev --labels app=web --image=busybox:1.28 --rm -it --restart=Never -- wget -qO- -T 5 10.244.1.7:80</code></pre>
+        <p>The policy trusts the <strong>label</strong>, not the pod name or image &mdash; the allowed prober just needs the right label, in the right namespace. It also needs a working tool: nginx has no <code>wget</code>, so use busybox pinned to <code>:1.28</code> (latest returns a false <code>connection refused</code>).</p>
+        <div class="warning">
+          <strong>A probe run seconds after <code>k apply</code> can pass through.</strong> The CNI needs a moment to program the dataplane &mdash; re-probe before believing a result on a policy you just created.
+        </div>
 
         <h3>Gotchas</h3>
         <ul>
           <li>Separate <code>-</code> = OR; two selectors in one <code>-</code> = AND. Trips everyone.</li>
-          <li>Cross-ns allow test: the prober must ALSO run in the allowed <strong>namespace</strong> &mdash; right label + wrong ns = deny path. Check <code>pod &lt;ns&gt;/&lt;name&gt;</code> in the probe output.</li>
+          <li>Cross-ns allow test: the prober must ALSO run in the allowed <strong>namespace</strong> &mdash; right label + wrong ns = deny path. Check <code>pod dev/t</code> in the probe output.</li>
           <li><strong>Always prove the deny</strong> &mdash; an OR-bug policy and a dead CNI look IDENTICAL from the allowed side (both succeed). Only the blocked probe distinguishes them.</li>
           <li>Source ns must carry a label to match &mdash; built-in <code>kubernetes.io/metadata.name</code>.</li>
-          <li>CNI without policy support (flannel) = policy silently no-ops.</li>
+          <li>CNI without policy support (bare flannel) = policy silently no-ops. Test it: apply a deny-all and probe.</li>
           <li><strong>Deny shows as <code>timeout</code> OR <code>connection refused</code></strong> depending on the CNI (drop vs reject). Don't read allow/deny off the error string &mdash; judge by the controlled comparison: labeled pod gets in, unlabeled is blocked.</li>
           <li><code>Running</code> &ne; serving: a <code>-- sleep</code> override leaves the pod Running but its port closed (&rarr; refused). Verify the target with a probe, not the status phase.</li>
           <li>Wrong namespace = 0 points. Set it before anything else.</li>
@@ -1603,7 +1626,8 @@ k run t --image=busybox:1.28 -n ns --rm -it --restart=Never -- wget -qO- --timeo
 
         <h3>Docs path</h3>
         <ul>
-          <li>kubernetes.io search <strong>"network policy"</strong> &rarr; copy the <code>test-network-policy</code> block, trim to the two selectors.</li>
+          <li>kubernetes.io search <strong>"network policy"</strong> &rarr; Ctrl+F <code>- from:</code>, copy the <code>test-network-policy</code> block, trim to the two selectors.</li>
+          <li>The ns label lives on <em>Well-Known Labels, Annotations and Taints</em> &mdash; or just read <code>k get ns --show-labels</code>.</li>
         </ul>
       </section>
 
