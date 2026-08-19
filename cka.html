@@ -1644,6 +1644,31 @@ k run t -n dev --labels app=web --image=busybox:1.28 --rm -it --restart=Never --
       <section class="tab-content" id="cluster">
         <h2>Cluster Ops &mdash; etcd, node maintenance, kubeadm upgrade</h2>
 
+        <h3>Control-plane cert expiry &mdash; apiserver down / kubectl x509</h3>
+        <p>Read the error to find <em>which</em> cert died: <code>kubectl</code> failing x509 = the <strong>client</strong> cert in <code>admin.conf</code> / <code>~/.kube/config</code>; apiserver down = the <strong>server</strong> certs in <code>/etc/kubernetes/pki/</code>. Usually both, since kubeadm certs expire together at one year.</p>
+<pre><code>ssh &lt;controlplane&gt;
+date                                   <span class="comment"># clock skew reads as "not yet valid" — renewal won't fix that</span>
+kubeadm certs check-expiration         <span class="comment"># whole picture, incl. the kubeconfigs</span>
+kubeadm certs renew all                <span class="comment"># pki/*.crt AND admin/controller-manager/scheduler.conf</span></code></pre>
+        <p><strong>Renewal alone changes nothing for the running components.</strong> Restart the static pods by moving the manifests out and back:</p>
+<pre><code>mkdir -p /tmp/mf
+mv /etc/kubernetes/manifests/*.yaml /tmp/mf/
+sleep 25
+mv /tmp/mf/*.yaml /etc/kubernetes/manifests/</code></pre>
+<pre><code><span class="comment"># then refresh the client config, or kubectl keeps failing against a healthy cluster</span>
+cp /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config</code></pre>
+        <p><strong>Verify on the wire, not from the files</strong> &mdash; <code>check-expiration</code> reads what is on disk, not what is being served:</p>
+<pre><code>openssl s_client -connect localhost:6443 &lt;/dev/null 2&gt;/dev/null | openssl x509 -noout -dates
+grep client-certificate-data $HOME/.kube/config | awk '{print $2}' | base64 -d | openssl x509 -noout -dates</code></pre>
+        <ul>
+          <li>The manifest path is <code>/etc/kubernetes/manifests/</code>; confirm on any cluster with <code>grep staticPodPath /var/lib/kubelet/config.yaml</code>.</li>
+          <li><strong>kube-apiserver reloads its serving cert without restarting</strong> &mdash; so <code>RESTARTS 0</code> is not proof the renewal failed. <strong>controller-manager and scheduler do NOT reload</strong>; they read their kubeconfigs once at startup, which is why the restart is still required.</li>
+          <li><code>kubeadm certs renew</code> does <strong>not</strong> touch kubelet&rsquo;s auto-rotated cert in <code>/var/lib/kubelet/pki/</code>.</li>
+          <li><code>kubeadm upgrade</code> renews certs as a side effect &mdash; why upgraded clusters never hit this.</li>
+          <li><code>kubeadm</code> lives on the control-plane node only &mdash; <code>command not found</code> on the bastion means you skipped the <code>ssh</code>.</li>
+        </ul>
+
         <h3>Legend &mdash; one worked example, used everywhere below</h3>
         <p>Nothing on this page is a placeholder. Every command is runnable as written; swap these nouns for the ones in your question.</p>
         <table>
