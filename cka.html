@@ -2068,10 +2068,50 @@ k get po api -n finance -o yaml | grep -i serviceaccount    <span class="comment
           <li>Denied at runtime? <code>k auth can-i list secrets --as=system:serviceaccount:finance:auditor -n finance</code> separates an RBAC denial from everything else.</li>
         </ul>
 
+        <h3>Normal user via CSR &mdash; key &rarr; cert &rarr; kubeconfig &rarr; RBAC</h3>
+        <p>Users are not objects. Identity comes from a signed client certificate: <code>CN</code> becomes the username, <code>O</code> becomes the group.</p>
+<pre><code><span class="comment"># 1. key + CSR — usually already on disk, given by the task</span>
+openssl genrsa -out /root/dev-user.key 2048
+openssl req -new -key /root/dev-user.key -out /root/dev-user.csr -subj "/CN=dev-user/O=developers"
+
+<span class="comment"># 2. base64 the request — -w0 or the wrapped output is invalid</span>
+cat /root/dev-user.csr | base64 -w0</code></pre>
+<pre><code>apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: dev-user-csr
+spec:
+  request: &lt;base64, ONE line&gt;
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+  - client auth                   <span class="comment"># space, list item — not client-auth</span></code></pre>
+<pre><code><span class="comment"># 3. approve, then EXTRACT — approving writes no file</span>
+k certificate approve dev-user-csr
+k get csr dev-user-csr -o jsonpath='{.status.certificate}' | base64 -d &gt; /root/dev-user.crt
+
+<span class="comment"># 4. kubeconfig identity</span>
+k config set-credentials dev-user --client-certificate=/root/dev-user.crt --client-key=/root/dev-user.key --embed-certs=true
+k config set-context dev-user --cluster=&lt;cluster&gt; --user=dev-user --namespace=development
+
+<span class="comment"># 5. RBAC — one-liners, bind to --user not --serviceaccount</span>
+k create role pod-reader -n development --verb=get,list,watch --resource=pods
+k create rolebinding dev-user-pod-reader -n development --role=pod-reader --user=dev-user</code></pre>
+<pre><code>k --context dev-user auth whoami            <span class="comment"># CN=username, O=group, one line</span>
+k --context dev-user get pods               <span class="comment"># allowed</span>
+k --context dev-user delete pod web         <span class="comment"># must be Forbidden</span></code></pre>
+        <ul>
+          <li>The private key never leaves the machine &mdash; the CSR and the issued cert are both public.</li>
+          <li><code>set-context</code> without <code>--namespace</code> lands the user in <code>default</code>; the Forbidden error then names the wrong namespace and reads as an RBAC bug.</li>
+          <li><code>delete --all</code> against zero objects returns &ldquo;No resources found&rdquo;, never Forbidden &mdash; create a target before testing a deny.</li>
+          <li><code>expirationSeconds</code> has no API default; omitted = the signer&rsquo;s <code>--cluster-signing-duration</code> (1y). Read it back with <code>openssl x509 -noout -dates</code>.</li>
+          <li>CSRs are cluster-scoped &mdash; deleting the namespace leaves them behind.</li>
+        </ul>
+
         <h3>Docs path</h3>
         <ul>
           <li>Imperative flags &rarr; <code>k create role --help</code> / <code>k create rolebinding --help</code> (EXAMPLES &mdash; faster than docs, works offline).</li>
           <li>YAML form &rarr; k8s.io search <strong>"Role and RoleBinding"</strong>, Ctrl+F <code>apiGroups:</code>.</li>
+          <li>CSR flow &rarr; k8s.io search <strong>"Certificate Signing Requests"</strong> &rarr; section <em>Normal user</em>.</li>
         </ul>
       </section>
 
