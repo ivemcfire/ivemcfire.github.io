@@ -304,6 +304,7 @@
       <button class="tab-button" data-tab="storage">Storage &amp; Config</button>
       <button class="tab-button" data-tab="networking">Networking</button>
       <button class="tab-button" data-tab="cluster">Cluster Ops</button>
+      <button class="tab-button" data-tab="nodecni">Node &amp; CNI</button>
       <button class="tab-button" data-tab="rbac">RBAC</button>
       <button class="tab-button" data-tab="helm">Helm</button>
       <button class="tab-button" data-tab="kustomize">Kustomize</button>
@@ -643,6 +644,28 @@ k set resources deploy web -n NS --requests=memory=350Mi</code></pre>
           <li>HPA changes the replica <em>count</em>; VPA changes per-pod <em>requests</em> and is not on the exam.</li>
         </ul>
 
+
+        <h3>HPA <code>behavior</code> &mdash; stabilization windows and scaling policies</h3>
+        <p>Needed the moment a task names a stabilization window, a scale-up/down rate, or a non-CPU metric. <strong><code>k autoscale</code> submits <code>autoscaling/v1</code>, but the API serves <code>v2</code> &mdash; so generate first, then edit, and the <code>metrics:</code> block is written for you.</strong> Do not hand-author the whole object.</p>
+<pre><code>k autoscale deploy orders -n api --min 3 --max 12 --cpu-percent 70
+k edit hpa orders -n api                        <span class="comment"># opens as v2, metrics: already filled</span></code></pre>
+<pre><code><span class="comment"># add under spec: — behavior is a sibling of metrics/minReplicas</span>
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120           <span class="comment"># wait this long before scaling down</span>
+    scaleUp:
+      policies:
+      - type: Pods                              <span class="comment"># or Percent</span>
+        value: 2
+        periodSeconds: 60                       <span class="comment"># at most 2 pods per 60s</span></code></pre>
+        <ul>
+          <li><code>scaleDown</code> / <code>scaleUp</code> are <strong>maps, not lists</strong> &mdash; no <code>-</code>. <code>policies</code> under them <em>is</em> a list. <code>k explain hpa.spec.behavior.scaleDown</code> settles it: <code>&lt;Object&gt;</code> = no dash, <code>&lt;[]Object&gt;</code> = dash.</li>
+          <li><code>stabilizationWindowSeconds</code> is a direct key, <strong>not</strong> a policy field. <code>periodSeconds</code> inside a policy is a different thing &mdash; the rate limit, not the wait.</li>
+          <li>Declaring <code>policies</code> <strong>replaces</strong> the defaults for that direction; the other direction keeps its defaults.</li>
+          <li>Defaults if you write nothing: scale-down window <code>300</code>s, scale-up window <code>0</code>s.</li>
+          <li><code>autoscaling/v1</code> has <strong>no</strong> <code>behavior</code> field and uses <code>targetCPUUtilizationPercentage</code>; v2 uses the <code>metrics:</code> list. Mixing them is the usual failure.</li>
+          <li>Read it back with <code>k get hpa NAME -n NS -o yaml | grep -A18 behavior:</code> &mdash; a short <code>-A</code> cuts off <code>stabilizationWindowSeconds</code>, which sorts last.</li>
+        </ul>
 
         <h3>Create</h3>
 
@@ -1998,6 +2021,98 @@ kubelet-1.35.0            <span class="comment"># dnf: HYPHEN, bare version reso
       </section>
 
       <!-- ==================== RBAC ==================== -->
+      <!-- ==================== NODE & CNI ==================== -->
+      <section class="tab-content" id="nodecni">
+        <h2>Node prerequisites &amp; CNI &mdash; the Linux side of the exam</h2>
+        <p><strong>Recognition rule: a list of kernel modules, sysctls, or a package install on a NODE is Kubernetes work.</strong> It does not look like YAML, which is exactly why it gets missed. Both node-side questions on the 08-15 paper were nearly lost to not recognising the task, not to missing commands.</p>
+
+        <h3>The five settings &mdash; container runtime prerequisites</h3>
+        <p>Two kernel modules and three sysctls. Each one needs <strong>both</strong> halves: a file so it survives reboot, and an activation so it applies now.</p>
+<pre><code>cat &lt;&lt;EOF | sudo tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+cat &lt;&lt;EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+sudo sysctl --system</code></pre>
+        <p><strong>Order is the trap.</strong> <code>net.bridge.bridge-nf-call-iptables</code> and <code>-ip6tables</code> do not exist as sysctl keys until <code>br_netfilter</code> is loaded &mdash; write the sysctls first and <code>sysctl --system</code> errors on unknown keys. <strong>Modules &rarr; sysctls &rarr; verify, never any other order.</strong></p>
+<pre><code>lsmod | grep -E 'overlay|br_netfilter'
+sysctl net.ipv4.ip_forward net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables</code></pre>
+        <ul>
+          <li><strong>Verify from the kernel, not the file.</strong> A correct file with an unloaded module scores zero and looks right.</li>
+          <li><code>/etc/modules-load.d/</code> = load at boot (<code>systemd-modules-load.service</code> reads every <code>*.conf</code>, one module per line). <code>modprobe</code> = load now. You need both.</li>
+          <li><code>sysctl --system</code> applies every <code>*.conf</code> from all sysctl dirs; <code>sysctl -p &lt;file&gt;</code> does just one. Either scores.</li>
+          <li>The filename <code>k8s.conf</code> is convention, not requirement &mdash; the grader reads kernel state.</li>
+          <li><code>dpkg -i</code> does not resolve dependencies. If it errors: <code>apt-get install -f</code>, or <code>apt install ./pkg.deb</code>.</li>
+        </ul>
+
+        <h3>Cgroup driver &amp; swap</h3>
+<pre><code>containerd config default | sudo tee /etc/containerd/config.toml
+sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+sudo systemctl restart containerd
+containerd config dump | grep -i SystemdCgroup     <span class="comment"># read-back proof</span>
+
+sudo swapoff -a
+sudo sed -i '/ swap / s/^/#/' /etc/fstab           <span class="comment"># survives reboot</span></code></pre>
+        <p>Kubelet side is <code>cgroupDriver: systemd</code> in <code>/var/lib/kubelet/config.yaml</code> (kubeadm sets it). <code>systemd</code> on both sides or the kubelet flaps.</p>
+
+        <h3>CNI &mdash; which layer is the task about?</h3>
+        <table>
+          <thead><tr><th>Signal in the task</th><th>Layer</th><th>You do</th></tr></thead>
+          <tbody>
+            <tr><td>&ldquo;install the CNI&rdquo;, a manifest URL, a pod CIDR</td><td><strong>cluster</strong></td><td><code>kubectl apply</code></td></tr>
+            <tr><td>ssh to a node, <code>/etc/cni/net.d</code>, <code>/opt/cni/bin</code>, a <code>.deb</code>/<code>.rpm</code></td><td><strong>node</strong></td><td>write files</td></tr>
+          </tbody>
+        </table>
+
+        <h3>The CIDR trap</h3>
+<pre><code>k get nodes -o custom-columns=NAME:.metadata.name,PODCIDR:.spec.podCIDR
+<span class="comment">#   controlplane   172.17.0.0/24    <-- per-node SLICE, WRONG value</span>
+<span class="comment">#   node01         172.17.1.0/24</span>
+
+grep -- --cluster-cidr /etc/kubernetes/manifests/kube-controller-manager.yaml
+<span class="comment">#   --cluster-cidr=172.17.0.0/16     <-- THE value the CNI pool wants</span></code></pre>
+        <p><code>.spec.podCIDR</code> is the /24 carved out for <em>one</em> node. The CNI pool needs the cluster-wide <strong>/16</strong>. Set a /24 and the range is 256&times; too small: the first node works, the rest starve, and the install looks clean. <strong>A task worded &ldquo;determine the podCIDR&rdquo; points straight at the wrong field.</strong></p>
+        <table>
+          <thead><tr><th>CNI</th><th>The one knob</th><th>Ships as</th></tr></thead>
+          <tbody>
+            <tr><td>Calico (manifest)</td><td><code>CALICO_IPV4POOL_CIDR</code> env in <code>calico-node</code> &mdash; <strong>commented out</strong></td><td><code>192.168.0.0/16</code></td></tr>
+            <tr><td>Calico (operator)</td><td><code>custom-resources.yaml</code> &rarr; <code>ipPools[0].cidr</code></td><td><code>192.168.0.0/16</code></td></tr>
+            <tr><td>Flannel</td><td>ConfigMap &rarr; <code>net-conf.json</code> &rarr; <code>"Network"</code></td><td><code>10.244.0.0/16</code></td></tr>
+          </tbody>
+        </table>
+        <p>kubeadm&rsquo;s common <code>--pod-network-cidr=10.244.0.0/16</code> <strong>matches Flannel</strong> (no edit) and <strong>clashes with Calico</strong> (edit required).</p>
+        <p><strong>Uncommenting without breaking indentation:</strong> delete exactly <code># </code> (hash + one space) from each line &mdash; the remaining indent is already correct. In vim: cursor on the <code>#</code>, then <code>2x</code>. Never re-type leading spaces.</p>
+
+        <h3>Diagnosing &mdash; and why <code>Ready</code> lies</h3>
+<pre><code>k get nodes                              <span class="comment"># NotReady</span>
+journalctl -u kubelet -n 50 --no-pager | grep -i cni
+<span class="comment"># NetworkPluginNotReady · cni plugin not initialized · network plugin returns error</span>
+
+k run t --image=nginx &amp;&amp; k get pod t -o wide    <span class="comment"># IP column populated = actually working</span></code></pre>
+        <ul>
+          <li><strong>A node flips <code>Ready</code> as soon as a conflist exists in <code>/etc/cni/net.d/</code></strong> &mdash; even if nothing programs the network. Only a pod with an IP proves it.</li>
+          <li><code>coredns</code> Pending or ContainerCreating is the first workload to need the pod network. NotReady nodes <strong>+</strong> coredns not running &rArr; CNI, before you look anywhere else.</li>
+          <li>Lowest-numbered file in <code>/etc/cni/net.d/</code> wins. <strong>A stale <code>10-old.conflist</code> beats your <code>20-new.conflist</code></strong> &mdash; move it out, don't just add yours.</li>
+          <li>Calico&rsquo;s <code>10-calico.conflist</code> is written <em>by</em> the calico-node DaemonSet. If you are hand-editing it, you are on the wrong layer.</li>
+          <li><code>Init:CreateContainerError</code> is always a container <strong>spec</strong> problem &mdash; mount, path, device, capability. Never networking, never the image. <code>describe</code> names it outright.</li>
+          <li>Debian: <code>containernetworking-plugins</code> installs to <code>/usr/lib/cni</code> but kubelet reads <code>/opt/cni/bin</code>. <code>sudo ln -s /usr/lib/cni/* /opt/cni/bin/</code>.</li>
+        </ul>
+
+        <h3>Docs path</h3>
+        <ul>
+          <li>Install Tools &rarr; <em>Container Runtimes</em> &rarr; &ldquo;Forwarding IPv4 and letting iptables see bridged traffic&rdquo; &mdash; carries the exact five values.</li>
+          <li>Install Tools &rarr; <em>Installing kubeadm</em> &mdash; package install, <code>apt-mark hold</code>.</li>
+          <li><strong>Calico&rsquo;s own site is not on the exam allowlist</strong> &mdash; the manifest URL comes from the task text.</li>
+        </ul>
+      </section>
+
       <section class="tab-content" id="rbac">
         <h2>RBAC &mdash; ServiceAccount &rarr; Role &rarr; Binding</h2>
 
