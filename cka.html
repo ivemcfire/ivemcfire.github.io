@@ -1131,33 +1131,88 @@ k taint nodes cluster1-node02 spray=mortein:NoSchedule-    <span class="comment"
         </table>
         <p>Control-plane ships with <code>node-role.kubernetes.io/control-plane:NoSchedule</code> &mdash; that's why workloads avoid <code>cluster1-controlplane</code>.</p>
 
-        <h3>Toleration / nodeSelector (pod YAML, under <code>spec:</code>)</h3>
+        <h3>Tolerations (pod YAML, under <code>spec:</code>)</h3>
+        <p>Orthogonal to placement &mdash; a toleration only lets a Pod <em>survive</em> a taint. It never attracts a Pod anywhere. You may need one <em>in addition to</em> whichever placement mechanism you pick below.</p>
 <pre><code>  tolerations:               <span class="comment"># spec level - sibling of containers:</span>
   - key: "spray"
     operator: "Equal"        <span class="comment"># Equal -&gt; value: required</span>
     value: "mortein"         <span class="comment"># Exists -&gt; DELETE this line</span>
-    effect: "NoSchedule"
+    effect: "NoSchedule"</code></pre>
+
+        <h3>Placing a Pod on a node &mdash; three mechanisms, pick ONE</h3>
+        <div class="warning"><strong>These are alternatives, not a stack.</strong> A task needs exactly one of them. Writing two is how you end up with a Pod that is Pending for a reason you did not author &mdash; <code>nodeSelector</code> and <code>nodeAffinity</code> together must <em>both</em> match (AND, not fallback), and <code>nodeName</code> overrides the scheduler entirely so the other two are never even read.</div>
+<pre><code>spec:                                    <span class="comment"># ══ pick exactly ONE of ① ② ③ ══</span>
+
+  <span class="comment"># ① nodeSelector — exact label match. Simplest thing that works.</span>
   nodeSelector:
-    size: Large              <span class="comment"># exact equality ONLY (no OR/NotIn)</span></code></pre>
-<pre><code>k get po web -n apps -o wide      <span class="comment"># the NODE column is the only proof it landed right</span></code></pre>
+    disktype: ssd
 
-        <h3>nodeName &mdash; pin to one node, one line (under <code>spec:</code>)</h3>
-<pre><code>  nodeName: cluster1-node01</code></pre>
-        <ul>
-          <li>Skips the scheduler entirely; that node's kubelet takes the pod. Use it when the task just says "on node X".</li>
-          <li>Wrong or nonexistent name &rarr; <strong>Pending forever with NO event</strong> (the scheduler never ran). nodeSelector/affinity give you <code>FailedScheduling</code> instead.</li>
-          <li>Ignores taints, affinity and resource fit.</li>
-        </ul>
+  <span class="comment"># ② nodeName — skip the scheduler, hand the Pod to one node.</span>
+  nodeName: cluster1-node01
 
-        <h3>Node affinity (when nodeSelector can't &mdash; OR / NotIn / Exists)</h3>
-<pre><code>  affinity:
+  <span class="comment"># ③ affinity — everything nodeSelector cannot express (OR, NotIn, Exists, soft).</span>
+  affinity:
     nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:   <span class="comment"># hard; preferred... = soft</span>
+      requiredDuringSchedulingIgnoredDuringExecution:      <span class="comment"># HARD — no match = Pending</span>
         nodeSelectorTerms:
         - matchExpressions:
-          - { key: size, operator: In, values: [Large, Medium] }</code></pre>
-        <p>Operators: <code>In</code> &middot; <code>NotIn</code> &middot; <code>Exists</code> &middot; <code>DoesNotExist</code> &middot; <code>Gt</code> &middot; <code>Lt</code>.</p>
-        <p>Pin to a specific node by NAME: <code>{ key: kubernetes.io/hostname, operator: In, values: [cluster1-node01] }</code>.</p>
+          - { key: disktype, operator: In, values: [ssd, nvme] }
+      preferredDuringSchedulingIgnoredDuringExecution:     <span class="comment"># SOFT — no match = schedules anyway</span>
+      - weight: 1                                          <span class="comment"># 1-100; a list, note the dash</span>
+        preference:
+          matchExpressions:
+          - { key: zone, operator: In, values: [eu-west] }</code></pre>
+
+        <h4>Which one does the task want?</h4>
+        <table>
+          <thead><tr><th>Task says</th><th>Use</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>&ldquo;on nodes labelled <code>x=y</code>&rdquo;</td><td><strong>nodeSelector</strong></td><td>exact equality is all that&rsquo;s needed</td></tr>
+            <tr><td>&ldquo;on node <code>node01</code>&rdquo;, no scheduling logic implied</td><td><strong>nodeName</strong></td><td>one line, nothing to get wrong</td></tr>
+            <tr><td>&ldquo;must be preempted / must be scheduled / must respect taints&rdquo;</td><td><strong>nodeSelector</strong> or affinity</td><td><code>nodeName</code> bypasses the scheduler, so preemption and taints never happen</td></tr>
+            <tr><td>&ldquo;either large or medium&rdquo;, &ldquo;anything except&rdquo;, &ldquo;has the label at all&rdquo;</td><td><strong>affinity</strong> (required)</td><td>needs <code>In</code> / <code>NotIn</code> / <code>Exists</code></td></tr>
+            <tr><td>&ldquo;prefer&rdquo;, &ldquo;if possible&rdquo;, &ldquo;best effort&rdquo;</td><td><strong>affinity</strong> (preferred)</td><td>only soft placement can express it</td></tr>
+            <tr><td>&ldquo;spread across nodes&rdquo; / &ldquo;not on the same node as&rdquo;</td><td><strong>podAntiAffinity</strong></td><td>the target is other Pods, not node labels</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Tricks and failure modes, per mechanism</h4>
+        <table>
+          <thead><tr><th></th><th>nodeSelector</th><th>nodeName</th><th>affinity</th></tr></thead>
+          <tbody>
+            <tr><td>Scheduler runs?</td><td>yes</td><td><strong>no</strong></td><td>yes</td></tr>
+            <tr><td>Respects taints / resources?</td><td>yes</td><td><strong>no</strong></td><td>yes</td></tr>
+            <tr><td>Can preemption fire?</td><td>yes</td><td><strong>no</strong></td><td>yes</td></tr>
+            <tr><td>No match &rarr;</td><td>Pending + <code>FailedScheduling</code></td><td><strong>Pending with NO event</strong></td><td>Pending + <code>FailedScheduling</code> (hard) / schedules anyway (soft)</td></tr>
+            <tr><td>Expressiveness</td><td>equality only</td><td>one node</td><td>In / NotIn / Exists / DoesNotExist / Gt / Lt</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><strong>Pin by node NAME &rarr; key <code>kubernetes.io/hostname</code></strong>, in either nodeSelector or affinity: <code>{ key: kubernetes.io/hostname, operator: In, values: [cluster1-node01] }</code>.</li>
+          <li><strong>A Pending Pod with no events at all is the <code>nodeName</code> signature</strong> &mdash; a typo&rsquo;d or nonexistent node name, and no scheduler ever looked at it. Every other placement failure produces <code>FailedScheduling</code>.</li>
+          <li>Affinity needs all three levels: <code>nodeAffinity:</code> &rarr; <code>requiredDuringSchedulingIgnoredDuringExecution:</code> &rarr; <code>nodeSelectorTerms:</code>. Skipping the middle one is rejected.</li>
+          <li><code>nodeSelectorTerms</code> is a <strong>list</strong> and its entries OR together; <code>matchExpressions</code> inside one term AND together. Two terms = &ldquo;either&rdquo;; two expressions in one term = &ldquo;both&rdquo;.</li>
+          <li>The <code>preferred</code> form is a <strong>list of weighted preferences</strong> (<code>- weight:</code> + <code>preference:</code>), a different shape from the <code>required</code> form. Mixing the two shapes is the usual rejection.</li>
+          <li><code>IgnoredDuringExecution</code> in both names means: already-running Pods are never evicted when a node&rsquo;s labels change. Placement is decided once.</li>
+          <li>Affinity is a <strong>Pod</strong> property &mdash; in a Deployment it lives at <code>template.spec.affinity</code> (6 spaces, sibling of <code>containers:</code>), never at the Deployment&rsquo;s own <code>spec:</code>.</li>
+          <li><strong>Read identifiers off the object, never from memory:</strong> <code>k get nodes</code> for names, <code>k get node NAME --show-labels</code> for label keys.</li>
+          <li><code>node-role.kubernetes.io/*</code> labels have <strong>empty values</strong> &mdash; they can match with <code>Exists</code>, never with an equality selector against a node name.</li>
+          <li>Verify placement one way only: <code>k get po NAME -n NS -o wide</code> &mdash; the NODE column.</li>
+        </ul>
+
+        <h4>Pod affinity / anti-affinity &mdash; placement relative to other Pods</h4>
+<pre><code>  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app: web
+        topologyKey: kubernetes.io/hostname     <span class="comment"># "same node" = the domain</span></code></pre>
+        <ul>
+          <li><code>topologyKey</code> defines what &ldquo;together&rdquo; means. <code>kubernetes.io/hostname</code> = same node; <code>topology.kubernetes.io/zone</code> = same zone.</li>
+          <li><code>podAffinity</code> attracts (co-locate), <code>podAntiAffinity</code> repels (spread). Both are lists &mdash; note the dash, unlike <code>nodeAffinity</code>&rsquo;s required form.</li>
+          <li>Required anti-affinity with more replicas than nodes leaves the surplus <strong>Pending forever</strong> &mdash; a common self-inflicted Pending.</li>
+        </ul>
 
         <h3>Gotchas</h3>
         <ul>
