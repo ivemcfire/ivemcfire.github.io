@@ -2116,6 +2116,10 @@ k uncordon cluster1-node01</code></pre>
             <tr><td>Order</td><td>kubeadm binary &rarr; upgrade &rarr; kubelet. kubelet LAST.</td></tr>
             <tr><td>apply vs node</td><td><code>upgrade apply</code> = control plane &middot; <code>upgrade node</code> = workers</td></tr>
             <tr><td>drain</td><td>drain BEFORE, uncordon AFTER &mdash; every node</td></tr>
+            <tr><td><strong>version source</strong></td><td><code>upgrade plan</code> reads the <strong>upstream</strong> list &middot; <code>apt-cache madison kubeadm</code> reads what is <strong>installable</strong>. They can disagree &mdash; <strong>madison wins</strong>.</td></tr>
+            <tr><td><strong>pin all three</strong></td><td>Same version string on <code>kubeadm</code>, <code>kubelet</code> AND <code>kubectl</code>. Unpinned kubelet grabs the newest and ends up <strong>newer than the apiserver</strong> = unsupported skew.</td></tr>
+            <tr><td><strong>uncordon</strong></td><td>Last step of the procedure, not an afterthought. A CP left <code>SchedulingDisabled</code> fails the question with the right version installed.</td></tr>
+            <tr><td>where kubeadm lives</td><td>Control-plane node ONLY. On the bastion it is <code>command not found</code> &mdash; <code>ssh</code> first, never <code>apt-get install kubeadm</code> there.</td></tr>
           </tbody>
         </table>
 
@@ -2535,6 +2539,11 @@ k --context dev-user delete pod web         <span class="comment"># must be Forb
           <li><code>delete --all</code> against zero objects returns &ldquo;No resources found&rdquo;, never Forbidden &mdash; create a target before testing a deny.</li>
           <li><code>expirationSeconds</code> has no API default; omitted = the signer&rsquo;s <code>--cluster-signing-duration</code> (1y). Read it back with <code>openssl x509 -noout -dates</code>.</li>
           <li>CSRs are cluster-scoped &mdash; deleting the namespace leaves them behind.</li>
+        </ul>
+
+        <ul>
+          <li><strong><code>--role</code> takes the ROLE's name, <code>--user</code> / <code>--serviceaccount</code> takes the SUBJECT's name.</strong> Different nouns &mdash; don't collapse them. A binding made with <code>--role=&lt;username&gt;</code> and no subject flag points at a Role that doesn't exist and binds nobody.</li>
+          <li><strong>Run BOTH probes:</strong> <code>auth can-i &lt;allowed&gt; --as=U</code> must say <code>yes</code> AND <code>auth can-i &lt;denied&gt; --as=U</code> must say <code>no</code>. A binding that grants nothing answers <code>no</code> to everything and reads as correct scoping.</li>
         </ul>
 
         <h3>Docs path</h3>
