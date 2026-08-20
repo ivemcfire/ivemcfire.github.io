@@ -1491,7 +1491,7 @@ cat /etc/resolv.conf      <span class="comment"># search domains + the CoreDNS C
 
         <h3>DNS &mdash; names don&rsquo;t resolve</h3>
 <pre><code>k -n kube-system get pods -l k8s-app=kube-dns        <span class="comment"># 1. resolver alive?</span>
-k -n kube-system get endpoints kube-dns              <span class="comment"># 2. empty = label/selector mismatch</span>
+k -n kube-system get endpoints kube-dns              <span class="comment"># 2. empty = replicas 0 | labels != selector | not Ready</span>
 k -n kube-system get svc kube-dns                    <span class="comment"># 3. ClusterIP ...</span>
 k run r --image=busybox:1.28 --rm -it --restart=Never -- cat /etc/resolv.conf
                                                      <span class="comment">#    ... must equal the pod's nameserver</span>
@@ -1504,7 +1504,7 @@ k -n kube-system get cm coredns -o yaml              <span class="comment"># 4. 
 
         <h3>Service &mdash; Pod can&rsquo;t reach Pod</h3>
 <pre><code>k get svc NAME -n NS                 <span class="comment"># 1. port vs targetPort, type</span>
-k get endpoints NAME -n NS           <span class="comment"># 2. EMPTY = selector matches nothing</span>
+k get endpoints NAME -n NS           <span class="comment"># 2. EMPTY = replicas 0 | labels != selector | not Ready</span>
 k get po -n NS --show-labels         <span class="comment"># 3. compare against the Service selector</span>
 k get netpol -n NS                   <span class="comment"># 6. a default-deny in the namespace</span></code></pre>
         <ul>
