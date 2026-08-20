@@ -90,7 +90,10 @@ spec:
     command: ["sleep", "3600"]
 EOF
 
-VARIANT=$((RANDOM % 3))
+# POOL restricts which variants may fire, e.g. POOL=01 → random of variant 0 or 1.
+POOL="${POOL:-012}"
+PICK=$(( RANDOM % ${#POOL} ))
+VARIANT="${POOL:$PICK:1}"
 
 case "$VARIANT" in
   0) # CoreDNS scaled to zero — no DNS server pods at all
