@@ -359,6 +359,7 @@ TOLERATION  pod is PERMITTED     ... it does NOT attract
 
 PICK ONE:
   nodeSelector    equality only        scheduler runs
+                  kubernetes.io/hostname: NODE   ← pin to a named node, MOST ASKED
   nodeName        exact node           SCHEDULER BYPASSED — no taints, no preemption, no fit
   nodeAffinity    In/NotIn/Exists/Gt/Lt, required=hard preferred=soft
 
@@ -1284,6 +1285,9 @@ k taint nodes cluster1-node02 spray=mortein:NoSchedule-    <span class="comment"
   <span class="comment"># ① nodeSelector — exact label match. Simplest thing that works.</span>
   nodeSelector:
     disktype: ssd
+  <span class="comment">#   ...or pin to ONE NAMED NODE, still scheduled properly — the most-asked form:</span>
+  nodeSelector:
+    kubernetes.io/hostname: cluster1-node01
 
   <span class="comment"># ② nodeName — skip the scheduler, hand the Pod to one node.</span>
   nodeName: cluster1-node01
@@ -1295,6 +1299,8 @@ k taint nodes cluster1-node02 spray=mortein:NoSchedule-    <span class="comment"
         nodeSelectorTerms:
         - matchExpressions:
           - { key: disktype, operator: In, values: [ssd, nvme] }
+          <span class="comment"># pin to a named node the affinity way:</span>
+          <span class="comment"># - { key: kubernetes.io/hostname, operator: In, values: [cluster1-node01] }</span>
       preferredDuringSchedulingIgnoredDuringExecution:     <span class="comment"># SOFT — no match = schedules anyway</span>
       - weight: 1                                          <span class="comment"># 1-100; a list, note the dash</span>
         preference:
@@ -1307,6 +1313,7 @@ k taint nodes cluster1-node02 spray=mortein:NoSchedule-    <span class="comment"
           <tbody>
             <tr><td>&ldquo;on nodes labelled <code>x=y</code>&rdquo;</td><td><strong>nodeSelector</strong></td><td>exact equality is all that&rsquo;s needed</td></tr>
             <tr><td>&ldquo;on node <code>node01</code>&rdquo;, no scheduling logic implied</td><td><strong>nodeName</strong></td><td>one line, nothing to get wrong</td></tr>
+            <tr><td>&ldquo;on node <code>node01</code>&rdquo; <em>and</em> taints / preemption / resource fit matter</td><td><strong>nodeSelector</strong> with <code>kubernetes.io/hostname</code></td><td>same destination, but the scheduler still runs</td></tr>
             <tr><td>&ldquo;must be preempted / must be scheduled / must respect taints&rdquo;</td><td><strong>nodeSelector</strong> or affinity</td><td><code>nodeName</code> bypasses the scheduler, so preemption and taints never happen</td></tr>
             <tr><td>&ldquo;either large or medium&rdquo;, &ldquo;anything except&rdquo;, &ldquo;has the label at all&rdquo;</td><td><strong>affinity</strong> (required)</td><td>needs <code>In</code> / <code>NotIn</code> / <code>Exists</code></td></tr>
             <tr><td>&ldquo;prefer&rdquo;, &ldquo;if possible&rdquo;, &ldquo;best effort&rdquo;</td><td><strong>affinity</strong> (preferred)</td><td>only soft placement can express it</td></tr>
