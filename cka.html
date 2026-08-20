@@ -301,6 +301,7 @@
       <button class="tab-button" data-tab="sts">StatefulSets</button>
       <button class="tab-button" data-tab="scheduling">Scheduling</button>
       <button class="tab-button" data-tab="debug">Debug</button>
+      <button class="tab-button" data-tab="ladders">Fault Ladders</button>
       <button class="tab-button" data-tab="storage">Storage &amp; Config</button>
       <button class="tab-button" data-tab="networking">Networking</button>
       <button class="tab-button" data-tab="cluster">Cluster Ops</button>
@@ -1339,6 +1340,96 @@ cat /etc/resolv.conf      <span class="comment"># search domains + the CoreDNS C
       </section>
 
       <!-- ==================== STORAGE & CONFIG ==================== -->
+      <!-- ==================== FAULT LADDERS ==================== -->
+      <section class="tab-content" id="ladders">
+        <h2>Fault ladders &mdash; which artifact to open, in order</h2>
+        <div class="warning"><strong>Localising a fault is not the same as knowing where it hides.</strong> Each ladder below is an ordered list of the only places that fault can live. Walk it top to bottom &mdash; the failure mode this page exists to prevent is stalling one step short, having already narrowed the problem correctly.</div>
+
+        <h3>DNS &mdash; names don&rsquo;t resolve</h3>
+<pre><code>k -n kube-system get pods -l k8s-app=kube-dns        <span class="comment"># 1. resolver alive?</span>
+k -n kube-system get endpoints kube-dns              <span class="comment"># 2. empty = label/selector mismatch</span>
+k -n kube-system get svc kube-dns                    <span class="comment"># 3. ClusterIP ...</span>
+k run r --image=busybox:1.28 --rm -it --restart=Never -- cat /etc/resolv.conf
+                                                     <span class="comment">#    ... must equal the pod's nameserver</span>
+k -n kube-system get cm coredns -o yaml              <span class="comment"># 4. THE ONE PEOPLE SKIP</span></code></pre>
+        <ul>
+          <li><strong>Step 4 is where an injected DNS fault almost always lives</strong>, because the Corefile is the only DNS config that is a plain text file someone can edit. <code>kubernetes &lt;zone&gt;</code> must read <code>cluster.local</code>; also check the <code>forward .</code> upstream.</li>
+          <li>Then: Pod <code>dnsPolicy</code> (hostNetwork Pods need <code>ClusterFirstWithHostNet</code>), and <code>clusterDNS</code> in <code>/var/lib/kubelet/config.yaml</code>.</li>
+          <li><strong>Timeout</strong> = never reached, or not authoritative for the zone. <strong>NXDOMAIN</strong> = reached fine, wrong name.</li>
+        </ul>
+
+        <h3>Service &mdash; Pod can&rsquo;t reach Pod</h3>
+<pre><code>k get svc NAME -n NS                 <span class="comment"># 1. port vs targetPort, type</span>
+k get endpoints NAME -n NS           <span class="comment"># 2. EMPTY = selector matches nothing</span>
+k get po -n NS --show-labels         <span class="comment"># 3. compare against the Service selector</span>
+k get netpol -n NS                   <span class="comment"># 6. a default-deny in the namespace</span></code></pre>
+        <ul>
+          <li>4. <code>containerPort</code> vs <code>targetPort</code>. 5. <strong>Pod readiness</strong> &mdash; NotReady Pods are removed from Endpoints, so a failing probe looks exactly like a selector bug.</li>
+          <li>7. kube-proxy on the node, last.</li>
+        </ul>
+
+        <h3>Node NotReady</h3>
+<pre><code>k describe node NAME                 <span class="comment"># 1. Conditions + message</span>
+                                     <span class="comment">#    "cni plugin not initialized" => CNI layer, STOP HERE</span>
+systemctl status kubelet             <span class="comment"># 2. read BOTH Loaded: and Active:</span>
+journalctl -u kubelet -n 50 --no-pager
+ls -lat /var/lib/kubelet/pki/        <span class="comment"># 6. a .bak/.backup IS the answer</span>
+grep -c BEGIN /var/lib/kubelet/pki/kubelet-client-current.pem   <span class="comment"># 2 = healthy</span></code></pre>
+        <ul>
+          <li>4. <code>/etc/kubernetes/kubelet.conf</code> &mdash; <code>server:</code> endpoint, <code>client-certificate</code>/<code>client-key</code>.</li>
+          <li>5. <code>/var/lib/kubelet/config.yaml</code> &mdash; <code>staticPodPath</code>, <code>cgroupDriver</code>, <code>tlsCertFile</code>/<code>tlsPrivateKeyFile</code>.</li>
+          <li>7. <code>/etc/cni/net.d/</code> &mdash; lowest-numbered file wins; a stale leftover beats the one you just wrote.</li>
+          <li>8. swap on, or a cgroup driver mismatch between kubelet and containerd.</li>
+          <li><strong><code>Active: running</code> is not proof of health</strong> &mdash; a kubelet pointed at the wrong API port runs happily while the node sits NotReady.</li>
+        </ul>
+
+        <h3>kubectl dead / apiserver down</h3>
+<pre><code>ssh &lt;controlplane&gt;
+crictl ps -a | grep apiserver        <span class="comment"># Exited = crashing · ABSENT = kubelet never acted</span>
+crictl logs $(crictl ps -a --name kube-apiserver -q | head -1) 2>&amp;1 | tail -30
+cat /etc/kubernetes/manifests/kube-apiserver.yaml   <span class="comment"># flags, image tag, etcd endpoints + certs</span>
+kubeadm certs check-expiration                       <span class="comment"># expiry</span>
+date                                                 <span class="comment"># clock skew = "not yet valid"</span></code></pre>
+        <ul>
+          <li><strong>scheduler and controller-manager also Exited and not restarting ⇒ the <em>kubelet</em> is the fault</strong>, not the apiserver. The kubelet is what restarts static pods.</li>
+          <li>High ATTEMPT count in <code>crictl ps -a</code> = kubelet IS retrying ⇒ fix the manifest FILE. Attempt 0 with nothing running = the manifest is not being read at all.</li>
+          <li>Never <code>kubectl delete</code> a static pod &mdash; it comes straight back. Edit the file.</li>
+        </ul>
+
+        <h3>Pod Pending</h3>
+<pre><code>k describe po NAME -n NS             <span class="comment"># Events is the whole answer</span></code></pre>
+        <table>
+          <thead><tr><th>Event says</th><th>Fault</th></tr></thead>
+          <tbody>
+            <tr><td><strong>no events at all</strong></td><td><code>nodeName</code> was set &mdash; the scheduler never ran. Typo&rsquo;d or nonexistent node.</td></tr>
+            <tr><td><code>Insufficient cpu/memory</code></td><td>requests vs <code>k describe node</code> Allocated</td></tr>
+            <tr><td><code>untolerated taint</code></td><td>missing toleration</td></tr>
+            <tr><td><code>didn&rsquo;t match node selector</code></td><td>nodeSelector / required affinity matches nothing</td></tr>
+            <tr><td>Pod Pending, PVC Pending</td><td>no StorageClass, or no PV matching size/access mode/class</td></tr>
+            <tr><td><em>nothing on the Pod</em></td><td><code>exceeded quota</code> surfaces on the <strong>ReplicaSet</strong> &mdash; <code>k describe rs -n NS</code></td></tr>
+          </tbody>
+        </table>
+        <p>Also: required <code>podAntiAffinity</code> with more replicas than nodes leaves the surplus Pending forever.</p>
+
+        <h3>Pod not running</h3>
+        <table>
+          <thead><tr><th>Status</th><th>Where the fault is</th></tr></thead>
+          <tbody>
+            <tr><td><code>ImagePullBackOff</code></td><td>image name/tag, registry, imagePullSecret</td></tr>
+            <tr><td><code>CreateContainerConfigError</code></td><td>referenced ConfigMap/Secret does not exist</td></tr>
+            <tr><td><code>CrashLoopBackOff</code></td><td>the app &mdash; <code>k logs NAME --previous</code></td></tr>
+            <tr><td><code>Init:CreateContainerError</code></td><td>container <strong>spec</strong>: mount, path, device, capability. Never networking, never the image.</td></tr>
+            <tr><td><code>OOMKilled</code></td><td>memory limit too low</td></tr>
+            <tr><td><code>Terminating</code> forever</td><td>a finalizer, or a dead node</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Docs path</h3>
+        <ul>
+          <li>k8s.io &rarr; <em>Debug Running Pods</em> &middot; <em>Debug Services</em> &middot; <em>Debugging DNS Resolution</em>.</li>
+        </ul>
+      </section>
+
       <section class="tab-content" id="storage">
         <h2>Storage &amp; Config &mdash; PV / PVC, ConfigMap, Secret</h2>
 
