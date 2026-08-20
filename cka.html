@@ -18,6 +18,7 @@
         --accent: #ff6b35;
         --accent-dim: #ff6b3522;
         --mono: 'JetBrains Mono', monospace;
+        --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         --serif: 'Instrument Serif', Georgia, serif;
       }
 
@@ -26,9 +27,9 @@
       body {
         background: var(--bg);
         color: var(--text);
-        font-family: var(--mono);
+        font-family: var(--sans);
         font-size: 17px;
-        line-height: 1.6;
+        line-height: 1.65;
         min-height: 100vh;
       }
 
@@ -134,12 +135,34 @@
         margin-bottom: 1.5rem;
       }
 
+      .tab-content { counter-reset: sect; }
+
       .tab-content h3 {
-        font-size: 0.85rem;
+        font-size: 1.15rem;
         font-weight: 700;
-        margin-top: 2rem;
-        margin-bottom: 0.6rem;
+        margin-top: 2.6rem;
+        margin-bottom: 0.9rem;
+        padding-top: 1.4rem;
+        border-top: 1px solid var(--border);
         color: var(--accent);
+        letter-spacing: 0;
+        line-height: 1.3;
+      }
+
+      .tab-content h3::before {
+        counter-increment: sect;
+        content: counter(sect) ". ";
+        color: var(--text-dim);
+        font-weight: 400;
+      }
+
+      .tab-content h3:first-of-type { border-top: none; padding-top: 0; margin-top: 1.6rem; }
+
+      .tab-content h4 {
+        font-size: 0.82rem;
+        font-weight: 700;
+        margin: 1.6rem 0 0.5rem;
+        color: #cfcfcf;
         text-transform: uppercase;
         letter-spacing: 0.05em;
       }
@@ -220,7 +243,10 @@
         font-size: 0.95rem;
       }
 
-      li { margin-bottom: 0.3rem; }
+      li { margin-bottom: 0.55rem; }
+
+      .tab-content li, .tab-content p, td, th { font-family: var(--sans); }
+      .tab-content code, pre, pre code, td code, th code, li code, p code { font-family: var(--mono); }
 
       hr {
         border: none;
@@ -293,6 +319,7 @@
     </header>
 
     <div class="tabs" role="tablist">
+      <button class="tab-button" data-tab="revision">60-Sec Revision</button>
       <button class="tab-button active" data-tab="checklist">Checklist</button>
       <button class="tab-button" data-tab="fatal">Fatal 7</button>
       <button class="tab-button" data-tab="vim">Vim</button>
@@ -316,6 +343,116 @@
     <main>
 
       <!-- ==================== CHECKLIST ==================== -->
+      <!-- ==================== 60-SECOND REVISION ==================== -->
+      <section class="tab-content" id="revision">
+        <h2>60-second revision &mdash; the whole sheet, compressed</h2>
+        <div class="warning"><strong>Read this last, on the morning.</strong> Nothing here teaches anything &mdash; every line is a trigger for something you already drilled. If a line doesn&rsquo;t fire a memory, open that tab instead of staring at this one.</div>
+
+        <h3>Labels, selectors, placement</h3>
+<pre><code>-l env=prod                equality        -l env              key exists
+-l env=prod,bu=finance     AND             -l '!tier'          key absent
+-l 'env in (dev,prod)'     OR              --show-labels       see them all
+
+TAINT       node repels          k taint node N key=val:NoSchedule[-]
+TOLERATION  pod is PERMITTED     ... it does NOT attract
+            NoSchedule = block new · PreferNoSchedule = avoid · NoExecute = block + EVICT
+
+PICK ONE:
+  nodeSelector    equality only        scheduler runs
+  nodeName        exact node           SCHEDULER BYPASSED — no taints, no preemption, no fit
+  nodeAffinity    In/NotIn/Exists/Gt/Lt, required=hard preferred=soft
+
+"only this pod on this node"  =  taint node + toleration + nodeSelector
+pin by name with affinity     =  key: kubernetes.io/hostname</code></pre>
+
+        <h3>Workloads</h3>
+<pre><code>k run NAME --image=img                            k create deploy NAME --image=img --replicas=N
+k scale deploy/NAME --replicas=N                  k set image deploy/NAME CONTAINER=img:tag
+k rollout status|history|undo deployment/NAME     k expose deploy NAME --port=P --target-port=T
+
+--dry-run=client -o yaml > f.yaml   then edit   then apply
+Pod spec immutable (image env SA) → delete + re-apply, never edit in place
+HPA behavior → k autoscale first (v2 comes back), then k edit, add behavior:
+PriorityClass → k create priorityclass --value --global-default --preemption-policy</code></pre>
+
+        <h3>Storage &amp; config</h3>
+<pre><code>PV   capacity / accessModes / persistentVolumeReclaimPolicy / storageClassName / hostPath
+PVC  resources.requests.storage / accessModes / storageClassName   → must MATCH to bind
+Pod  spec.volumes[].name + persistentVolumeClaim.claimName
+     container.volumeMounts[].name + mountPath          ← names must match
+
+k create cm NAME --from-literal=K=V --from-file=path
+k create secret generic NAME --from-literal=K=V
+consume: envFrom.configMapRef / secretRef at CONTAINER level
+missing cm/secret ref  =  CreateContainerConfigError (not ImagePull)</code></pre>
+
+        <h3>Networking</h3>
+<pre><code>k expose ...                    endpoints EMPTY = selector matches nothing
+k create ingress NAME --class=C --rule="host/path=SVC:PORT,tls=SECRET"
+  verify with a HOST HEADER:  curl -H "Host: x.example.com" http://&lt;addr&gt;/
+
+NetworkPolicy  podSelector={} = ALL pods · policyTypes decides what is denied
+  TWO list items under from: = OR       ONE item, two selectors = AND
+  policies are ADDITIVE — add an allow, never edit the deny
+  re-probe after ~15s before believing a result
+
+Gateway  listener protocol HTTPS + tls.mode Terminate + certificateRefs
+HTTPRoute  parentRefs → gateway · rules[].matches and rules[].backendRefs are SIBLINGS</code></pre>
+
+        <h3>RBAC &amp; identity</h3>
+<pre><code>k create role NAME -n NS --verb=get,list,watch --resource=pods
+k create rolebinding NAME -n NS --role=R --serviceaccount=NS:SA   (or --user=U)
+-n on ALL THREE creates.  ClusterRole+RoleBinding = cluster rules, one namespace.
+
+new user:  CSR (base64 -w0, signerName kubernetes.io/kube-apiserver-client, usages: client auth)
+           → certificate approve → extract .status.certificate → set-credentials → set-context
+verify:    k auth can-i ... --as=...      test an ALLOWED and a DENIED verb</code></pre>
+
+        <h3>Cluster ops</h3>
+<pre><code>etcd     etcdctl snapshot save /path --endpoints --cacert --cert --key   (then status)
+static   /etc/kubernetes/manifests/*.yaml — edit the FILE, never kubectl delete
+         restart all: mv manifests out, sleep 25, mv back
+certs    kubeadm certs check-expiration → renew all → restart static pods → cp admin.conf ~/.kube/config
+upgrade  drain → kubeadm upgrade plan/apply → kubelet+kubectl → uncordon    (kubeadm is CP-node only)
+node     k drain NODE --ignore-daemonsets --delete-emptydir-data  → k uncordon NODE
+
+node prereqs:  modules THEN sysctls THEN verify from the kernel (lsmod / sysctl)</code></pre>
+
+        <h3>Helm &amp; Kustomize</h3>
+<pre><code>helm repo add NAME URL · helm pull REPO/CHART --version V --untar --untardir DIR
+helm install REL ./folder -n NS --create-namespace --set key=val
+helm show values CHART            ← find the key name, don't guess
+upgrade bumps revision · install FAILS if release exists · rollback makes a NEW revision
+LOOK AT THE PATH: Chart.yaml+templates/ = chart dir (positional) · single .yaml = values (-f)
+
+kustomize: base/kustomization.yaml (resources:) + overlay (bases/resources, namespace, replicas, images)
+k kustomize DIR (render)  ·  k apply -k DIR (apply)</code></pre>
+
+        <h3>Troubleshooting &mdash; which artifact, in order</h3>
+<pre><code>DNS       coredns pods → endpoints → svc ClusterIP vs pod resolv.conf → COREDNS CONFIGMAP
+SERVICE   svc → endpoints → pod labels → targetPort → READINESS → netpol
+NODE      describe node → systemctl status → journalctl → kubelet.conf → config.yaml → ls -lat pki/
+APISERVER crictl ps -a → crictl logs → manifest file → certs expiry → etcd manifest
+PENDING   describe pod EVENTS · no events at all = nodeName · quota shows on the ReplicaSet
+POD       ImagePull=image · ConfigError=missing cm/secret · CrashLoop=logs --previous · Init:=spec</code></pre>
+
+        <h3>Fatal traps</h3>
+<pre><code>-n at generate time is NOT baked into the YAML → bake namespace: in metadata
+a GREEN verify is not a correct object — probe the thing that must FAIL, with a real target
+"-" before a key makes a LIST item. k explain: &lt;Object&gt; no dash · &lt;[]Object> dash
+kubeadm exists ONLY on the control-plane node
+verify on the cluster/node you actually fixed
+read the requirement back against the output, one line at a time
+fix the minimum that works, then STOP</code></pre>
+
+        <h3>Mechanics</h3>
+<pre><code>k config use-context X          ← FIRST line of every question
+ssh NODE                        ← for anything under /etc or systemctl
+k explain KIND.spec.PATH        ← settles nesting without opening a browser
+k &lt;cmd&gt; --help                  ← EXAMPLES section, faster than docs
+flag a hard question, finish the paper, come back</code></pre>
+      </section>
+
       <section class="tab-content active" id="checklist">
         <h2>Mechanical checklist &mdash; the leaks that cost points when the knowledge was fine</h2>
 
