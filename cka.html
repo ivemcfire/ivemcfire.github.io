@@ -2600,9 +2600,10 @@ YAML
 helm install greeter examples/hello-world --version 0.1.0 -n demo -f custom-values.yaml
 helm upgrade greeter examples/hello-world --version 0.1.0 -n demo --set replicaCount=1
 helm history greeter -n demo
+helm rollback greeter 1 -n demo
 helm get values greeter -n demo</code></pre>
         <p><code>-f FILE</code> and <code>--set k=v</code> are interchangeable inputs; <code>--set</code> wins when both set the same key. <strong><code>upgrade</code> re-renders from scratch &mdash; overrides you do not repeat are LOST.</strong> Add <code>--reuse-values</code>, or pass the same <code>-f</code> file again. Repeat <code>--version</code> on the upgrade or Helm silently jumps to the newest chart in the repo.</p>
-        <p><code>helm history REL -n NS</code> is the revision list; <code>helm rollback REL REV -n NS</code> walks it back.</p>
+        <p><code>helm history REL -n NS</code> is the revision list; <code>helm rollback REL REV -n NS</code> walks it back. <strong>Rollback restores the chart AND the values of that revision</strong> &mdash; <code>helm get values</code> reads back the old overrides with nothing to re-enter. That is the counterpart to the upgrade trap above. The rollback itself becomes a new revision (<code>Rollback to 1</code>); it deletes nothing.</p>
 
         <h3><code>helm list</code> shows less than you think</h3>
 <pre><code>helm list -A          <span class="comment"># every namespace — DEPLOYED only</span>
