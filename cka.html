@@ -3156,7 +3156,11 @@ command | tee out.txt      <span class="comment"># screen AND file</span></code>
       }
 
       tabs.forEach(t => {
-        t.addEventListener('click', () => activate(t.dataset.tab));
+        t.addEventListener('click', () => {
+          activate(t.dataset.tab);
+          // Switching tabs starts a new page — always land at the top
+          window.scrollTo({ top: 0, behavior: 'instant' });
+        });
       });
 
       // On load: honor hash if it matches a tab
