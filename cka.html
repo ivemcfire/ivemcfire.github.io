@@ -2821,7 +2821,12 @@ k kustomize /root/app/overlay/prod | grep -E 'name:|replicas:|image:'   <span cl
           <li><code>namePrefix: prod-</code> means the applied object is <code>prod-web</code> &mdash; verify with that name, not <code>web</code>.</li>
         </ul>
         <h3>Docs path</h3>
-        <ul><li>k8s.io search <strong>"kustomize"</strong> &rarr; <em>Declarative Management of Kubernetes Objects Using Kustomize</em>; Ctrl+F the <strong>Kustomize Feature List</strong> table.</li></ul>
+        <ul>
+          <li><strong><code>kustomize.io</code> is blocked on exam day.</strong> Every worked example you have read online lives there. Do not plan around it.</li>
+          <li>The only allowed source is one page: <a href="https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/">Declarative Management Using Kustomize</a>. Go straight to <a href="https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/#kustomize-feature-list"><strong>Kustomize Feature List</strong></a> (field &rarr; snippet table) and <a href="https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/#bases-and-overlays">Bases and Overlays</a>.</li>
+          <li><strong><code>kubectl explain</code> does not work on <code>kustomization.yaml</code></strong> &mdash; it is not an API object. The only in-terminal fallback is <code>kubectl kustomize --help</code>.</li>
+          <li><code>k kustomize ./dir</code> previews exactly what <code>-k</code> will send. It costs nothing &mdash; always look before applying.</li>
+        </ul>
       </section>
 
       <section class="tab-content" id="crd">
