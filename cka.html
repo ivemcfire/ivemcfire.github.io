@@ -338,6 +338,7 @@
       <button class="tab-button" data-tab="kustomize">Kustomize</button>
       <button class="tab-button" data-tab="crd">CRDs &amp; Operators</button>
       <button class="tab-button" data-tab="gateway">Gateway API</button>
+      <button class="tab-button" data-tab="linux">Linux Shell</button>
     </div>
 
     <main>
@@ -3049,6 +3050,87 @@ k describe httproute store-route -n store | grep -B2 -A8 Conditions
         <h3>Docs path</h3>
         <ul><li><strong>gateway-api.sigs.k8s.io</strong> &rarr; Guides; Ctrl+F <code>backendRefs:</code>. Migration page: <em>Migrating from Ingress</em>, Ctrl+F <code>PathPrefix</code>.</li>
         <li>k8s.io search <strong>"gateway api"</strong> for the concept page.</li></ul>
+      </section>
+
+
+      <!-- ==================== LINUX SHELL ==================== -->
+      <section class="tab-content" id="linux">
+        <h2>Linux shell &mdash; the in-terminal toolkit</h2>
+        <p>None of this is on kubernetes.io, and none of it needs the browser. On a laggy PSI desktop these beat a docs trip every time. <code>man &lt;cmd&gt;</code> and <code>&lt;cmd&gt; --help</code> are the only sources you get.</p>
+        <h3><code>find</code> &mdash; you know the name, not the path</h3>
+<pre><code>find / -name 'kube-scheduler.yaml' 2>/dev/null      <span class="comment"># exact name, whole disk</span>
+find /etc -name '*.conf' 2>/dev/null                <span class="comment"># glob — QUOTE it</span>
+find / -name '*kubelet*' -type f 2>/dev/null        <span class="comment"># files only, substring match</span>
+find /var/log -mmin -10                             <span class="comment"># modified in the last 10 minutes</span>
+find / -name kubeadm -type f 2>/dev/null            <span class="comment"># is the binary even on this host?</span></code></pre>
+        <p><code>2&gt;/dev/null</code> on every whole-disk search &mdash; without it the permission-denied noise scrolls your hit off the screen. <code>-name</code> is case-sensitive, <code>-iname</code> is not. <strong>Quote the glob</strong> or the shell expands it before <code>find</code> ever sees it.</p>
+        <h3><code>grep</code> &mdash; reading config and logs</h3>
+<pre><code>grep -r 'image:' /etc/kubernetes/manifests/    <span class="comment"># -r recurse a whole directory</span>
+grep -n 'server:' /etc/kubernetes/kubelet.conf <span class="comment"># -n line numbers</span>
+grep -A3 -B1 service values.yaml               <span class="comment"># context After / Before</span>
+grep -i error /var/log/syslog                  <span class="comment"># case-insensitive</span>
+grep -v '^#' /etc/default/kubelet              <span class="comment"># -v INVERT — hide the comments</span>
+grep -c Running                                <span class="comment"># -c count, do not print</span>
+grep -E 'Pending|Failed'                       <span class="comment"># -E for alternation</span></code></pre>
+        <p><code>-A3</code> is the flag that pays: nested YAML (<code>helm show values</code>, a manifest, a values file) only makes sense with the lines under the match.</p>
+        <h3><code>systemctl</code> / <code>journalctl</code> &mdash; the node ladder</h3>
+<pre><code>systemctl status kubelet          <span class="comment"># active? failed? last log lines for free</span>
+systemctl restart kubelet
+systemctl enable --now kubelet    <span class="comment"># start AND survive reboot — say BOTH</span>
+systemctl is-active kubelet
+systemctl cat kubelet             <span class="comment"># unit file + drop-ins, no path hunting</span>
+journalctl -u kubelet -f          <span class="comment"># follow live</span>
+journalctl -u kubelet --since '10 min ago'
+journalctl -u kubelet -p err      <span class="comment"># errors only</span>
+journalctl -xeu kubelet           <span class="comment"># last entries, with explanations</span></code></pre>
+        <p><strong><code>active</code> is not <code>healthy</code>.</strong> A kubelet holding a bad <code>kubelet.conf</code> runs perfectly happily while the node reads <code>NotReady</code>. Go to <code>journalctl</code> before you believe <code>status</code>.</p>
+        <h3>Packages &mdash; the kubeadm upgrade path</h3>
+<pre><code>apt-cache madison kubeadm | head   <span class="comment"># WHICH VERSIONS EXIST — read before installing</span>
+apt-get install -y kubeadm=1.35.7-1.1
+apt-mark hold kubeadm kubelet kubectl
+apt-mark unhold kubeadm kubelet kubectl
+apt-mark showhold                  <span class="comment"># proof the pins actually landed</span>
+dpkg -l | grep kubelet</code></pre>
+        <table>
+          <thead><tr><th><code>dpkg -l</code> code</th><th>Means</th></tr></thead>
+          <tbody>
+            <tr><td><code>ii</code></td><td>installed</td></tr>
+            <tr><td><code>hi</code></td><td>held + installed</td></tr>
+            <tr><td><code>rc</code></td><td><strong>REMOVED &mdash; config files remain</strong></td></tr>
+            <tr><td><code>un</code></td><td>never installed</td></tr>
+          </tbody>
+        </table>
+        <p>No binary, no unit, but <code>/var/lib/kubelet</code> still there = the <em>package was removed</em>, not misconfigured. Reinstall pinned to the cluster version, re-hold, <code>enable --now</code>.</p>
+        <h3><code>crictl</code> &mdash; when kubectl cannot help</h3>
+<pre><code>crictl ps -a                        <span class="comment"># all containers, including exited</span>
+crictl ps -a --name kube-apiserver
+crictl logs &lt;container-id&gt;
+crictl pods                         <span class="comment"># sandbox level</span></code></pre>
+        <p>The control plane is down, so <code>kubectl logs</code> has no API to talk to. <code>crictl</code> talks to the container runtime directly and still works.</p>
+        <h3>Ports, processes, certificates</h3>
+<pre><code>ss -tlnp | grep 6443     <span class="comment"># who is listening on the API port</span>
+ps aux | grep kube-apiserver
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -dates
+openssl x509 -in ravi.crt -noout -subject
+openssl req -new -key ravi.key -out ravi.csr -subj '/CN=ravi/O=team'
+kubeadm certs check-expiration</code></pre>
+        <p>In an X.509 subject, <strong>CN becomes the username and each O becomes a group</strong>. Repeat <code>/O=</code> for more than one group. This is plain openssl syntax &mdash; kubernetes.io shows only the <code>/CN=</code> form, so do not go looking for it there.</p>
+        <h3>Extracting text</h3>
+<pre><code>awk '{print $1}' file          <span class="comment"># column 1</span>
+cut -d: -f1 /etc/passwd        <span class="comment"># split on a delimiter</span>
+sort | uniq -c | sort -rn      <span class="comment"># count, then rank</span>
+wc -l                          <span class="comment"># how many</span>
+head -20 / tail -20</code></pre>
+        <h3>Files and redirection</h3>
+<pre><code>cp /etc/kubernetes/manifests/kube-scheduler.yaml ~/backup.yaml  <span class="comment"># BACK UP FIRST</span>
+command &gt; out.txt 2&gt;&amp;1     <span class="comment"># stdout AND stderr into a file</span>
+command | tee out.txt      <span class="comment"># screen AND file</span></code></pre>
+        <ul>
+          <li><strong>Back up any file before editing it.</strong> <code>cp x x.bak</code> costs two seconds and un-breaks a cluster.</li>
+          <li>Static pod manifests live in <code>/etc/kubernetes/manifests/</code>. A missing file is a missing pod &mdash; the kubelet creates only what it finds there.</li>
+          <li><code>ssh &lt;host&gt;</code>, do the whole task there, <code>exit</code> when done. <code>hostname</code> is the free check before trusting any output.</li>
+          <li><strong><code>kubectl</code> does not work from a worker node.</strong> <code>current-context is not set</code> is the tell that you are on the wrong box &mdash; not that the cluster is broken.</li>
+        </ul>
       </section>
 
     </main>
