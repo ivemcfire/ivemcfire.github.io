@@ -1541,6 +1541,21 @@ date                                                 <span class="comment"># clo
           <li>Never <code>kubectl delete</code> a static pod &mdash; it comes straight back. Edit the file.</li>
         </ul>
 
+        <h3>A control-plane manifest is MISSING</h3>
+        <p>Component absent from <code>k get po -n kube-system</code> entirely (not crashing &mdash; <em>absent</em>) means the file is gone from <code>/etc/kubernetes/manifests/</code>. Look for it before rebuilding it:</p>
+<pre><code>find / -name 'kube-scheduler.yaml' 2>/dev/null   <span class="comment"># moved, not deleted? mv it back</span></code></pre>
+        <p>Genuinely gone &mdash; regenerate, never hand-write:</p>
+<pre><code>kubeadm init phase control-plane scheduler
+kubeadm init phase control-plane controller-manager
+kubeadm init phase control-plane apiserver
+kubeadm init phase etcd local              <span class="comment"># etcd is NOT part of "control-plane"</span></code></pre>
+        <ul>
+          <li><code>kubeadm</code> lives <strong>on the control-plane node only</strong> &mdash; <code>ssh</code> there first. On the bastion it is <code>command not found</code>, which reads like a broken lab and is not.</li>
+          <li><strong>Named phase only.</strong> <code>... control-plane all</code> rewrites all three manifests and silently drops any custom flag an earlier task added &mdash; audit config, admission plugin, extra SAN.</li>
+          <li><code>all</code> also restarts the API server, so you lose <code>kubectl</code> mid-diagnosis. It is for an empty directory (a rebuild), not a repair.</li>
+          <li><strong>The kubelet polls the directory every ~15-20s.</strong> Drop the file in and wait. <code>systemctl restart kubelet</code> afterwards is a wasted step.</li>
+        </ul>
+
         <h3>Pod Pending</h3>
 <pre><code>k describe po NAME -n NS             <span class="comment"># Events is the whole answer</span></code></pre>
         <table>
