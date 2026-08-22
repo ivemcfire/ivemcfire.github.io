@@ -338,6 +338,7 @@
       <button class="tab-button" data-tab="kustomize">Kustomize</button>
       <button class="tab-button" data-tab="crd">CRDs &amp; Operators</button>
       <button class="tab-button" data-tab="gateway">Gateway API</button>
+      <button class="tab-button" data-tab="yaml">YAML Layers</button>
       <button class="tab-button" data-tab="linux">Linux Shell</button>
     </div>
 
@@ -3180,6 +3181,111 @@ command | tee out.txt      <span class="comment"># screen AND file</span></code>
           <li><code>ssh &lt;host&gt;</code>, do the whole task there, <code>exit</code> when done. <code>hostname</code> is the free check before trusting any output.</li>
           <li><strong><code>kubectl</code> does not work from a worker node.</strong> <code>current-context is not set</code> is the tell that you are on the wrong box &mdash; not that the cluster is broken.</li>
         </ul>
+      </section>
+
+
+      <!-- ==================== YAML LAYERS ==================== -->
+      <section class="tab-content" id="yaml">
+        <h2>YAML layers &mdash; where every field actually lives</h2>
+        <p>The most expensive mistake shape there is: a Pod field written at Deployment level. <code>apply</code> rejects it as <code>strict decoding error: unknown field "spec.containers"</code> &mdash; and that message names the exact layer you got wrong, so read it before re-reading your file.</p>
+
+        <h3>One example, every layer</h3>
+<pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:                                <span class="comment"># the DEPLOYMENT's own identity</span>
+  name: web
+  namespace: prod
+  labels:
+    app: web
+spec:                                    <span class="comment"># ---- DEPLOYMENT spec ----</span>
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web                           <span class="comment"># MUST equal template.metadata.labels</span>
+  strategy:
+    type: RollingUpdate
+  template:                              <span class="comment"># ---- POD TEMPLATE ----</span>
+    metadata:
+      labels:
+        app: web                         <span class="comment"># what the selector matches</span>
+    spec:                                <span class="comment"># ---- POD spec: everything about the Pod ----</span>
+      priorityClassName: high-priority
+      serviceAccountName: deployer
+      nodeSelector:
+        hardware: gpu
+      tolerations:
+      - key: dedicated
+        operator: Equal
+        value: analytics
+        effect: NoSchedule
+      volumes:
+      - name: shared
+        emptyDir: {}
+      initContainers:
+      - name: log-ship
+        image: busybox:1.28
+        restartPolicy: Always            <span class="comment"># native sidecar</span>
+      containers:                        <span class="comment"># ---- CONTAINER list ----</span>
+      - name: nginx
+        image: nginx:1.27
+        command: ["/bin/sh", "-c", "sleep 3600"]
+        ports:
+        - containerPort: 80
+        env:
+        - name: ROLE
+          value: producer
+        envFrom:
+        - configMapRef:
+            name: site-config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+        volumeMounts:
+        - name: shared
+          mountPath: /data</code></pre>
+
+        <h3>Which layer owns what</h3>
+        <table>
+          <thead><tr><th>Layer</th><th>Owns</th></tr></thead>
+          <tbody>
+            <tr><td><code>spec</code> (Deployment)</td><td><code>replicas</code>, <code>selector</code>, <code>strategy</code>, <code>template</code> &mdash; and nothing else</td></tr>
+            <tr><td><code>spec.template.metadata</code></td><td>Pod labels + annotations</td></tr>
+            <tr><td><code>spec.template.spec</code></td><td><code>nodeSelector</code>, <code>nodeName</code>, <code>tolerations</code>, <code>affinity</code>, <code>priorityClassName</code>, <code>serviceAccountName</code>, <code>restartPolicy</code>, <code>volumes</code>, <code>initContainers</code>, <code>containers</code>, <code>hostNetwork</code>, <code>dnsPolicy</code></td></tr>
+            <tr><td><code>containers[]</code></td><td><code>name</code>, <code>image</code>, <code>command</code>, <code>args</code>, <code>env</code>, <code>envFrom</code>, <code>ports</code>, <code>resources</code>, <code>volumeMounts</code>, <code>securityContext</code>, probes</td></tr>
+          </tbody>
+        </table>
+        <p><strong>The rule that resolves every case: if it describes the POD, it goes under <code>template.spec</code>. If it describes ONE container, it goes in that container's entry.</strong></p>
+
+        <h3>Bare Pod vs Deployment &mdash; the two-level shift</h3>
+        <p>A bare Pod has no <code>template</code>: its <code>spec:</code> <em>is</em> the Pod spec, so <code>containers:</code> sits at <code>spec.containers</code> &mdash; two levels shallower than the same field in a Deployment. Converting one manifest into the other is exactly where the layer gets lost.</p>
+        <p>The same <code>template.spec</code> shape covers StatefulSet, DaemonSet and Job. CronJob is one level deeper again: <code>spec.jobTemplate.spec.template.spec</code>.</p>
+
+        <h3>Misplacements that actually happen</h3>
+        <table>
+          <thead><tr><th>Written as</th><th>Belongs at</th></tr></thead>
+          <tbody>
+            <tr><td><code>spec.containers</code> in a Deployment</td><td><code>spec.template.spec.containers</code></td></tr>
+            <tr><td><code>spec.nodeSelector</code> / <code>spec.priorityClassName</code></td><td><code>spec.template.spec.*</code></td></tr>
+            <tr><td><code>tolerations</code> inside a container entry</td><td><code>template.spec</code>, sibling of <code>containers</code></td></tr>
+            <tr><td><code>requests:</code> as a sibling of <code>resources:</code></td><td>nested INSIDE <code>resources:</code></td></tr>
+            <tr><td><code>volumeMounts</code> at pod level</td><td>inside the container &mdash; <code>volumes</code> is the pod-level half</td></tr>
+            <tr><td>two <code>command:</code> keys in one container</td><td><strong>silent</strong> &mdash; YAML takes the LAST one</td></tr>
+          </tbody>
+        </table>
+
+        <ul>
+          <li><strong>Duplicate keys never error.</strong> The last one wins and the object simply is not what you wrote. If a container behaves like it is running someone else's command, look for a second key before anything else.</li>
+          <li><code>describe pod</code> echoes <code>Command:</code> exactly as the container received it &mdash; that is where copy/paste quoting damage becomes visible.</li>
+          <li>List items: the <code>-</code> aligns with the KEY's indentation, and the item's own fields sit two spaces further in.</li>
+        </ul>
+
+        <h3>Check it in the terminal, not the browser</h3>
+<pre><code>kubectl explain deployment.spec.template.spec --recursive | head -40
+kubectl explain deployment.spec.template.spec.containers.resources
+kubectl explain pod.spec.tolerations</code></pre>
       </section>
 
     </main>
