@@ -3282,6 +3282,72 @@ spec:                                    <span class="comment"># ---- DEPLOYMENT
           <li>List items: the <code>-</code> aligns with the KEY's indentation, and the item's own fields sit two spaces further in.</li>
         </ul>
 
+
+        <h3>Don&rsquo;t type YAML you can generate</h3>
+<pre><code>kubectl create deploy web --image nginx:1.27 --dry-run=client -o yaml &gt; d.yaml
+kubectl run web --image nginx:1.27 --dry-run=client -o yaml &gt; p.yaml
+kubectl create job digest --image busybox:1.28 --dry-run=client -o yaml &gt; j.yaml
+kubectl create cronjob nightly --image busybox:1.28 --schedule "30 2 * * *" --dry-run=client -o yaml
+kubectl create role r --verb get,list --resource pods --dry-run=client -o yaml
+kubectl create ingress web --rule "host/path=svc:80,tls=secret" --dry-run=client -o yaml
+kubectl expose deploy web --port 80 --target-port 80 --dry-run=client -o yaml
+kubectl set resources deploy web --requests cpu=100m,memory=128Mi --dry-run=client -o yaml</code></pre>
+        <p>Generate the skeleton, then add ONLY the field the task actually needs. Anything a generator can build should never involve the browser, and <code>kubectl create &lt;kind&gt; --help</code> carries EXAMPLES for most kinds at no page load.</p>
+
+        <h3>Copying YAML out of the docs &mdash; the traps</h3>
+        <ul>
+          <li><strong>Placeholders stay behind.</strong> Docs examples ship with their own names, images, ports and paths. After pasting, re-read the task and replace EVERY noun. A block that applies cleanly with the docs&rsquo; values is still a wrong answer.</li>
+          <li><strong>Leftover keys from the example.</strong> Pasting over your own block can leave two <code>command:</code> or two <code>env:</code> keys. YAML takes the LAST one silently. Delete what you replaced.</li>
+          <li><strong>Snippets are fragments.</strong> A docs snippet usually starts mid-object &mdash; check you carried its PARENT keys, and that its indentation matches your file&rsquo;s level rather than the page&rsquo;s.</li>
+          <li><strong>Paste mangles indentation.</strong> In vim, <code>:set paste</code> before and <code>:set nopaste</code> after; without it autoindent staircases every line.</li>
+          <li><strong><code>kubectl apply</code> is the reviewer.</strong> Apply first and read the error &mdash; it names line, column and field path. Do not eyeball a manifest hunting for a typo.</li>
+          <li><strong>Immutable fields.</strong> <code>selector</code> and most of a Pod&rsquo;s spec cannot change in place: <code>delete</code> then <code>apply</code>. The error says <em>field is immutable</em> and re-applying will never fix it.</li>
+        </ul>
+
+        <h3>Reading a docs page fast</h3>
+        <ul>
+          <li>Land on the page, then <strong>Ctrl+F the FIELD NAME, not the concept</strong> &mdash; <code>tolerations</code>, <code>volumeClaimTemplates</code>, <code>secretName</code>. The YAML example containing it is what you want, and it is usually one screen below the heading.</li>
+          <li>Most pages put a complete, runnable manifest near the top. Take that whole block rather than assembling fragments.</li>
+          <li>If a field is not in the page&rsquo;s example it is probably not exam-scope &mdash; check <code>kubectl explain &lt;kind&gt;.spec.&lt;field&gt;</code> before hunting further.</li>
+        </ul>
+
+        <h3>Search keywords &mdash; type these into the docs search box</h3>
+        <table>
+          <thead><tr><th>You need</th><th>Search for</th></tr></thead>
+          <tbody>
+            <tr><td>tolerations block</td><td><code>taint</code></td></tr>
+            <tr><td>nodeSelector / affinity</td><td><code>assign pods to nodes</code></td></tr>
+            <tr><td>init container</td><td><code>init containers</code></td></tr>
+            <tr><td>native sidecar (<code>restartPolicy: Always</code>)</td><td><code>sidecar containers</code></td></tr>
+            <tr><td>liveness / readiness probe</td><td><code>configure liveness</code></td></tr>
+            <tr><td>securityContext (runAsUser, fsGroup)</td><td><code>security context</code></td></tr>
+            <tr><td>resource requests + limits</td><td><code>manage resources containers</code></td></tr>
+            <tr><td>ConfigMap as env / envFrom</td><td><code>configure pod configmap</code></td></tr>
+            <tr><td>Secret as env or volume</td><td><code>distribute credentials securely</code></td></tr>
+            <tr><td>emptyDir shared between containers</td><td><code>communicate containers same pod</code></td></tr>
+            <tr><td>PersistentVolume + claim + Pod</td><td><code>configure persistent volume storage</code></td></tr>
+            <tr><td>local PV with nodeAffinity</td><td><code>volumes local</code></td></tr>
+            <tr><td>StorageClass fields</td><td><code>storage classes</code></td></tr>
+            <tr><td>StatefulSet + volumeClaimTemplates</td><td><code>statefulset basics</code></td></tr>
+            <tr><td>DaemonSet</td><td><code>daemonset</code></td></tr>
+            <tr><td>Job completions / parallelism</td><td><code>parallel jobs</code></td></tr>
+            <tr><td>CronJob schedule fields</td><td><code>cronjob</code></td></tr>
+            <tr><td>HorizontalPodAutoscaler</td><td><code>horizontal pod autoscale walkthrough</code></td></tr>
+            <tr><td>ResourceQuota / LimitRange</td><td><code>resource quotas</code></td></tr>
+            <tr><td>PodDisruptionBudget</td><td><code>disruptions</code></td></tr>
+            <tr><td>PriorityClass + preemption</td><td><code>pod priority preemption</code></td></tr>
+            <tr><td>NetworkPolicy ingress/egress</td><td><code>network policies</code></td></tr>
+            <tr><td>Ingress rules + TLS</td><td><code>ingress</code></td></tr>
+            <tr><td>Service types / headless</td><td><code>service</code></td></tr>
+            <tr><td>Role / RoleBinding / ClusterRole</td><td><code>rbac</code></td></tr>
+            <tr><td>CertificateSigningRequest</td><td><code>certificate signing requests</code></td></tr>
+            <tr><td>static Pod manifest</td><td><code>static pod</code></td></tr>
+            <tr><td>etcd backup flags</td><td><code>configure upgrade etcd</code></td></tr>
+            <tr><td>kubeadm upgrade steps</td><td><code>kubeadm upgrade</code></td></tr>
+            <tr><td>Gateway / HTTPRoute</td><td><code>HTTPRoute &mdash; on the Gateway API site</code></td></tr>
+          </tbody>
+        </table>
+        <p>Search the FIELD or the OBJECT, never a sentence. The in-site search matches page titles far better than it matches descriptions.</p>
         <h3>Check it in the terminal, not the browser</h3>
 <pre><code>kubectl explain deployment.spec.template.spec --recursive | head -40
 kubectl explain deployment.spec.template.spec.containers.resources
