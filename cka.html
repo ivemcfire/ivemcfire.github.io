@@ -330,6 +330,7 @@
       <button class="tab-button" data-tab="debug">Debug</button>
       <button class="tab-button" data-tab="ladders">Fault Ladders</button>
       <button class="tab-button" data-tab="storage">Storage &amp; Config</button>
+      <button class="tab-button" data-tab="secrets">Secrets &amp; CM</button>
       <button class="tab-button" data-tab="networking">Networking</button>
       <button class="tab-button" data-tab="cluster">Cluster Ops</button>
       <button class="tab-button" data-tab="nodecni">Node &amp; CNI</button>
@@ -3183,6 +3184,79 @@ command | tee out.txt      <span class="comment"># screen AND file</span></code>
         </ul>
       </section>
 
+
+      <!-- ==================== SECRETS & CONFIGMAPS ==================== -->
+      <section class="tab-content" id="secrets">
+        <h2>Secrets &amp; ConfigMaps &mdash; create, then consume three ways</h2>
+        <p>Every question is the same two halves: build the object, then wire it into a Pod as <strong>one env var</strong>, <strong>all env vars</strong>, or <strong>a volume</strong>. The wiring is where the points go.</p>
+
+        <h3>Create</h3>
+<pre><code>k create secret generic db-creds -n NS \
+  --from-literal=username=appuser --from-literal=password=S3cr3tP4ss
+k create secret generic db-creds --from-file=./ca.crt        <span class="comment"># key = the FILENAME</span>
+k create secret generic db-creds --from-env-file=./app.env   <span class="comment"># key=value per line</span>
+k create secret tls web-tls --cert=tls.crt --key=tls.key
+k create secret docker-registry regcred --docker-server=S --docker-username=U --docker-password=P
+k create configmap app-cfg -n NS --from-literal=LOG_LEVEL=debug
+k create configmap app-cfg --from-file=./nginx.conf</code></pre>
+        <p><code>--from-literal</code> base64-encodes for you. Hand-written YAML under <code>data:</code> must already be base64 &mdash; or use <code>stringData:</code> and let the API server encode it.</p>
+
+        <h3>Read a value back</h3>
+<pre><code>k get secret db-creds -o jsonpath='{.data.password}' | base64 -d ; echo
+k get cm app-cfg -o yaml</code></pre>
+
+        <h3>Consume &mdash; ONE key as an env var</h3>
+<pre><code>    env:
+    - name: DB_USER
+      valueFrom:
+        secretKeyRef:        <span class="comment"># configMapKeyRef for a ConfigMap</span>
+          name: db-creds     <span class="comment"># WHICH object</span>
+          key: username      <span class="comment"># WHICH key inside it</span></code></pre>
+        <p><strong><code>key</code> on its own is invalid.</strong> The ref always needs both halves &mdash; the object name and the key.</p>
+
+        <h3>Consume &mdash; ALL keys as env vars</h3>
+<pre><code>    envFrom:
+    - secretRef:
+        name: db-creds       <span class="comment"># configMapRef for a ConfigMap</span></code></pre>
+
+        <h3>Consume &mdash; as a volume</h3>
+<pre><code>  volumes:
+  - name: creds
+    secret:
+      secretName: db-creds   <span class="comment"># SECRET says secretName</span>
+      defaultMode: 0400      <span class="comment"># optional</span>
+<span class="comment">#   configMap:</span>
+<span class="comment">#     name: app-cfg          # CONFIGMAP says name</span>
+
+    volumeMounts:
+    - name: creds
+      mountPath: /etc/db-creds
+      readOnly: true
+<span class="comment">#     subPath: password      # mount ONE key as a single file</span></code></pre>
+        <p>The <strong>volume</strong> names the object and nothing else. <code>mountPath</code> and <code>readOnly</code> belong to the <strong>volumeMount</strong>. Each key lands as a file named after the key, with the value as its contents.</p>
+
+        <table>
+          <thead><tr><th>Field</th><th>Secret</th><th>ConfigMap</th></tr></thead>
+          <tbody>
+            <tr><td>single key as env</td><td><code>secretKeyRef</code></td><td><code>configMapKeyRef</code></td></tr>
+            <tr><td>all keys as env</td><td><code>secretRef</code></td><td><code>configMapRef</code></td></tr>
+            <tr><td>volume source</td><td><code>secret.secretName</code></td><td><code>configMap.name</code></td></tr>
+          </tbody>
+        </table>
+        <p><strong>That last row is the asymmetry that bites.</strong> A Secret volume says <code>secretName</code>; a ConfigMap volume says <code>name</code>. Nothing else in the API works this way.</p>
+
+        <h3>Gotchas</h3>
+        <ul>
+          <li>Change the object: <strong>volume mounts refresh (~60s), env vars never</strong> &rarr; <code>k rollout restart deploy X</code>.</li>
+          <li><code>subPath</code> mounts freeze &mdash; no refresh at all, ever.</li>
+          <li><code>optional: true</code> lets the Pod start when the object is missing; without it you get <code>CreateContainerConfigError</code>.</li>
+          <li><code>immutable: true</code> blocks every edit &mdash; delete and recreate.</li>
+          <li>Wrong namespace = the Pod never starts. The Secret must live in the <em>Pod's</em> namespace.</li>
+        </ul>
+
+        <h3>Docs keys</h3>
+        <p><a href="https://kubernetes.io/docs/concepts/configuration/secret/"><code>secret volume pod</code></a> &middot; <a href="https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/"><code>secretKeyRef env var</code></a> &middot; <a href="https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/"><code>create secret generic</code></a> &middot; <a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/"><code>configmap volume mount</code></a> &mdash; or skip the browser: <code>k explain pod.spec.volumes.secret</code></p>
+      </section>
 
       <!-- ==================== YAML LAYERS ==================== -->
       <section class="tab-content" id="yaml">
