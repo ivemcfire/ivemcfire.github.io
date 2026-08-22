@@ -922,7 +922,13 @@ k explain pod.spec --recursive | less          <span class="comment"># whole tre
 k rollout history deployment/NAME     <span class="comment"># list revisions</span>
 k rollout undo deployment/NAME        <span class="comment"># revert to previous</span>
 k rollout undo deployment/NAME --to-revision=2
-k rollout restart deployment/NAME     <span class="comment"># force pod re-creation</span></code></pre>
+k rollout restart deployment/NAME     <span class="comment"># force pod re-creation</span>
+k annotate deploy NAME kubernetes.io/change-cause="image 1.27"</code></pre>
+        <ul>
+          <li><strong><code>--record</code> is gone.</strong> The key must be exactly <code>kubernetes.io/change-cause</code> &mdash; any other annotation never appears in <code>rollout history</code>, which will simply show <code>&lt;none&gt;</code>.</li>
+          <li>Annotate the revision you want labelled <em>before</em> moving off it: <code>rollout undo</code> replays the old revision including its change-cause.</li>
+          <li><code>rollout undo</code> does not reuse the old number &mdash; it replays that revision as a <strong>new</strong> one, and the original number disappears from the history.</li>
+        </ul>
 
         <h3>Delete</h3>
 
@@ -1257,6 +1263,24 @@ k get nodes -L size                           <span class="comment"># verify: th
         </table>
         <p>Toleration only <strong>permits</strong>, never <strong>attracts</strong> &mdash; a tolerating pod may still land elsewhere. "Only this pod, only on this node" = taint the node (repel others) <strong>+</strong> nodeSelector (pull this pod). One alone isn't enough.</p>
 
+        <h3>Read BOTH lists before writing the spec</h3>
+        <p>A node carries two separate lists. A Pod has two separate fields. <strong>They never share values.</strong></p>
+        <table>
+          <thead><tr><th>On the node</th><th>Read by</th><th>Pod field</th></tr></thead>
+          <tbody>
+            <tr><td><code>Taints:</code></td><td>tolerations</td><td><code>tolerations[].key / value / effect</code></td></tr>
+            <tr><td><code>Labels:</code></td><td>targeting</td><td><code>nodeSelector</code> (or affinity)</td></tr>
+          </tbody>
+        </table>
+<pre><code>k describe node &lt;node&gt; | grep -A2 Taints   <span class="comment"># -&gt; toleration key/value/effect</span>
+k get nodes --show-labels                  <span class="comment"># ALL nodes — compare the rows</span>
+k get nodes -l hardware=gpu                <span class="comment"># confirm the label is distinguishing</span></code></pre>
+        <ul>
+          <li><strong>Taking the toleration key from the node&rsquo;s LABEL is the classic miss.</strong> A label never appears on the <code>Taints:</code> line &mdash; if your toleration key is not in that grep output, it matches nothing and the Pod stays off the node.</li>
+          <li><code>k get node &lt;one-node&gt; --show-labels</code> cannot tell you which label is <em>distinguishing</em>. You need every row to compare against, then <code>-l</code> to confirm the count.</li>
+          <li>Exact <code>key: value</code> match &rarr; <strong><code>nodeSelector</code>, two lines.</strong> <code>nodeSelectorTerms</code> / <code>matchExpressions</code> is <em>affinity</em>, the long form &mdash; only for <code>In</code>/<code>NotIn</code>/<code>Exists</code>/<code>Gt</code>/<code>Lt</code> or a soft preference.</li>
+        </ul>
+
         <h3>Taints (imperative)</h3>
 <pre><code>k taint nodes cluster1-node02 spray=mortein:NoSchedule     <span class="comment"># key=value:effect</span>
 k describe node cluster1-node02 | grep -i taint            <span class="comment"># check</span>
@@ -1491,7 +1515,8 @@ cat /etc/resolv.conf      <span class="comment"># search domains + the CoreDNS C
         <div class="warning"><strong>Localising a fault is not the same as knowing where it hides.</strong> Each ladder below is an ordered list of the only places that fault can live. Walk it top to bottom &mdash; the failure mode this page exists to prevent is stalling one step short, having already narrowed the problem correctly.</div>
 
         <h3>DNS &mdash; names don&rsquo;t resolve</h3>
-<pre><code>k -n kube-system get pods -l k8s-app=kube-dns        <span class="comment"># 1. resolver alive?</span>
+<pre><code>k -n kube-system get deploy coredns                  <span class="comment"># 0. READY 0/0 answers it outright</span>
+k -n kube-system get pods -l k8s-app=kube-dns        <span class="comment"># 1. resolver alive?</span>
 k -n kube-system get endpoints kube-dns              <span class="comment"># 2. empty = replicas 0 | labels != selector | not Ready</span>
 k -n kube-system get svc kube-dns                    <span class="comment"># 3. ClusterIP ...</span>
 k run r --image=busybox:1.28 --rm -it --restart=Never -- cat /etc/resolv.conf
@@ -1501,6 +1526,8 @@ k -n kube-system get cm coredns -o yaml              <span class="comment"># 4. 
           <li><strong>Step 4 is where an injected DNS fault almost always lives</strong>, because the Corefile is the only DNS config that is a plain text file someone can edit. <code>kubernetes &lt;zone&gt;</code> must read <code>cluster.local</code>; also check the <code>forward .</code> upstream.</li>
           <li>Then: Pod <code>dnsPolicy</code> (hostNetwork Pods need <code>ClusterFirstWithHostNet</code>), and <code>clusterDNS</code> in <code>/var/lib/kubelet/config.yaml</code>.</li>
           <li><strong>Timeout</strong> = never reached, or not authoritative for the zone. <strong>NXDOMAIN</strong> = reached fine, wrong name.</li>
+          <li><strong>Step 0 exists because an empty grep and a healthy Deployment look nothing alike once you actually check.</strong> <code>get deploy</code> before <code>get pods</code>: a CoreDNS scaled to <code>0/0</code> produces no Pods at all, and "the pods are running" reported without looking sends the whole diagnosis to the Service selector, which will be innocent. Restore with <code>k -n kube-system scale deploy coredns --replicas=2</code>.</li>
+          <li>Empty <code>kube-dns</code> endpoints has <strong>two</strong> causes &mdash; the Service selector changed, or the Pods stopped carrying the label. Read both sides before touching either: <code>get svc kube-dns -o jsonpath='{.spec.selector}'</code> against <code>get pods --show-labels</code>.</li>
         </ul>
 
         <h3>Service &mdash; Pod can&rsquo;t reach Pod</h3>
@@ -1742,6 +1769,8 @@ k apply -f web.yaml</code></pre>
         <ul>
           <li>volume <code>name</code> must == volumeMount <code>name</code> (<code>data-vol</code> in both) &mdash; mismatch = silent no-mount, no error.</li>
           <li>PVC stuck <code>Pending</code> = no PV matches (class/access/size). <code>k describe pvc pvc-log -n data</code> tells you why.</li>
+          <li><strong>PVC Pending &rarr; <code>k get sc</code> FIRST, before you suspect your own YAML.</strong> <code>No resources found</code> means the cluster has no dynamic provisioner at all, and <em>no</em> PVC can ever bind without a manually created PV. The event reads <code>no persistent volumes available for this claim and no storage class is set</code>.</li>
+          <li>A StatefulSet <code>volumeClaimTemplate</code> obeys exactly the same rule &mdash; no provisioner, no binding, and the Pods sit <code>Pending</code> forever on a perfectly correct spec.</li>
           <li>PV is cluster-scoped, PVC is namespaced. <code>-n</code> on the PVC, never on the PV.</li>
           <li><code>emptyDir: {}</code> = scratch (dies with pod). Can't shrink a PVC. RWO &ne; multi-node.</li>
           <li>Secret values are base64 &mdash; <code>--from-literal</code> encodes for you.</li>
