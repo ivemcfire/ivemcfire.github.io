@@ -1404,7 +1404,23 @@ k taint nodes cluster1-node02 spray=mortein:NoSchedule-    <span class="comment"
           <li>Labels = memorize. k8s.io search <strong>"taints and tolerations"</strong> &middot; <strong>"assign pods to nodes"</strong> (affinity, Ctrl+F <code>nodeAffinity:</code>).</li>
           <li>PriorityClass: <em>concepts/scheduling-eviction/pod-priority-preemption</em>, Ctrl+F <code>globalDefault</code>.</li>
         </ul>
-      </section>
+      
+        <h3>Changing a PriorityClass does not touch running Pods</h3>
+<pre><code>k get priorityclass                                  <span class="comment"># who already holds globalDefault?</span>
+k edit priorityclass batch-low                       <span class="comment"># edit an EXISTING class</span>
+k -n apps rollout restart deployment web             <span class="comment"># make existing Pods pick it up</span>
+k -n apps get pods -o custom-columns=NAME:.metadata.name,PRIO:.spec.priority --no-headers</code></pre>
+        <p>A Pod's <code>priority</code> is resolved by the admission controller at <strong>creation</strong> and is immutable on that Pod.</p>
+        <table>
+          <thead><tr><th>You changed</th><th>Rollout happens?</th><th>Need <code>rollout restart</code>?</th></tr></thead>
+          <tbody>
+            <tr><td><code>priorityClassName</code> in the pod template</td><td>yes, automatically</td><td>no</td></tr>
+            <tr><td>a PriorityClass's <code>value</code></td><td>no</td><td><strong>yes</strong></td></tr>
+            <tr><td>which class is <code>globalDefault</code></td><td>no</td><td><strong>yes</strong></td></tr>
+          </tbody>
+        </table>
+        <ul><li>Same mechanism as a ConfigMap edit not reaching running Pods. Ask: did I change the template, or something the template <em>points at</em>?</li></ul>
+</section>
 
       <!-- ==================== DEBUG ==================== -->
       <section class="tab-content" id="debug">
@@ -1998,7 +2014,26 @@ k run t -n dev --labels app=web --image=busybox:1.28 --rm -it --restart=Never --
           <li>kubernetes.io search <strong>"network policy"</strong> &rarr; Ctrl+F <code>- from:</code>, copy the <code>test-network-policy</code> block, trim to the two selectors.</li>
           <li>The ns label lives on <em>Well-Known Labels, Annotations and Taints</em> &mdash; or just read <code>k get ns --show-labels</code>.</li>
         </ul>
-      </section>
+      
+        <h3>Given several candidate policies &mdash; pick the minimal sufficient one</h3>
+<pre><code>k -n prod get deploy -o custom-columns=NAME:.metadata.name,LABELS:.spec.template.metadata.labels --no-headers
+k get ns --show-labels
+k -n prod describe netpol allow-web           <span class="comment"># renders AND vs OR in plain English</span></code></pre>
+        <p>Read the <strong>live labels first</strong>, then judge each candidate. "Just enough" = the tightest policy that still admits the required traffic.</p>
+        <table>
+          <thead><tr><th>Candidate shape</th><th>Admits</th></tr></thead>
+          <tbody>
+            <tr><td><code>namespaceSelector</code> alone</td><td>every Pod in that namespace</td></tr>
+            <tr><td><code>namespaceSelector</code> + <code>podSelector</code>, <strong>same dash</strong></td><td>those Pods, in that namespace (AND) &mdash; usually the answer</td></tr>
+            <tr><td>the two on <strong>separate dashes</strong></td><td>that whole namespace <strong>OR</strong> those Pods anywhere (broader!)</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><strong><code>ipBlock</code> cannot be combined with <code>podSelector</code>/<code>namespaceSelector</code> in the same <code>from</code> element</strong> &mdash; the API rejects it. A "namespace + pod + CIDR" policy must put the CIDR on its own dash, which makes it <strong>broader</strong>, not stricter, however strict it looks.</li>
+          <li><strong>Pod IPs are ephemeral</strong> &mdash; <code>ipBlock</code> is for off-cluster CIDRs, never pod-to-pod.</li>
+          <li>If the required labels aren't actually on the Pods, the tighter policy fails closed. Verify labels <em>before</em> choosing.</li>
+        </ul>
+</section>
 
       <!-- ==================== CLUSTER OPS ==================== -->
       <section class="tab-content" id="cluster">
@@ -2359,7 +2394,39 @@ kubelet-1.35.0            <span class="comment"># dnf: HYPHEN, bare version reso
           <li>crictl: search <strong>"crictl"</strong> &rarr; <em>Debugging Kubernetes nodes with crictl</em>.</li>
           <li>packages: <strong>"install kubeadm"</strong> &rarr; <em>Installing kubeadm, kubelet and kubectl</em> &mdash; switch the OS tab.</li>
         </ul>
-      </section>
+      
+        <h3>Kubelet TLS &mdash; read the error string, they need different fixes</h3>
+<pre><code>journalctl -u kubelet -n 50 --no-pager | grep -iE 'tls|x509|cert|key'
+ls -l  /var/lib/kubelet/pki/     <span class="comment"># sizes here are LIES for symlinks</span>
+ls -lL /var/lib/kubelet/pki/     <span class="comment"># -L follows links: the real sizes</span>
+kubeadm certs check-expiration</code></pre>
+        <table>
+          <thead><tr><th>Error text</th><th>Meaning</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr><td>must be supplied as a <strong>pair</strong></td><td>one half missing or unresolvable</td><td>restore / repoint the missing file</td></tr>
+            <tr><td><code>private key does not match public key</code></td><td>mismatch</td><td>compare moduli, repoint or regenerate</td></tr>
+            <tr><td><code>certificate has expired</code></td><td>renewal</td><td><code>kubeadm certs renew &lt;name&gt;</code></td></tr>
+            <tr><td><code>certificate is not yet valid</code></td><td><strong>clock skew</strong>, not expiry</td><td>fix <code>date</code>; renewing won't help</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li>Two identities &mdash; fix the right one. <strong>client</strong>: <code>/etc/kubernetes/kubelet.conf</code> (<code>client-certificate</code>/<code>client-key</code>). <strong>serving</strong>: <code>/var/lib/kubelet/config.yaml</code> (<code>tlsCertFile</code>/<code>tlsPrivateKeyFile</code>).</li>
+          <li><code>kubeadm certs renew</code> does <strong>not</strong> touch kubelet's auto-rotated client cert under <code>/var/lib/kubelet/pki/</code>.</li>
+        </ul>
+
+        <h3>A tiny file in a PKI directory is a SYMLINK until proven otherwise</h3>
+<pre><code>ls -l &lt;dir&gt;           <span class="comment"># a symlink's size = length of its TARGET PATH, never content</span>
+readlink -f &lt;link&gt;    <span class="comment"># where it actually points</span>
+cat &lt;link&gt;            <span class="comment"># dangling -> "No such file or directory"</span>
+grep -c BEGIN f.pem   <span class="comment"># cert+key pem has TWO BEGIN blocks; one = half a pair</span></code></pre>
+        <ul>
+          <li><code>&lt;name&gt;-current.pem</code> is normally a <strong>symlink</strong> to <code>&lt;name&gt;-YYYY-MM-DD-HH-MM-SS.pem</code>. A healthy one reports ~50-60 bytes &mdash; <strong>that number carries no health information</strong>, broken ones report it too.</li>
+          <li><code>ls --color</code>: <strong>cyan = healthy link, red = dangling.</strong> Fastest tell in the directory.</li>
+          <li>Repoint, don't replace: <code>ln -sf &lt;dated&gt;.pem &lt;name&gt;-current.pem</code> keeps the dated original. <code>mv</code> consumes your only good copy.</li>
+          <li><strong>A cert file is read at STARTUP. After fixing it: <code>systemctl restart kubelet</code>.</strong> File correct + no restart = still broken.</li>
+          <li><code>systemctl is-active</code> says <code>active</code> while the node is NotReady. <strong>Active never means healthy.</strong></li>
+        </ul>
+</section>
 
       <!-- ==================== RBAC ==================== -->
       <!-- ==================== NODE & CNI ==================== -->
@@ -2452,7 +2519,37 @@ k run t --image=nginx &amp;&amp; k get pod t -o wide    <span class="comment"># 
           <li>Install Tools &rarr; <em>Installing kubeadm</em> &mdash; package install, <code>apt-mark hold</code>.</li>
           <li><strong>Calico&rsquo;s own site is not on the exam allowlist</strong> &mdash; the manifest URL comes from the task text.</li>
         </ul>
-      </section>
+      
+        <h3>Installing a CNI when the task offers a CHOICE</h3>
+<pre><code>k cluster-info dump | grep -m1 cluster-cidr    <span class="comment"># the pod CIDR the manifest must carry</span>
+ls /etc/cni/net.d/                             <span class="comment"># on a node: which conflist was left</span>
+k get crd | grep -Ei 'calico|cilium|flannel|tigera'
+k get ds,deploy -A | grep -Ei 'calico|cilium|flannel|weave'</code></pre>
+        <table>
+          <thead><tr><th>Situation</th><th>Choose</th></tr></thead>
+          <tbody>
+            <tr><td>remnants name a CNI <strong>and</strong> it is offered</td><td><strong>that one</strong> &mdash; its CRDs / IPPool already match</td></tr>
+            <tr><td>remnants name one not offered, or nothing identifiable</td><td>whichever option has an <strong>actionable manifest</strong></td></tr>
+            <tr><td>an option is a bare version string with no link</td><td><strong>not actionable under time &mdash; skip it</strong></td></tr>
+          </tbody>
+        </table>
+<pre><code>curl -sLO https://raw.githubusercontent.com/projectcalico/calico/&lt;ver&gt;/manifests/calico.yaml
+head -1 calico.yaml                            <span class="comment"># '---', not '&lt;!DOCTYPE html&gt;'</span>
+grep -n 'CALICO_IPV4POOL_CIDR' calico.yaml     <span class="comment"># uncomment, set to the cluster CIDR</span>
+k apply -f calico.yaml 2&gt;&amp;1 | tail -3          <span class="comment"># read the LAST line</span>
+k -n kube-system get ds                        <span class="comment"># the DaemonSet must exist</span>
+k -n kube-system rollout status ds/calico-node --timeout=180s
+k -n kube-system rollout restart deployment coredns</code></pre>
+        <ul>
+          <li><strong><code>k apply</code> on a multi-doc file stops at the first parse error and leaves a PARTIAL install.</strong> CRDs and ClusterRoles get created; the DaemonSet, later in the file, never does &mdash; and the cluster <em>looks</em> installed. Read apply's <strong>last</strong> line, then <code>get ds</code>.</li>
+          <li>kubectl's reported line number is relative to the <strong>document</strong> it choked on, not the file. <code>grep -n</code> your own edit instead of trusting it.</li>
+          <li>A leftover IPPool or CRD is <strong>not</strong> proof your install worked &mdash; it can be a remnant of the previous CNI.</li>
+          <li><strong>kubelet loads the LEXICALLY FIRST file in <code>/etc/cni/net.d/</code>.</strong> A leftover <code>05-x.conflist</code> silently beats <code>10-calico.conflist</code>. Clear the directory before installing a different vendor.</li>
+          <li><strong>Replacing a CNI does not re-network existing Pods.</strong> Survivors keep old IPs, show <code>Running</code>, and are unreachable &mdash; DNS fails while a brand-new Pod gets a valid IP. Restart them.</li>
+          <li>Nodes go Ready as soon as the conflist is written, which can be <strong>before</strong> the agent is healthy. The <code>get ds</code> READY count is the real signal, not <code>get nodes</code>.</li>
+          <li>Pods can't schedule while nodes are NotReady (<code>node.kubernetes.io/not-ready:NoSchedule</code>). Pending test Pods are a symptom, not a second fault.</li>
+        </ul>
+</section>
 
       <section class="tab-content" id="rbac">
         <h2>RBAC &mdash; ServiceAccount &rarr; Role &rarr; Binding</h2>
@@ -2737,7 +2834,26 @@ helm template bitnami/nginx    <span class="comment"># render locally, no instal
         </ul>
         <h3>Docs path</h3>
         <ul><li><strong>helm.sh/docs</strong> &rarr; "Helm Commands" / "Values Files"; <code>helm &lt;cmd&gt; --help</code>.</li></ul>
-      </section>
+      
+        <h3>Produce a chart or manifests <em>without</em> installing</h3>
+<pre><code>helm package ./mychart --version 2.4.1 -d /root/     <span class="comment"># -> /root/mychart-2.4.1.tgz</span>
+helm template rel ./mychart &gt; rendered.yaml          <span class="comment"># YAML on stdout, no cluster needed</span>
+helm show chart ./mychart                            <span class="comment"># a local chart's name + version</span></code></pre>
+        <table>
+          <thead><tr><th>Task wording</th><th>Verb</th><th>Output</th></tr></thead>
+          <tbody>
+            <tr><td>"package / build / create the chart at version X"</td><td><code>helm package --version X</code></td><td>a <code>.tgz</code> archive</td></tr>
+            <tr><td>"render / generate the manifests", "do not apply"</td><td><code>helm template</code></td><td>YAML on stdout</td></tr>
+            <tr><td>"download the chart" from a repo</td><td><code>helm pull --untar</code></td><td>a chart directory</td></tr>
+            <tr><td>"install / deploy"</td><td><code>helm install</code></td><td>a release in the cluster</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><strong><code>--version</code> on <code>helm package</code> OVERRIDES <code>Chart.yaml</code></strong> &mdash; that is how a local path gets a pinned version. On <code>helm install</code> with a local path it is ignored.</li>
+          <li><code>helm template</code> records nothing &mdash; <code>helm list</code> stays empty. Verify the <strong>artifact</strong> (<code>ls -l *.tgz</code>), not the release.</li>
+          <li><code>helm package</code> also takes <code>--app-version</code>. Different field, different question.</li>
+        </ul>
+</section>
 
       <section class="tab-content" id="kustomize">
         <h2>Native sidecar <span style="opacity:.6">(post-2025 addition)</span></h2>
