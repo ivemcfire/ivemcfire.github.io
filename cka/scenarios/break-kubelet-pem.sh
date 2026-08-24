@@ -20,12 +20,14 @@ command -v kubectl >/dev/null || { echo "kubectl not found — run this on the b
 CTX="$(kubectl config current-context 2>/dev/null)"
 [ -n "$CTX" ] || { echo "no kubectl context — check your kubeconfig."; exit 1; }
 
+SSH="ssh -n -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes"
+
 pick_worker() {
-  kubectl get nodes --no-headers 2>/dev/null \
+  kubectl get nodes --no-headers --request-timeout=10s 2>/dev/null \
     | awk '$3 !~ /control-plane|master/ {print $1; exit}'
 }
 
-SSH="ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10"
+quiet() { grep -viE '^warning: permanently added|^$' || true; }
 
 if [ "$MODE" = "restore" ]; then
   NODE="$([ -f "$STATE" ] && sed -n 2p "$STATE" || pick_worker)"
@@ -41,32 +43,36 @@ if [ "$MODE" = "restore" ]; then
       chmod 600 $CUR
     fi
     [ -f ${BOOT}.disabled ] && mv ${BOOT}.disabled $BOOT
-    systemctl restart kubelet
-  " >/dev/null 2>&1
+    systemctl restart --no-block kubelet
+  " 2>&1 | quiet
   rm -f "$STATE"
   echo "Restored on $NODE. Give it ~40s, then: kubectl get nodes"
   exit 0
 fi
 
+echo "context: $CTX"
 NODE="$(pick_worker)"
-[ -n "$NODE" ] || { echo "no worker node found in context $CTX."; exit 1; }
+[ -n "$NODE" ] || { echo "no worker node found in context $CTX — is this a kubeadm cluster?"; exit 1; }
+echo "target:  $NODE"
 
-$SSH "$NODE" "mkdir -p $STASH" \
-  || { echo "ssh to $NODE failed — is this the right cluster?"; exit 1; }
+$SSH "$NODE" "mkdir -p $STASH" 2>&1 | quiet
+$SSH "$NODE" "test -d $PKI" || {
+  echo "cannot reach $NODE over ssh, or $PKI is missing. Nothing was changed."
+  exit 1
+}
 
 $SSH "$NODE" "
   set -e
   cd $PKI
 
-  # Preserve pristine state for restore.
   if [ -L $CUR ]; then
     readlink -f $CUR > $STASH/link_target
   else
     cp -n $CUR $STASH/kubelet-client-current.pem
   fi
 
-  # Ensure a REAL, valid dated certificate exists on disk. This is the file the
-  # drill must find and re-point at — it is never touched by the fault.
+  # Ensure a REAL, valid dated certificate exists. This is the file the drill
+  # must find and re-point at — the fault never touches it.
   DATED=\$(ls -1 kubelet-client-????-??-??-*.pem 2>/dev/null | tail -1)
   if [ -z \"\$DATED\" ]; then
     DATED=\"kubelet-client-\$(date -d '-32 days' +%Y-%m-%d-%H-%M-%S).pem\"
@@ -75,19 +81,23 @@ $SSH "$NODE" "
   fi
 
   # THE FAULT: current.pem becomes a symlink to a target that does not exist.
-  # ls -l reports the length of the target PATH (a plausible-looking small size);
-  # ls --color renders it red. The real certificate is still sitting next to it.
   rm -f $CUR
   ln -s $PKI/kubelet-client-rotated.pem $CUR
 
-  # Remove the bootstrap path so kubelet cannot silently self-heal.
-  [ -f $BOOT ] && mv $BOOT ${BOOT}.disabled || true
+  if [ -f $BOOT ]; then mv $BOOT ${BOOT}.disabled; fi
 
-  systemctl restart kubelet
-" >/dev/null 2>&1
+  systemctl restart --no-block kubelet
+" 2>&1 | quiet
+
+if ! $SSH "$NODE" "test -L $CUR && ! test -e $CUR"; then
+  echo "injection did not take on $NODE. Check: ssh $NODE 'ls -l $PKI'"
+  exit 1
+fi
 
 { echo "# cka kubelet-pem fault"; echo "$NODE"; echo "$CTX"; } > "$STATE"
 
-sleep 25
+printf 'settling'
+for _ in $(seq 1 10); do printf '.'; sleep 2; done
+echo
 echo "Environment prepared on context $CTX."
 echo "Something is wrong with the cluster. Investigate and fix it."
