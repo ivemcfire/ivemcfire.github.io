@@ -10,6 +10,7 @@
 #
 # Usage:
 #   bash setup-preempt.sh          # seed
+#   EXAM_SHAPE=1 bash setup-preempt.sh  # also seed Deployment urgent + low-priority as globalDefault
 #   bash setup-preempt.sh restore  # remove everything it created
 
 set -euo pipefail
@@ -103,6 +104,21 @@ EOF
 banner "waiting for filler to settle"
 sleep 10
 kubectl get pod -n "$NS" -o wide
+
+if [[ "${EXAM_SHAPE:-}" == "1" ]]; then
+  banner "exam shape: existing Deployment urgent + low-priority as global default"
+  kubectl patch priorityclass low-priority -p '{"globalDefault":true}' >/dev/null
+  kubectl -n "$NS" create deployment urgent --image=registry.k8s.io/pause:3.9 --replicas=2 \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  kubectl -n "$NS" set resources deploy urgent --requests=memory=${URGENT_MI}Mi,cpu=20m >/dev/null
+  kubectl -n "$NS" patch deploy urgent \
+    -p "{\"spec\":{\"template\":{\"spec\":{\"nodeSelector\":{\"kubernetes.io/hostname\":\"$NODE\"}}}}}" >/dev/null
+  sleep 5
+  echo
+  echo "Seeded (exam shape). Namespace $NS, node $NODE."
+  echo "Cleanup: bash setup-preempt.sh restore"
+  exit 0
+fi
 
 cat <<EOF
 
