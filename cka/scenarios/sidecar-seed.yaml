@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger
+  namespace: apps
+  labels:
+    app: ledger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ledger
+  template:
+    metadata:
+      labels:
+        app: ledger
+    spec:
+      containers:
+      - name: ledger
+        image: busybox:1.36
+        command: ["/bin/sh", "-c", "while true; do echo \"$(date) txn ok\" >> /var/log/ledger.log; sleep 3; done"]
