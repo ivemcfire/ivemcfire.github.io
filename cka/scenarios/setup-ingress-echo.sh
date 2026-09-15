@@ -51,7 +51,7 @@ probe() { # host path
 }
 case "${1:-}" in
   a) echo "== spec"; spec portal echo-ing
-     echo "== probes"; probe example.com /echo; probe other.com /echo ;;
+     echo "== probes"; probe example.com /echo/x; probe other.com /echo/x ;;  # whoami serves bare /echo as websocket (400)
   b) echo "== spec"; spec shop shop-ing
      echo "== probes"; probe shop.example.com /cart; probe shop.example.com /cart/items
      probe shop.example.com /catalog; probe shop.example.com /catalog/books ;;
