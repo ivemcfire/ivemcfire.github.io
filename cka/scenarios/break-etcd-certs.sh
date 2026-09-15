@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # CKA drill fault injector — apiserver's etcd connection (control plane).
 #
-#   bash break-etcd-certs.sh           inject (one of three variants, at random)
-#   bash break-etcd-certs.sh 0|1|2     inject a specific variant
+#   bash break-etcd-certs.sh           inject (one of four variants, at random)
+#   bash break-etcd-certs.sh 0-3     inject a specific variant
 #   bash break-etcd-certs.sh restore   undo it
 #
 # ONE fault per run. All three break the apiserver's connection to etcd, so the
@@ -20,6 +20,9 @@ STATE="/tmp/.cka-etcd-fault"
 STASH="/root/.cka-fault"
 MANIFEST="/etc/kubernetes/manifests/kube-apiserver.yaml"
 SSH="ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10"
+cpx() { # run on the control-plane host; local when we are already on it (single-node labs)
+  if [ "$1" = "$(hostname)" ] || [ "$1" = "$(hostname -s)" ]; then shift; bash -c "$*"; else $SSH "$@"; fi
+}
 
 MODE="${1:-break}"
 
@@ -30,7 +33,7 @@ if [ "$MODE" = "restore" ]; then
     CP="$(kubectl config current-context 2>/dev/null)-controlplane"; VARIANT="unknown"
   fi
   [ -n "$CP" ] || { echo "cannot determine the control-plane host."; exit 1; }
-  $SSH "$CP" "[ -f $STASH/kube-apiserver.yaml ] && cp -f $STASH/kube-apiserver.yaml $MANIFEST" >/dev/null 2>&1
+  cpx "$CP" "[ -f $STASH/kube-apiserver.yaml ] && cp -f $STASH/kube-apiserver.yaml $MANIFEST" >/dev/null 2>&1
   rm -f "$STATE"
   echo "Restored on $CP (variant $VARIANT). The apiserver needs ~60s — then: kubectl get nodes"
   exit 0
@@ -44,20 +47,22 @@ CP="$(kubectl get nodes --no-headers -o custom-columns=N:.metadata.name,R:.metad
 [ -n "$CP" ] || CP="${CTX}-controlplane"
 
 case "$MODE" in
-  0|1|2) VARIANT="$MODE" ;;
-  *)     VARIANT=$((RANDOM % 3)) ;;
+  0|1|2|3) VARIANT="$MODE" ;;
+  *)     VARIANT=$((RANDOM % 4)) ;;
 esac
 
-$SSH "$CP" "mkdir -p $STASH && cp -n $MANIFEST $STASH/kube-apiserver.yaml" \
+cpx "$CP" "mkdir -p $STASH && cp -n $MANIFEST $STASH/kube-apiserver.yaml" \
   || { echo "ssh to $CP failed — is this the right cluster?"; exit 1; }
 
 case "$VARIANT" in
   0) # plaintext scheme against a TLS listener
-     $SSH "$CP" "sed -i 's|--etcd-servers=https://|--etcd-servers=http://|' $MANIFEST" >/dev/null 2>&1 ;;
+     cpx "$CP" "sed -i 's|--etcd-servers=https://|--etcd-servers=http://|' $MANIFEST" >/dev/null 2>&1 ;;
   1) # the cluster CA instead of the etcd CA — cert chain will not verify
-     $SSH "$CP" "sed -i 's|--etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt|--etcd-cafile=/etc/kubernetes/pki/ca.crt|' $MANIFEST" >/dev/null 2>&1 ;;
+     cpx "$CP" "sed -i 's|--etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt|--etcd-cafile=/etc/kubernetes/pki/ca.crt|' $MANIFEST" >/dev/null 2>&1 ;;
   2) # client cert path that does not exist
-     $SSH "$CP" "sed -i 's|--etcd-certfile=.*|--etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client-old.crt|' $MANIFEST" >/dev/null 2>&1 ;;
+     cpx "$CP" "sed -i 's|--etcd-certfile=.*|--etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client-old.crt|' $MANIFEST" >/dev/null 2>&1 ;;
+  3) # peer port instead of the client port
+     cpx "$CP" "sed -i 's|--etcd-servers=\(https://[^,]*\):2379|--etcd-servers=\1:2380|' $MANIFEST" >/dev/null 2>&1 ;;
 esac
 
 printf '%s\n%s\n' "$CP" "$VARIANT" > "$STATE"
