@@ -333,6 +333,7 @@
       <button class="tab-button" data-tab="secrets">Secrets &amp; CM</button>
       <button class="tab-button" data-tab="networking">Networking</button>
       <button class="tab-button" data-tab="cluster">Cluster Ops</button>
+      <button class="tab-button" data-tab="certs">Certs &amp; TLS</button>
       <button class="tab-button" data-tab="nodecni">Node &amp; CNI</button>
       <button class="tab-button" data-tab="rbac">RBAC</button>
       <button class="tab-button" data-tab="helm">Helm</button>
@@ -2039,31 +2040,6 @@ k -n prod describe netpol allow-web           <span class="comment"># renders AN
       <section class="tab-content" id="cluster">
         <h2>Cluster Ops &mdash; etcd, node maintenance, kubeadm upgrade</h2>
 
-        <h3>Control-plane cert expiry &mdash; apiserver down / kubectl x509</h3>
-        <p>Read the error to find <em>which</em> cert died: <code>kubectl</code> failing x509 = the <strong>client</strong> cert in <code>admin.conf</code> / <code>~/.kube/config</code>; apiserver down = the <strong>server</strong> certs in <code>/etc/kubernetes/pki/</code>. Usually both, since kubeadm certs expire together at one year.</p>
-<pre><code>ssh &lt;controlplane&gt;
-date                                   <span class="comment"># clock skew reads as "not yet valid" — renewal won't fix that</span>
-kubeadm certs check-expiration         <span class="comment"># whole picture, incl. the kubeconfigs</span>
-kubeadm certs renew all                <span class="comment"># pki/*.crt AND admin/controller-manager/scheduler.conf</span></code></pre>
-        <p><strong>Renewal alone changes nothing for the running components.</strong> Restart the static pods by moving the manifests out and back:</p>
-<pre><code>mkdir -p /tmp/mf
-mv /etc/kubernetes/manifests/*.yaml /tmp/mf/
-sleep 25
-mv /tmp/mf/*.yaml /etc/kubernetes/manifests/</code></pre>
-<pre><code><span class="comment"># then refresh the client config, or kubectl keeps failing against a healthy cluster</span>
-cp /etc/kubernetes/admin.conf $HOME/.kube/config
-chown $(id -u):$(id -g) $HOME/.kube/config</code></pre>
-        <p><strong>Verify on the wire, not from the files</strong> &mdash; <code>check-expiration</code> reads what is on disk, not what is being served:</p>
-<pre><code>openssl s_client -connect localhost:6443 &lt;/dev/null 2&gt;/dev/null | openssl x509 -noout -dates
-grep client-certificate-data $HOME/.kube/config | awk '{print $2}' | base64 -d | openssl x509 -noout -dates</code></pre>
-        <ul>
-          <li>The manifest path is <code>/etc/kubernetes/manifests/</code>; confirm on any cluster with <code>grep staticPodPath /var/lib/kubelet/config.yaml</code>.</li>
-          <li><strong>kube-apiserver reloads its serving cert without restarting</strong> &mdash; so <code>RESTARTS 0</code> is not proof the renewal failed. <strong>controller-manager and scheduler do NOT reload</strong>; they read their kubeconfigs once at startup, which is why the restart is still required.</li>
-          <li><code>kubeadm certs renew</code> does <strong>not</strong> touch kubelet&rsquo;s auto-rotated cert in <code>/var/lib/kubelet/pki/</code>.</li>
-          <li><code>kubeadm upgrade</code> renews certs as a side effect &mdash; why upgraded clusters never hit this.</li>
-          <li><code>kubeadm</code> lives on the control-plane node only &mdash; <code>command not found</code> on the bastion means you skipped the <code>ssh</code>.</li>
-        </ul>
-
         <h3>Legend &mdash; one worked example, used everywhere below</h3>
         <p>Nothing on this page is a placeholder. Every command is runnable as written; swap these nouns for the ones in your question.</p>
         <table>
@@ -2394,7 +2370,48 @@ kubelet-1.35.0            <span class="comment"># dnf: HYPHEN, bare version reso
           <li>crictl: search <strong>"crictl"</strong> &rarr; <em>Debugging Kubernetes nodes with crictl</em>.</li>
           <li>packages: <strong>"install kubeadm"</strong> &rarr; <em>Installing kubeadm, kubelet and kubectl</em> &mdash; switch the OS tab.</li>
         </ul>
-      
+</section>
+
+      <!-- ==================== RBAC ==================== -->
+      <!-- ==================== CERTS & TLS ==================== -->
+      <section class="tab-content" id="certs">
+        <h2>Certificates &amp; kubelet TLS</h2>
+        <h3>Which identity is broken &mdash; decide this first</h3>
+        <ul>
+          <li><code>kubectl</code> fails x509 &rArr; <strong>client</strong> cert in <code>admin.conf</code> / <code>~/.kube/config</code></li>
+          <li>apiserver down, logs x509 &rArr; <strong>server</strong> certs in <code>/etc/kubernetes/pki/</code></li>
+          <li>node NotReady, kubelet logs x509 &rArr; <strong>kubelet&rsquo;s own</strong> certs in <code>/var/lib/kubelet/pki/</code></li>
+          <li>usually more than one &mdash; kubeadm certs all expire together at one year</li>
+        </ul>
+        <table>
+          <thead><tr><th>Identity</th><th>Wired in</th><th>Keys</th></tr></thead>
+          <tbody>
+            <tr><td><strong>client</strong> (talks to the API)</td><td><code>/etc/kubernetes/kubelet.conf</code></td><td><code>client-certificate</code> / <code>client-key</code></td></tr>
+            <tr><td><strong>serving</strong> (its own HTTPS)</td><td><code>/var/lib/kubelet/config.yaml</code></td><td><code>tlsCertFile</code> / <code>tlsPrivateKeyFile</code></td></tr>
+            <tr><td>the actual files</td><td><code>/var/lib/kubelet/pki/</code></td><td>usually &rarr; <code>kubelet-client-current.pem</code></td></tr>
+          </tbody>
+        </table>
+        <p><code>Failed to listen and serve</code> = kubelet&rsquo;s own HTTPS listener = the <strong>serving</strong> cert. Client-auth failures never say &ldquo;listen and serve&rdquo;.</p>
+
+        <h3>Cheapest tell first &mdash; timestamps and backups, before any openssl</h3>
+<pre><code>ls -lat /var/lib/kubelet/pki/</code></pre>
+        <p>One <strong>fresh mtime among old ones</strong> is the swapped file. A <code>.bak</code> / <code>.old</code> / <code>.orig</code> in the same directory is the diagnosis <em>and</em> the fix, handed to you. This beats crypto for finding a planted fault.</p>
+
+        <h3>Prove a mismatch &mdash; moduli must hash identically</h3>
+<pre><code>openssl x509 -noout -modulus -in /var/lib/kubelet/pki/kubelet.crt | openssl md5
+openssl rsa  -noout -modulus -in /var/lib/kubelet/pki/kubelet.key | openssl md5
+<span class="comment"># EC keys: openssl ec  (not rsa)</span></code></pre>
+        <p>Same check works on the apiserver: <code>/etc/kubernetes/pki/apiserver.crt</code> + <code>.key</code>.</p>
+        <div class="warning">
+          Deleting the serving pair to force a self-signed regen works <strong>only if</strong> <code>tlsCertFile</code>/<code>tlsPrivateKeyFile</code> are UNSET in <code>/var/lib/kubelet/config.yaml</code>. If the task set them, deleting turns a mismatch into <code>no such file or directory</code>. Grep the file before deleting anything.
+        </div>
+
+        <h3>Client cert must be signed where <code>ca.key</code> lives &mdash; the control plane</h3>
+<pre><code>kubeadm init phase kubeconfig kubelet --node-name &lt;worker&gt; --kubeconfig-dir /tmp/kc
+grep server: /tmp/kc/kubelet.conf          <span class="comment"># verify the endpoint before copying</span>
+scp /tmp/kc/kubelet.conf &lt;worker&gt;:/etc/kubernetes/kubelet.conf</code></pre>
+        <p><code>kubeadm certs renew</code> and <code>kubeadm init phase kubeconfig</code> both fail on a worker. Write to a temp dir, or you overwrite the control plane&rsquo;s own <code>kubelet.conf</code>.</p>
+
         <h3>Kubelet TLS &mdash; read the error string, they need different fixes</h3>
 <pre><code>journalctl -u kubelet -n 50 --no-pager | grep -iE 'tls|x509|cert|key'
 ls -l  /var/lib/kubelet/pki/     <span class="comment"># sizes here are LIES for symlinks</span>
@@ -2426,9 +2443,69 @@ grep -c BEGIN f.pem   <span class="comment"># cert+key pem has TWO BEGIN blocks;
           <li><strong>A cert file is read at STARTUP. After fixing it: <code>systemctl restart kubelet</code>.</strong> File correct + no restart = still broken.</li>
           <li><code>systemctl is-active</code> says <code>active</code> while the node is NotReady. <strong>Active never means healthy.</strong></li>
         </ul>
+
+        <h3>Control-plane cert expiry &mdash; apiserver down / kubectl x509</h3>
+        <p>Read the error to find <em>which</em> cert died: <code>kubectl</code> failing x509 = the <strong>client</strong> cert in <code>admin.conf</code> / <code>~/.kube/config</code>; apiserver down = the <strong>server</strong> certs in <code>/etc/kubernetes/pki/</code>. Usually both, since kubeadm certs expire together at one year.</p>
+<pre><code>ssh &lt;controlplane&gt;
+date                                   <span class="comment"># clock skew reads as "not yet valid" — renewal won't fix that</span>
+kubeadm certs check-expiration         <span class="comment"># whole picture, incl. the kubeconfigs</span>
+kubeadm certs renew all                <span class="comment"># pki/*.crt AND admin/controller-manager/scheduler.conf</span></code></pre>
+        <p><strong>Renewal alone changes nothing for the running components.</strong> Restart the static pods by moving the manifests out and back:</p>
+<pre><code>mkdir -p /tmp/mf
+mv /etc/kubernetes/manifests/*.yaml /tmp/mf/
+sleep 25
+mv /tmp/mf/*.yaml /etc/kubernetes/manifests/</code></pre>
+<pre><code><span class="comment"># then refresh the client config, or kubectl keeps failing against a healthy cluster</span>
+cp /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config</code></pre>
+        <p><strong>Verify on the wire, not from the files</strong> &mdash; <code>check-expiration</code> reads what is on disk, not what is being served:</p>
+<pre><code>openssl s_client -connect localhost:6443 &lt;/dev/null 2&gt;/dev/null | openssl x509 -noout -dates
+grep client-certificate-data $HOME/.kube/config | awk '{print $2}' | base64 -d | openssl x509 -noout -dates</code></pre>
+        <ul>
+          <li>The manifest path is <code>/etc/kubernetes/manifests/</code>; confirm on any cluster with <code>grep staticPodPath /var/lib/kubelet/config.yaml</code>.</li>
+          <li><strong>kube-apiserver reloads its serving cert without restarting</strong> &mdash; so <code>RESTARTS 0</code> is not proof the renewal failed. <strong>controller-manager and scheduler do NOT reload</strong>; they read their kubeconfigs once at startup, which is why the restart is still required.</li>
+          <li><code>kubeadm certs renew</code> does <strong>not</strong> touch kubelet&rsquo;s auto-rotated cert in <code>/var/lib/kubelet/pki/</code>.</li>
+          <li><code>kubeadm upgrade</code> renews certs as a side effect &mdash; why upgraded clusters never hit this.</li>
+          <li><code>kubeadm</code> lives on the control-plane node only &mdash; <code>command not found</code> on the bastion means you skipped the <code>ssh</code>.</li>
+        </ul>
+
+        <h3>Renew ONE cert &mdash; and prove the process picked it up</h3>
+        <p>A task that names a single certificate is graded on that certificate only: every other cert must keep its original dates.</p>
+<pre><code>kubeadm certs check-expiration &gt; /root/certs-before.txt   <span class="comment"># report to a file</span>
+kubeadm certs renew apiserver                             <span class="comment"># one name, NOT `all`</span>
+crictl ps --name kube-apiserver                           <span class="comment"># note it is running</span>
+mv /etc/kubernetes/manifests/kube-apiserver.yaml /tmp/
+crictl ps --name kube-apiserver                           <span class="comment"># MUST print no container</span>
+mv /tmp/kube-apiserver.yaml /etc/kubernetes/manifests/</code></pre>
+        <p><strong>Proof</strong> &mdash; the cert on disk and the cert on the wire share a start date:</p>
+<pre><code>openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -startdate
+echo | openssl s_client -connect 127.0.0.1:6443 2&gt;/dev/null | openssl x509 -noout -startdate</code></pre>
+        <ul>
+          <li><code>kubeadm certs renew</code> restarts nothing. Moving <strong>one</strong> manifest restarts only that component.</li>
+          <li>Wait for <code>crictl ps</code> to go empty before moving the manifest back.</li>
+          <li><code>notAfter=&lt;date&gt;</code> comes from <code>-enddate</code>. <code>-text</code> prints <code>Not After :</code> and fails a format requirement.</li>
+          <li>kubeadm backdates <code>notBefore</code> by ~5 min for clock skew &mdash; a just-renewed cert reads ~5 min old.</li>
+        </ul>
+
+        <h3>openssl &mdash; the flags that get asked for</h3>
+<pre><code>openssl x509 -in &lt;f&gt;.crt -noout -enddate      <span class="comment"># notAfter=&lt;date&gt;  (exact format)</span>
+openssl x509 -in &lt;f&gt;.crt -noout -startdate    <span class="comment"># notBefore=&lt;date&gt;</span>
+openssl x509 -in &lt;f&gt;.crt -noout -dates        <span class="comment"># both</span>
+openssl x509 -in &lt;f&gt;.crt -noout -subject      <span class="comment"># CN / O</span>
+openssl x509 -help | grep -i date             <span class="comment"># flag names, without leaving the terminal</span></code></pre>
+        <ul>
+          <li><code>-text</code> prints <code>Not After :</code>; a task asking for <code>notAfter=</code> wants <code>-enddate</code>.</li>
+          <li><code>cp -a</code> the file before any <code>ln</code>/<code>mv</code>/<code>rm</code> in <code>pki/</code> or <code>manifests/</code>.</li>
+        </ul>
+
+        <h3>Docs path</h3>
+        <ul>
+          <li>k8s.io search <strong>&ldquo;certificate management kubeadm&rdquo;</strong> &rarr; <em>Certificate Management with kubeadm</em>.</li>
+          <li>k8s.io search <strong>&ldquo;manage tls certificates&rdquo;</strong> &rarr; <em>Manage TLS Certificates in a Cluster</em>.</li>
+        </ul>
 </section>
 
-      <!-- ==================== RBAC ==================== -->
+
       <!-- ==================== NODE & CNI ==================== -->
       <section class="tab-content" id="nodecni">
         <h2>Node prerequisites &amp; CNI &mdash; the Linux side of the exam</h2>
@@ -3278,6 +3355,9 @@ crictl pods                         <span class="comment"># sandbox level</span>
 <pre><code>ss -tlnp | grep 6443     <span class="comment"># who is listening on the API port</span>
 ps aux | grep kube-apiserver
 openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -dates
+openssl x509 -in apiserver.crt -noout -enddate    <span class="comment"># notAfter=&lt;date&gt; — the exact format tasks ask for</span>
+openssl x509 -in apiserver.crt -noout -startdate  <span class="comment"># notBefore=&lt;date&gt;</span>
+openssl x509 -help | grep -i date                 <span class="comment"># flag names, without leaving the terminal</span>
 openssl x509 -in ravi.crt -noout -subject
 openssl req -new -key ravi.key -out ravi.csr -subj '/CN=ravi/O=team'
 kubeadm certs check-expiration</code></pre>
