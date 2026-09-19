@@ -85,7 +85,9 @@ kubectl -n $NS get ingress $ING 2>&1 | tail -1
 echo "== HTTPS probe"
 NP="$(kubectl -n $NS get svc -l gateway.networking.k8s.io/gateway-name=$GW -o jsonpath='{.items[0].spec.ports[?(@.port==443)].nodePort}' 2>/dev/null)"
 IP="$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')"
-[ -z "$NP" ] && NP="$(kubectl get svc -A -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name} {.spec.ports[?(@.port==443)].nodePort}{"\n"}{end}' | awk 'NF==2 && /gateway|nginx|envoy|traefik/{print $2; exit}')"
+# Prefer the Gateway data plane. A cluster may also run ingress-nginx, whose 443
+# nodePort answers 404 for these hosts and reads as a broken Gateway (seen 2026-09-19).
+[ -z "$NP" ] && NP="$(kubectl get svc -A -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name} {.spec.ports[?(@.port==443)].nodePort}{"\n"}{end}' | awk 'NF==2 && !/ingress-nginx/ && /gateway|envoy|traefik/{print $2; exit}')"
 if [ -z "$NP" ]; then echo "no data-plane Service with a 443 nodePort found for $GW"; exit 0; fi
 curl -sk -o /dev/null -w "https $PATHP -> %{http_code}\n" --resolve "$HOST:$NP:$IP" "https://$HOST:$NP$PATHP"
 curl -sk --resolve "$HOST:$NP:$IP" "https://$HOST:$NP$PATHP" | grep -m1 "^Hostname"
