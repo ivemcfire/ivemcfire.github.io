@@ -63,8 +63,10 @@ case "$VARIANT" in
     $SSH "$NODE" "systemctl disable --now kubelet" >/dev/null 2>&1 ;;
   1) # kubelet runs but talks to the wrong API server port
     $SSH "$NODE" "sed -i '/server:/s/:6443/:6553/' $KCONF; systemctl restart kubelet" >/dev/null 2>&1 ;;
-  2) # kubelet config carries an invalid value — the service fails to come up
-    $SSH "$NODE" "sed -i 's|^cgroupDriver:.*|cgroupDriver: cgroupfsX|' $KCFG; grep -q '^cgroupDriver:' $KCFG || echo 'cgroupDriver: cgroupfsX' >> $KCFG; systemctl restart kubelet" >/dev/null 2>&1 ;;
+  2) # kubelet config file will not parse — the service fails to come up
+    # NOTE: an invalid cgroupDriver VALUE is not fatal on v1.35.x (verified 2026-09-19,
+    # kubelet started and the node stayed Ready). A YAML syntax error is.
+    $SSH "$NODE" "printf '%s\n' '  - malformed entry' >> $KCFG; systemctl restart kubelet" >/dev/null 2>&1 ;;
 esac
 
 printf '%s\n%s\n%s\n' "$CTX" "$NODE" "$VARIANT" > "$STATE"
