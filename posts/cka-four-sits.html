@@ -443,11 +443,11 @@
         The reveal, after going through it with Opus: a command that runs without an error is not a task that is done. The object has to end in the right <em>state</em> &mdash; the claim bound, the pod running, the service answering. If you do not look, you do not know. Under time pressure I stopped looking.
       </p>
       <p>
-        From then on every drill was graded the same way: paste the read-back that proves the end state, or it does not count. And one question before moving on:
+        From then on every drill was graded the same way: paste the output that proves the end state, or it does not count. One rule before moving to the next question:
       </p>
-      <blockquote><p><em>What would this output look like if I had changed nothing?</em></p></blockquote>
+      <blockquote><p><em>If a question isn't checked right, it isn't right.</em></p></blockquote>
       <p>
-        If the answer is "the same", the check proved nothing. A <code>200</code> from a web service is also what you get when your change did not apply at all.
+        Created a volume claim? Check it is <code>Bound</code>. Changed a Deployment? Check the pods are <code>Running</code>. Fixed a Service? Check it has endpoints. Thirty seconds per question. On my third sit I skipped them.
       </p>
       <p>
         At that point the exam stops being about Kubernetes knowledge &mdash; and becomes about verification.
