@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      The CKA Took Me Four Sits. The Hardest Part Was Not Kubernetes. &mdash; Ivalin's Lab
+    </title>
+    <meta name="description" content="Four CKA sits in six weeks: a 30-minute check-in, a tiny laggy remote desktop, Starlink dropping out mid-exam, and the one habit that moved the score from 58 to 68." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://ivemcfire.github.io/posts/cka-four-sits.html" />
+    <meta property="og:title" content="The CKA Took Me Four Sits. The Hardest Part Was Not Kubernetes." />
+    <meta property="og:description" content="Four CKA sits in six weeks: a 30-minute check-in, a tiny laggy remote desktop, Starlink dropping out mid-exam, and the one habit that moved the score from 58 to 68." />
+    <meta property="og:image" content="https://ivemcfire.github.io/images/cka-four-sits_small.jpg" />
+    <meta property="og:image:width" content="1672" />
+    <meta property="og:image:height" content="941" />
+    <meta name="author" content="Ivalin Ivanov" />
+    <meta property="article:published_time" content="2026-09-24" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+
+      .code-block {
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; Ivalin's Lab</a></nav>
+    <article>
+      <h1>The CKA Took Me Four Sits. The Hardest Part Was Not Kubernetes.</h1>
+      <em>A 30-minute check-in, a tiny laggy screen, a session lost to satellite internet and a score one question short &mdash; and what finally got me over the line.</em>
+
+      <img
+        src="../images/cka-four-sits_small.jpg"
+        alt="The Certified Kubernetes Administrator logo cracking under a hammer marked Opus"
+      />
+      <p class="photo-caption">Four sits, one certificate.</p>
+
+      <hr />
+
+      <h2>The Starting Point</h2>
+      <p>
+        I started CKA prep at the end of May 2026. Fifteen years in IT, a Kubernetes homelab running real workloads at home, most of the SoftUni DevOps program done. I expected the exam to be the easy part.
+      </p>
+      <p>
+        It was not. From the first attempt on 10 August to the pass on 22 September, it took four sits. Only some of the problems were Kubernetes.
+      </p>
+      <p>
+        This post is the honest version: the setup, the exam reality nobody prepares you for, what broke, and the one habit that moved the score from 58 to 68.
+      </p>
+      <p>
+        A note on scope: the exam is under NDA, so nothing here describes the questions. Everything below is about preparation, the environment and my own results.
+      </p>
+      <hr />
+
+      <h2>The Study Setup</h2>
+      <p>
+        Four tools, each doing one job:
+      </p>
+      <ul>
+        <li><strong>KodeKloud</strong> for the hands-on part. Structured labs for reps, and playgrounds &mdash; free clusters for a few hours &mdash; for breaking things on purpose.</li>
+        <li><strong>Claude Opus in the terminal as tutor, examiner and progress keeper.</strong> It tracked my scores, my topics and my weak spots in plain files, so every session started from what I actually knew, not from what I remembered knowing.</li>
+        <li><strong>Killercoda</strong> for free practice scenarios on real clusters.</li>
+        <li><strong>My own cheat sheet and fault-injection scripts</strong> &mdash; small scripts that break a fresh lab in a specific way, so I can practise fixing it cold.</li>
+      </ul>
+      <p>
+        The Opus part needs a little more explanation, because it did more than answer questions.
+      </p>
+      <p>
+        It built the study plan and changed it after every result. It wrote full mock papers &mdash; 16 questions, timed, the same shape as the real exam &mdash; and graded them. And at any point I could stop and ask <em>why</em>: a real-life example, how this is done in production, whether a topic even matters outside the exam. That last feature is what turned memorising into understanding.
+      </p>
+      <p>
+        The rule that made it work: <strong>Opus graded only pasted output.</strong> Not my description of what I did &mdash; the actual <code>kubectl</code> read-back of the object. More on why that matters below.
+      </p>
+      <hr />
+
+      <h2>Four Sits, One Pass</h2>
+      <table>
+        <thead>
+          <tr><th>Sit</th><th>Date</th><th>Result</th><th>What happened</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>10&nbsp;Aug</td><td>Fail</td><td>Not prepared for the exam environment itself</td></tr>
+          <tr><td>2</td><td>15&nbsp;Aug</td><td>Session terminated</td><td>Starlink interruptions, then 4G with even more lag. Ended ~10 minutes early. Tickets and support chat &rarr; free third attempt</td></tr>
+          <tr><td>3</td><td>24&nbsp;Aug</td><td>58% (pass mark 66)</td><td>Connection held. I left feeling confident. One question short</td></tr>
+          <tr><td>4</td><td>22&nbsp;Sep</td><td><strong>68% &mdash; pass</strong></td><td>Finished with 2 minutes to spare for checking</td></tr>
+        </tbody>
+      </table>
+      <hr />
+
+      <h2>The Exam Reality Nobody Prepares You For</h2>
+      <p>
+        On the first sit I was definitely not prepared for the testing reality of the exam.
+      </p>
+      <p>
+        It starts before the first question. The admission part &mdash; identity check, room scan, system checks &mdash; took around <strong>30 minutes</strong>, long and nerve-shattering. You start the exam already tired.
+      </p>
+      <p>
+        Then you see where you will work. A remote desktop on a <strong>tiny screen</strong>, low resolution, more like an old-school terminal than a workstation. You juggle two terminals and a Firefox window for the official Kubernetes docs, all inside that small frame.
+      </p>
+      <p>
+        Simple things stop being simple:
+      </p>
+      <ul>
+        <li><strong>Copy-paste turns into a nightmare.</strong> Right mouse button every time, patiently waiting for the text to populate, then meticulously inspecting every line you pasted. One broken line in YAML and the whole object fails.</li>
+        <li><strong>Scrolling the docs is immense pain.</strong> Laggy, very slow scrolling makes it mission impossible to browse and find anything. You must know what you need and go straight to it with <code>Ctrl+F</code>.</li>
+        <li><strong>Every keystroke is a round trip.</strong> On a laggy session a long one-liner is untypeable &mdash; one dropped character and it fails silently or does something else.</li>
+      </ul>
+      <p>
+        What changed in my preparation after that:
+      </p>
+      <ul>
+        <li><strong>Short commands over clever one-liners.</strong> <code>kubectl edit</code> or a dry-run YAML file is slower on paper and faster in reality.</li>
+        <li><strong>Drill docs navigation, not docs reading.</strong> Know which page holds the example you need, and the exact word to <code>Ctrl+F</code> for.</li>
+        <li><strong>Practise in a small window.</strong> It sounds silly. It is not.</li>
+        <li><strong>Use the machine the exam likes.</strong> The exam browser is supposed to support Ubuntu, but after the bugs and problems I saw, my advice is a fresh Windows install for exam day. This is not ideal for a Linux person. It is the boring choice that works.</li>
+      </ul>
+      <hr />
+
+      <h2>Starlink, 4G and a Terminated Session</h2>
+      <p>
+        I live in a small town in Bulgaria and my internet is Starlink. Normally that is fine. During my exam weeks, with the ongoing conflict in the Middle East, the connection had severe interruptions, and latency regularly jumped past <strong>400 ms</strong>. I cannot prove the exact cause. I can only say what it looked like from inside the exam.
+      </p>
+      <p>
+        The remote desktop froze. The proctor session lost me. So I switched to a 4G mobile connection as a fallback &mdash; and it made things worse, with even more lag and interruptions.
+      </p>
+      <p>
+        I intentionally booked early morning slots, to stay away from the congested working hours in Europe and the USA, where the exam servers are. It did not save the second sit: the session was terminated with about ten minutes left, on an unfinished question.
+      </p>
+      <p>
+        After many troubleshooting tickets and a support chat, I was given a free third attempt.
+      </p>
+      <p>
+        What I would tell anyone on a satellite or mobile connection:
+      </p>
+      <ul>
+        <li><strong>Wired to the dish, not Wi-Fi.</strong> One less radio in the chain.</li>
+        <li><strong>Test the fallback before exam day, under load.</strong> My 4G fallback looked fine on paper and failed in practice.</li>
+        <li><strong>File the incident ticket the same day.</strong> Every disconnect with approximate time, the termination, and an explicit ask: a retake. A ticket filed after a bad score reads as score-motivated; one filed the same day does not.</li>
+      </ul>
+      <p>
+        The connection is part of the exam. Treat it like a dependency, not like weather.
+      </p>
+      <hr />
+
+      <h2>The Self-Rating That Lied</h2>
+      <p>
+        This is the part I learned the most from.
+      </p>
+      <p>
+        On the third try the connection held, and I was confident I did most of it right. After the exam I reviewed it question by question and rated myself at <strong>76</strong>. The pass mark is 66.
+      </p>
+      <p>
+        The result was <strong>58</strong> &mdash; one question away from passing.
+      </p>
+      <p>
+        Eighteen points vanished inside questions I was sure I had finished. Not questions I skipped &mdash; questions where I typed the right commands, saw no errors and moved on.
+      </p>
+      <p>
+        The reveal, after going through it with Opus: a command that runs without an error is not a task that is done. The object has to end in the right <em>state</em> &mdash; the claim bound, the pod running, the service answering. If you do not look, you do not know. Under time pressure I stopped looking.
+      </p>
+      <p>
+        From then on every drill was graded the same way: paste the read-back that proves the end state, or it does not count. And one question before moving on:
+      </p>
+      <blockquote><p><em>What would this output look like if I had changed nothing?</em></p></blockquote>
+      <p>
+        If the answer is "the same", the check proved nothing. A <code>200</code> from a web service is also what you get when your change did not apply at all.
+      </p>
+      <p>
+        At that point the exam stops being about Kubernetes knowledge &mdash; and becomes about verification.
+      </p>
+      <hr />
+
+      <h2>The Fourth Sit</h2>
+      <p>
+        I took almost another month to prepare, so I could be sure this time.
+      </p>
+      <p>
+        And, small miracle, on the fourth attempt I did most of it right, and finished on time with <strong>2 minutes to spare</strong> for checking it all. Pass. The joy of seeing the certificate in my own name was surreal.
+      </p>
+      <hr />
+
+      <h2>Things That Went Wrong</h2>
+      <p>
+        <strong>I walked into the first sit ready for Kubernetes, not for the exam.</strong> The check-in, the screen, the copy-paste &mdash; none of it was in my practice.
+      </p>
+      <p>
+        <strong>I skipped a drill because it was "optional".</strong> It was destructive to set up, so I moved it to a bonus list and never did it. That exact kind of task cost me a full question on the third sit. Setup cost is not the same as low probability.
+      </p>
+      <p>
+        <strong>My fallback connection was never tested.</strong> 4G was supposed to save me. It added lag instead.
+      </p>
+      <p>
+        <strong>I trusted my own account of my answers.</strong> Self-rating 76, real score 58. On the fourth sit the gap was still 16 points. I now treat my own estimate as a ceiling, not as a prediction.
+      </p>
+      <p>
+        <strong>I read an error as an empty result.</strong> On a laggy terminal a mistyped flag returns a usage message, and at speed that looks like "nothing here". They mean opposite things.
+      </p>
+      <hr />
+
+      <h2>Impact</h2>
+      <ul>
+        <li><strong>Score:</strong> 58% &rarr; <strong>68%</strong> (pass mark 66)</li>
+        <li><strong>Attempts:</strong> 4 sits in 6 weeks (10 Aug &rarr; 22 Sep), one of them lost to the connection</li>
+        <li><strong>Prep:</strong> ~4 months, since the end of May 2026</li>
+        <li><strong>Connection:</strong> Starlink latency peaks past 400 ms; 4G fallback worse; one session terminated; free third attempt after tickets and support chat</li>
+        <li><strong>Self-assessment gap:</strong> 18 points on the third sit, 16 on the fourth &mdash; measured, not guessed</li>
+        <li><strong>Fourth sit:</strong> finished with 2 minutes to spare for checking</li>
+      </ul>
+      <hr />
+
+      <h2>The Payoff</h2>
+      <p>
+        Time pressure, a laggy remote desktop, a small screen that is more like an old-school terminal, and the added pressure of being watched the whole time. The CKA tests your composure as much as your Kubernetes.
+      </p>
+      <p>
+        The certificate says I can administer Kubernetes. What I actually learned is narrower and more useful: the difference between doing something and proving it is done. That habit does not belong to the exam. It is the same one that finds a backup job that has not completed in 28 days, or a dashboard that is green while the cluster is dead.
+      </p>
+      <p>
+        The exam does not grade the command. It grades the cluster.
+      </p>
+      <hr />
+
+      <h2>Study Setup</h2>
+      <table>
+        <thead>
+          <tr><th>Tool</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>KodeKloud</td><td>Labs for reps, playgrounds for breaking things</td></tr>
+          <tr><td>Claude Opus (terminal)</td><td>Tutor, examiner, progress keeper, mock papers, grading on read-back</td></tr>
+          <tr><td>Killercoda</td><td>Free practice scenarios</td></tr>
+          <tr><td>Own cheat sheet + break scripts</td><td>Fast lookup, cold fault-fixing practice</td></tr>
+          <tr><td>Starlink, 4G, a fresh Windows install</td><td>The exam-day stack, and the lessons it taught</td></tr>
+        </tbody>
+      </table>
+
+      <hr />
+
+      <p>
+        Previous posts:
+        <a href="k3s-leaked-goroutine.html">Empty Logs and a Burning Core</a> &middot;
+        <a href="every-light-was-green.html">Every Light Was Green. The Cluster Was Dead.</a> &middot;
+        <a href="cloudflared-ha-and-oob.html">The Tunnel Was Up. The Cameras Were 502.</a>
+      </p>
+    </article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>
