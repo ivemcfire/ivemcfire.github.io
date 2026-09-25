@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CKA Cheat Cards — Ivalin Ivanov</title>
+<meta name="description" content="Scan references for the Certified Kubernetes Administrator exam: workloads, scheduling, RBAC, NetworkPolicy, etcd backup and restore, and a cluster-down ladder.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0a;
+    --surface: #111;
+    --surface-2: #161616;
+    --border: #222;
+    --border-bright: #2e2e2e;
+    --text: #e0e0e0;
+    --text-dim: #777;
+    --accent: #ff6b35;
+    --accent-dim: #ff6b3522;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: "Instrument Serif", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--mono);
+    font-size: 13.5px; line-height: 1.6; margin: 0;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 96px; }
+  .site-nav { margin-bottom: 36px; font-size: 12.5px; }
+  .site-nav a { color: var(--text-dim); text-decoration: none; }
+  .site-nav a:hover { color: var(--accent); }
+  h1 {
+    font-family: var(--serif); font-weight: 400;
+    font-size: clamp(2.4rem, 8vw, 3.6rem); line-height: 1.05;
+    margin: 0 0 12px; text-wrap: balance;
+  }
+  .lede { color: var(--text-dim); max-width: 64ch; margin: 0 0 24px; }
+  .rule {
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    padding-block: 14px; margin-bottom: 40px; color: var(--text-dim); font-size: 12.5px;
+  }
+  .rule b { color: var(--accent); }
+  nav.index {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 48px;
+  }
+  nav.index a {
+    background: var(--surface); color: var(--text); text-decoration: none;
+    padding: 12px 14px; font-size: 12.5px;
+  }
+  nav.index a:hover { background: var(--surface-2); color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .card {
+    border: 1px solid var(--border); background: var(--surface);
+    margin-bottom: 36px; scroll-margin-top: 20px;
+  }
+  .card > header {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+    gap: 8px 16px; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--surface-2);
+  }
+  .card h2 { font-family: var(--serif); font-weight: 400; font-size: 1.7rem; margin: 0; }
+  .badge {
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    border: 1px solid var(--border-bright); border-radius: 2px; padding: 2px 8px;
+    color: var(--text-dim); white-space: nowrap;
+  }
+  .badge.memo { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+  .body { padding: 18px; }
+  h3 {
+    font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-dim); font-weight: 700; margin: 22px 0 8px;
+  }
+  .body > h3:first-child { margin-top: 0; }
+  pre {
+    margin: 0 0 12px; padding: 12px 14px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 2px;
+    overflow-x: auto; font-size: 12.5px; line-height: 1.55;
+  }
+  pre b { color: var(--accent); font-weight: 400; }
+  pre i { color: var(--text-dim); font-style: normal; }
+  p { margin: 0 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 12px; }
+  .scroll { overflow-x: auto; }
+  th, td { text-align: left; padding: 7px 12px 7px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-dim); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; }
+  td code { color: var(--accent); overflow-wrap: anywhere; }
+  ul.gotchas { list-style: none; margin: 0 0 12px; padding: 0; }
+  ul.gotchas li { padding-left: 14px; border-left: 2px solid var(--accent); margin-bottom: 8px; }
+  ul.gotchas code { color: var(--accent); overflow-wrap: anywhere; }
+  .docs {
+    border-top: 1px solid var(--border); padding: 12px 18px;
+    color: var(--text-dim); font-size: 12px; overflow-wrap: anywhere;
+  }
+  .docs b { color: var(--text); font-weight: 400; }
+  footer { border-top: 1px solid var(--border); padding-top: 20px; color: var(--text-dim); font-size: 12.5px; }
+  footer a { color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="site-nav"><a href="index.html">&larr; ivemcfire</a></div>
+
+  <h1>CKA Cheat Cards</h1>
+  <p class="lede">Scan references, not study notes. Commands, tables, the gotcha, the docs path.
+    Built from the Kubernetes documentation and from breaking my own clusters.</p>
+
+  <div class="rule">
+    <b>MEMORIZE</b> — short imperative commands you'll type dozens of times.
+    <b>LOOKUP</b> — long YAML; drill the navigation instead, the docs are open during the exam.
+    Nothing here is exam content: the CKA is under NDA and these are doc-derived.
+  </div>
+
+  <nav class="index" aria-label="Cards">
+    <a href="#workloads">01 — Workloads</a>
+    <a href="#scheduling">02 — Scheduling</a>
+    <a href="#rbac">03 — RBAC</a>
+    <a href="#netpol">04 — NetworkPolicy</a>
+    <a href="#etcd">05 — etcd backup</a>
+    <a href="#down">06 — Cluster down</a>
+  </nav>
+
+  <article class="card" id="workloads">
+    <header><h2>01 — Workloads</h2><span class="badge memo">Memorize</span></header>
+    <div class="body">
+
+      <h3>Imperative one-liners</h3>
+<pre>k run NAME --image img                     <i># a single pod</i>
+k create deployment NAME --image img --replicas N
+k scale deployment/NAME --replicas N       <i># instant, creates no revision</i>
+k set image deployment/NAME CONTAINER=newimg
+k set resources deploy NAME --requests cpu=200m,memory=128Mi
+k set env deploy NAME --from configmap/CM
+k set serviceaccount deploy NAME SA_NAME   <i># SA is positional</i>
+k rollout status|history|undo|restart deployment/NAME</pre>
+      <p><code>k set --help</code> lists the whole family. These replace hand-editing for every field they cover.</p>
+
+      <h3>You changed a ConfigMap. Do the pods see it?</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Consumed as</th><th>Propagates?</th><th>Action</th></tr>
+        <tr><td><code>envFrom</code> / <code>configMapKeyRef</code></td><td><b>No</b></td><td><code>k rollout restart deploy X</code></td></tr>
+        <tr><td>volume mount with <code>subPath</code></td><td><b>No</b> — the mount is a copy</td><td><code>k rollout restart deploy X</code></td></tr>
+        <tr><td>plain volume mount</td><td>Yes, kubelet syncs (~60s)</td><td>nothing</td></tr>
+      </table>
+      </div>
+      <ul class="gotchas">
+        <li>Proof a restart happened is a <b>new ReplicaSet</b> (<code>k get rs</code>), not "successfully rolled out".</li>
+        <li><code>k exec POD -- env | grep KEY</code> proves nothing — a pod that merely started after the edit shows the new value too.</li>
+      </ul>
+
+      <h3>Fields no generator can set — hand-edit</h3>
+<pre><b>spec:</b>
+  <b>minReadySeconds:</b> 15          <i># Ready this long before counted available</i>
+  <b>revisionHistoryLimit:</b> 3      <i># old ReplicaSets kept (default 10)</i>
+  <b>progressDeadlineSeconds:</b> 45
+  <b>strategy:</b>
+    <b>rollingUpdate:</b>
+      <b>maxSurge:</b> 1
+      <b>maxUnavailable:</b> 0</pre>
+      <p>Siblings of <code>replicas:</code> and <code>template:</code> — <b>not</b> inside <code>template:</code>.</p>
+
+      <h3>A Service has no endpoints</h3>
+<pre>k get svc,po --show-labels     <i># selector vs pod labels</i>
+k get endpoints SVC            <i># &lt;none&gt; = the selector matches nothing</i></pre>
+      <ul class="gotchas">
+        <li><code>&lt;none&gt;</code> means selector mismatch. Diff it character by character — <code>app-ckaO1</code> (letter O) against <code>app-cka01</code> (zero) is a real class of fault.</li>
+        <li>Endpoints populated but nothing works = wrong <code>targetPort</code>. Endpoints are written as <code>podIP:targetPort</code> with no listener check.</li>
+        <li><code>k expose pod X --name X --port 80</code> copies the pod's own labels — the quick way to rebuild a broken selector.</li>
+      </ul>
+
+      <h3>QoS — who gets evicted first</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Class</th><th>Condition</th><th>Evicted</th></tr>
+        <tr><td>Guaranteed</td><td>requests == limits, CPU <b>and</b> memory, every container</td><td>last</td></tr>
+        <tr><td>Burstable</td><td>anything in between</td><td>middle</td></tr>
+        <tr><td>BestEffort</td><td>no requests, no limits anywhere</td><td><b>first</b></td></tr>
+      </table>
+      </div>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li><code>run</code> makes a pod and takes no resource noun. <code>k run pod catalog</code> creates a pod <em>named</em> <code>pod</code> with <code>catalog</code> as its command, into CrashLoop. <code>create</code> needs the noun; <code>run</code> never does.</li>
+        <li>Container name = the image basename at create time, typos included (<code>--image ngnix</code> gives container <code>ngnix</code>). Look it up before <code>set image</code>.</li>
+        <li><code>describe deploy</code> renders MinReadySeconds and the surge pair but <b>not</b> <code>revisionHistoryLimit</code> — use <code>-o yaml</code>.</li>
+        <li><code>scale</code> creates no revision, so <code>rollout undo</code> won't reverse it.</li>
+        <li><code>--record</code> is gone. The annotation key must be exactly <code>kubernetes.io/change-cause</code> or it never shows in <code>rollout history</code>.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> kubernetes.io → search "deployment" for the full YAML skeleton · <code>k explain deploy.spec.strategy</code> is faster and version-exact.</div>
+  </article>
+
+  <article class="card" id="scheduling">
+    <header><h2>02 — Scheduling</h2><span class="badge memo">Memorize</span></header>
+    <div class="body">
+
+      <h3>Two mechanisms, opposite directions</h3>
+      <div class="scroll">
+      <table>
+        <tr><th></th><th>Direction</th><th>Set on</th></tr>
+        <tr><td>Taint + toleration</td><td><b>repels</b> — keep off unless tolerated</td><td>node taint + pod toleration</td></tr>
+        <tr><td>nodeSelector / affinity</td><td><b>attracts</b> — put me here</td><td>node label + pod field</td></tr>
+      </table>
+      </div>
+      <p>"Only this pod, only on that node" needs <b>both</b>: taint the node to repel everything else, and a nodeSelector to pull this pod in. A toleration only permits — it never attracts.</p>
+
+      <h3>Read both lists before writing the spec</h3>
+<pre>k describe node node01 | grep -A2 Taints   <i># -> toleration key/value/effect</i>
+k get nodes --show-labels                  <i># ALL nodes — you compare rows</i></pre>
+      <p>A node carries two separate lists and a pod has two separate fields. Taking the toleration key from the node's <em>label</em> is the classic miss — the label never appears on the Taints line.</p>
+
+      <h3>Taints</h3>
+<pre>k taint nodes node01 spray=mortein:NoSchedule
+k taint nodes node01 spray=mortein:NoSchedule-   <i># trailing dash removes</i></pre>
+      <p>Effects: <code>NoSchedule</code> blocks new · <code>PreferNoSchedule</code> is soft · <code>NoExecute</code> blocks and <b>evicts</b>.</p>
+
+      <h3>Toleration — spec level, sibling of containers</h3>
+<pre>  <b>tolerations:</b>
+  - <b>key:</b> "spray"
+    <b>operator:</b> "Equal"     <i># Equal -> value: required</i>
+    <b>value:</b> "mortein"      <i># Exists -> DELETE this line</i>
+    <b>effect:</b> "NoSchedule"</pre>
+
+      <h3>Placement, cheapest first</h3>
+<pre>  <b>nodeName:</b> node01        <i># skips the scheduler entirely</i>
+
+  <b>nodeSelector:</b>           <i># exact equality only</i>
+    size: Large
+
+  <b>affinity:</b>               <i># only when you need In/NotIn/Exists/Gt/Lt or soft</i>
+    <b>nodeAffinity:</b>
+      <b>requiredDuringSchedulingIgnoredDuringExecution:</b>
+        <b>nodeSelectorTerms:</b>
+        - <b>matchExpressions:</b>
+          - { key: size, operator: In, values: [Large, Medium] }</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Pin to a node by name with the key <code>kubernetes.io/hostname</code>. The <code>node-role.kubernetes.io/*</code> labels have <b>empty values</b> and can never match a name.</li>
+        <li><code>nodeName</code> with a wrong name = Pending forever with <b>no event</b>, because the scheduler never ran. nodeSelector gives you <code>FailedScheduling</code> instead.</li>
+        <li>Affinity needs all three levels. Skipping the middle one is rejected.</li>
+        <li>In a Deployment, affinity is a <em>pod</em> property — it lives at <code>template.spec.affinity</code>.</li>
+        <li><code>operator: Exists</code> with a <code>value:</code> line is rejected outright.</li>
+        <li>Toleration values are string-exact. A typo leaves the pod Pending while you insist you added a toleration.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> kubernetes.io → "taints and tolerations" · "assign pods to nodes".</div>
+  </article>
+
+  <article class="card" id="rbac">
+    <header><h2>03 — RBAC</h2><span class="badge memo">Memorize</span></header>
+    <div class="body">
+
+      <h3>The chain — who, what, glue, prove</h3>
+<pre>k create sa auditor -n finance
+k create role pod-reader -n finance --verb get,list,watch --resource pods
+k create rolebinding auditor-bind -n finance --role pod-reader \
+  --serviceaccount finance:auditor
+
+k auth can-i list   pods --as system:serviceaccount:finance:auditor -n finance   <i># yes</i>
+k auth can-i delete pods --as system:serviceaccount:finance:auditor -n finance   <i># no</i></pre>
+
+      <h3>Cluster-wide — no namespace flag</h3>
+<pre>k create clusterrole node-reader --verb get,list --resource nodes
+k create clusterrolebinding node-read --clusterrole node-reader \
+  --serviceaccount finance:auditor</pre>
+
+      <h3>Two ServiceAccount syntaxes — the slip</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Where</th><th>Format</th></tr>
+        <tr><td><code>--serviceaccount</code></td><td><code>finance:auditor</code> — ns:name</td></tr>
+        <tr><td><code>--as</code></td><td><code>system:serviceaccount:finance:auditor</code> — full prefix</td></tr>
+      </table>
+      </div>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Bind the Role you made, not the built-in <code>admin</code>. Convenient and wrong.</li>
+        <li><code>--serviceaccount</code> without a namespace silently becomes <code>default:auditor</code> and binds nothing.</li>
+        <li>All three namespaced creates need <code>-n</code>. Missing it is a silent zero.</li>
+        <li><code>--role</code> takes the <b>role's</b> name; <code>--user</code> and <code>--serviceaccount</code> take the <b>subject's</b>. Collapsing the two builds a binding to a Role that doesn't exist, bound to nobody.</li>
+        <li>Run <b>both</b> probes. A binding that grants nothing answers "no" to everything and looks like tight scoping.</li>
+        <li>A RoleBinding pointing at a ClusterRole grants those permissions <em>in that one namespace</em>. Common and frequently misread.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> <code>k create role --help</code> has the examples and beats the docs · kubernetes.io "Role and RoleBinding" for the YAML form.</div>
+  </article>
+
+  <article class="card" id="netpol">
+    <header><h2>04 — NetworkPolicy</h2><span class="badge">Lookup</span></header>
+    <div class="body">
+
+      <h3>Verify with the negative test — success proves nothing</h3>
+      <p>Kubernetes default-allows. A <code>wget</code> that returns 200 is equally consistent with the right
+        policy, an over-permissive policy, and no policy at all. Only blocked traffic discriminates.</p>
+<pre><i># MUST succeed</i>
+k run ok --rm -it --image busybox:1.28 -n allowed-ns -- \
+  wget -qO- --timeout 3 svc.ns:80
+<i># MUST TIME OUT — this is the proof</i>
+k run no --rm -it --image busybox:1.28 -n other-ns -- \
+  wget -qO- --timeout 3 svc.ns:80</pre>
+
+      <h3>The model</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Field</th><th>Means</th></tr>
+        <tr><td><code>spec.podSelector</code></td><td>who you protect — the destination. <code>{}</code> = every pod in the namespace</td></tr>
+        <tr><td><code>ingress.from[].podSelector</code></td><td>who is allowed in — the source</td></tr>
+        <tr><td>policyType listed, no matching rules</td><td>deny-all in that direction</td></tr>
+      </table>
+      </div>
+      <p>Read "traffic TO x FROM y" straight into the two slots. They are two different pods with two different labels — a wrong key on the top selector matches no pod, and the policy silently protects nothing.</p>
+
+      <h3>Cross-namespace ingress</h3>
+<pre><b>spec:</b>
+  <b>podSelector:</b> {matchLabels: {app: backend}}
+  <b>policyTypes:</b> [Ingress]
+  <b>ingress:</b>
+  - <b>from:</b>
+    - <b>namespaceSelector:</b>
+        <b>matchLabels:</b>
+          kubernetes.io/metadata.name: frontend   <i># automatic on every ns</i>
+    <b>ports:</b>
+    - {protocol: TCP, port: 80}</pre>
+      <p>The policy lives <b>with the protected pod</b>, in the destination namespace. Policies are additive —
+        a deny-all does not have to be edited; a second policy that allows unions with it and traffic flows.</p>
+
+      <h3>Triage — A can't reach B, several policies exist</h3>
+      <p>Only two things can block A→B: an <b>Ingress</b> policy selecting <b>B</b>, or an <b>Egress</b> policy
+        selecting <b>A</b>. Check in that order.</p>
+<pre>k get netpol -n NS            <i># the POD-SELECTOR column eliminates most of them</i>
+k describe netpol -n NS       <i># every allow-list in one screen, AND vs OR in English</i>
+k get po -n NS --show-labels</pre>
+      <div class="scroll">
+      <table>
+        <tr><th>describe line</th><th>Means</th></tr>
+        <tr><td><code>Allowing ingress traffic: &lt;none&gt; (Selected pods are isolated…)</code></td><td><code>spec.ingress</code> absent = deny-all</td></tr>
+        <tr><td><code>To Port: &lt;any&gt;</code></td><td><code>ports:</code> missing = all ports, over-permissive</td></tr>
+        <tr><td><code>Not affecting egress traffic</code></td><td>Egress not in policyTypes</td></tr>
+      </table>
+      </div>
+
+      <h3>The egress DNS trap</h3>
+      <p>Any egress policy selecting a pod kills its DNS unless port 53 is re-allowed. The symptom misleads:
+        name resolution dies, so <em>every</em> destination looks blocked, including the one you just permitted.</p>
+<pre>  <b>egress:</b>
+  - <b>to:</b>
+    - <b>namespaceSelector:</b>
+        <b>matchLabels:</b>
+          kubernetes.io/metadata.name: kube-system
+    <b>ports:</b>
+    - {protocol: UDP, port: 53}
+    - {protocol: TCP, port: 53}</pre>
+      <p>Test with an IP as well as a name. A name failing while the IP works <em>is</em> the DNS symptom.</p>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Separate <code>-</code> items are OR; two selectors inside one <code>-</code> are AND. This trips everyone.</li>
+        <li>The prober needs the <b>label</b>, not just the right namespace — the policy trusts labels. And it needs a working tool: nginx has no wget, so use <code>busybox:1.28</code>; newer busybox wget reports a false "connection refused".</li>
+        <li>A CNI without policy support makes every policy a silent no-op.</li>
+        <li><code>ipBlock</code> cannot be combined with a pod or namespace selector in the same <code>from</code> element, so a CIDR always lands on its own dash — which makes the policy <em>broader</em>, however strict it looks.</li>
+        <li><code>Running</code> is not serving. A pod overridden with <code>sleep</code> is Running with a closed port.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> kubernetes.io → "network policy", copy the <code>test-network-policy</code> block and trim. <code>kubernetes.io/metadata.name</code> is not on that page — <code>k get ns --show-labels</code> is faster.</div>
+  </article>
+
+  <article class="card" id="etcd">
+    <header><h2>05 — etcd backup &amp; restore</h2><span class="badge memo">Memorize</span></header>
+    <div class="body">
+
+      <h3>The cert rule — the whole confusion</h3>
+      <p><code>snapshot save</code> talks to the <b>live server</b>, so it needs an endpoint and three certs.
+        <code>snapshot status</code> and <code>restore</code> only <b>read a file</b> — no certs, just a data dir.</p>
+
+      <h3>Backup, on the control-plane node</h3>
+<pre>ETCDCTL_API=3 etcdctl snapshot save /opt/etcd-backup.db \
+  --endpoints https://127.0.0.1:2379 \
+  --cacert /etc/kubernetes/pki/etcd/ca.crt \
+  --cert   /etc/kubernetes/pki/etcd/server.crt \
+  --key    /etc/kubernetes/pki/etcd/server.key</pre>
+
+      <h3>Restore, then repoint</h3>
+<pre>etcdutl snapshot restore /opt/etcd-backup.db \
+  --data-dir /var/lib/etcd-from-backup</pre>
+      <p>Then in <code>/etc/kubernetes/manifests/etcd.yaml</code>, under <code>volumes:</code>, change the
+        <code>etcd-data</code> volume's <code>hostPath.path</code> — that line only:</p>
+<pre>  <b>volumes:</b>
+  - <b>hostPath:</b>
+      <b>path:</b> /var/lib/etcd-from-backup   <i># CHANGE this line only</i>
+    <b>name:</b> etcd-data</pre>
+      <p>kubelet restarts etcd on save. <code>kubectl</code> hangs 30–60s while the apiserver restarts too.</p>
+
+      <h3>Don't memorize the cert paths — read them</h3>
+<pre>grep -E 'cert-file|key-file|trusted-ca|data-dir' /etc/kubernetes/manifests/etcd.yaml</pre>
+      <p><code>--trusted-ca-file</code> → <code>--cacert</code> · <code>--cert-file</code> → <code>--cert</code> · <code>--key-file</code> → <code>--key</code></p>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Change <code>hostPath.path</code> on the host, not <code>--data-dir</code> or <code>mountPath</code> — both of those are the in-container path.</li>
+        <li>Restore into a <b>new</b> directory, never over a live <code>/var/lib/etcd</code>.</li>
+        <li>Success is the final log line <code>restored snapshot</code>. There is no literal "success".</li>
+        <li><code>etcdctl</code> is the client that talks to a server and needs certs; <code>etcdutl</code> is the offline file tool and doesn't. Some images ship without <code>etcdutl</code> — <code>etcdctl snapshot restore</code> still works with a deprecation warning.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> kubernetes.io → "etcd backup" → <em>Operating etcd clusters for Kubernetes</em>.</div>
+  </article>
+
+  <article class="card" id="down">
+    <header><h2>06 — Cluster down, kubectl dead</h2><span class="badge memo">Memorize</span></header>
+    <div class="body">
+
+      <h3>Step 0 — what kind of node am I on?</h3>
+      <p>With the API dead you can't ask <code>k get nodes</code>. The manifests directory answers it:</p>
+<pre>ls /etc/kubernetes/manifests/   <i># static pods = control plane. empty/absent = worker</i></pre>
+      <p>A missing <code>/etc/kubernetes</code> is a redirect, not a dead end. Stop guessing paths and ask the
+        running process where it looks:</p>
+<pre>systemctl cat kubelet      <i># unit + ALL drop-ins: --kubeconfig, --config</i>
+ps aux | grep [k]ubelet    <i># the real runtime flags</i>
+find / -name kubelet.conf -o -name 'kube-apiserver.yaml' 2&gt;/dev/null</pre>
+      <p><code>systemctl status</code> shows none of those paths. <code>systemctl cat</code> does. A kubelet that is
+        <code>active (running)</code> with no <code>/etc/kubernetes</code> is reading config from somewhere else —
+        something is working, go find it.</p>
+
+      <h3>The ladder — connection refused on :6443</h3>
+<pre>1. ssh to the control-plane node     <i># crictl lives there, not on the bastion</i>
+2. crictl ps -a | grep -i apiserver
+     Exited        -> crashing  -> crictl logs &lt;id&gt; -> fix the manifest
+     NO container  -> kubelet never acted on it -> step 3
+3. ls /etc/kubernetes/manifests/     <i># all four present?</i>
+4. grep staticPodPath /var/lib/kubelet/config.yaml
+5. systemctl status kubelet          <i># read Loaded: AND Active:</i>
+6. journalctl -u kubelet | tail</pre>
+
+      <h3>Read the ATTEMPT column</h3>
+      <ul class="gotchas">
+        <li><b>Exited with a high attempt count</b> means kubelet is restarting it — the manifest is wrong, fix the file.</li>
+        <li><b>Attempt 0 and nothing running</b> means the manifest isn't being read at all — kubelet or staticPodPath.</li>
+        <li>Container IDs churn during a crashloop, so <code>crictl logs &lt;id&gt;</code> races. The manifest is a file and doesn't disappear — read that instead.</li>
+      </ul>
+
+      <h3>apiserver ↔ etcd, kubeadm defaults</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Flag</th><th>Default</th></tr>
+        <tr><td><code>--etcd-servers</code></td><td><code>https://127.0.0.1:2379</code> — https, never http</td></tr>
+        <tr><td><code>--etcd-cafile</code></td><td><code>/etc/kubernetes/pki/<b>etcd</b>/ca.crt</code> — the etcd CA, not the cluster CA</td></tr>
+        <tr><td><code>--etcd-certfile</code></td><td><code>/etc/kubernetes/pki/apiserver-etcd-client.crt</code></td></tr>
+      </table>
+      </div>
+      <p>If another control plane is healthy it is your reference copy, readable in one command:
+        <code>ssh healthy-cp grep -n etcd /etc/kubernetes/manifests/kube-apiserver.yaml</code></p>
+
+      <h3>Fixes by finding</h3>
+      <ul class="gotchas">
+        <li>Unit missing → reinstall the kubelet package, then <b>verify</b> <code>Active:</code> — the post-install usually enables it, but not always.</li>
+        <li>Inactive or disabled → <code>systemctl enable --now kubelet</code>.</li>
+        <li>Running but the node is NotReady → it's talking to the wrong API endpoint. <code>grep server: /etc/kubernetes/kubelet.conf</code> must show <code>https://&lt;cp&gt;:6443</code>. <code>active</code> is not proof of health.</li>
+        <li>NotReady with <code>cni plugin not initialized</code> → that's the CNI layer, not kubelet.</li>
+        <li>Never <code>kubectl delete</code> a static pod. Fix the manifest; back it up <b>outside</b> the manifests directory, because a <code>.bak</code> left inside is loaded as a second static pod.</li>
+      </ul>
+
+      <h3>Discipline</h3>
+      <ul class="gotchas">
+        <li><b>Evidence before hypothesis.</b> One <code>crictl ps -a</code> before forming a theory. "Connection refused on 6443" names no layer.</li>
+        <li><b>Expect stacked faults.</b> Fixing only the first leaves it crashlooping and looks like your fix failed.</li>
+        <li><b>Verify at the layer you fixed</b>, bottom-up: unit running → container up → port answers → nodes Ready. The apiserver needs about a minute; don't panic-retry at 30 seconds.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> kubernetes.io → "crictl" → <em>Debugging Kubernetes nodes with crictl</em>.</div>
+  </article>
+
+  <footer>
+    <p>Related: <a href="cks.html">CKS cheat cards</a> · <a href="aws.html">AWS cheat cards</a> ·
+      <a href="interview.html">DevOps interview bank</a> ·
+      <a href="posts/cka-four-sits.html">The CKA took me four sits</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

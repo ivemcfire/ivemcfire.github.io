@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AWS Cheat Cards — Ivalin Ivanov</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0a;
+    --surface: #111;
+    --surface-2: #161616;
+    --border: #222;
+    --border-bright: #2e2e2e;
+    --text: #e0e0e0;
+    --text-dim: #777;
+    --accent: #ff6b35;
+    --accent-dim: #ff6b3522;
+    --money: #d4a017;
+    --money-dim: #d4a01722;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: "Instrument Serif", Georgia, serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 48px 96px;
+  }
+
+  header h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(2.4rem, 8vw, 3.6rem);
+    line-height: 1.05;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+
+  .lede { color: var(--text-dim); max-width: 64ch; margin: 0 0 24px; }
+
+  .rule {
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding-block: 14px;
+    margin-bottom: 40px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+  }
+
+  .rule b { color: var(--accent); }
+  .rule .m { color: var(--money); }
+
+  nav.index {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  nav.index a {
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+    padding: 12px 14px;
+    font-size: 12.5px;
+  }
+
+  nav.index a:hover { background: var(--surface-2); color: var(--accent); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .card {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    margin-bottom: 36px;
+    scroll-margin-top: 20px;
+  }
+
+  .card > header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+
+  .card h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 1.7rem;
+    margin: 0;
+  }
+
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .badge {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--border-bright);
+    border-radius: 2px;
+    padding: 2px 8px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .badge.asked { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+  .badge.bills { color: var(--money); border-color: var(--money); background: var(--money-dim); }
+
+  .body { padding: 18px; }
+
+  h3 {
+    font-size: 11.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 700;
+    margin: 22px 0 8px;
+  }
+
+  .body > h3:first-child { margin-top: 0; }
+
+  pre {
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  pre b { color: var(--accent); font-weight: 400; }
+  pre i { color: var(--text-dim); font-style: normal; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 12px; }
+  .scroll { overflow-x: auto; }
+
+  th, td {
+    text-align: left;
+    padding: 7px 12px 7px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  th { color: var(--text-dim); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; }
+  td code { color: var(--accent); overflow-wrap: anywhere; }
+
+  ul.gotchas { list-style: none; margin: 0 0 12px; padding: 0; }
+
+  ul.gotchas li {
+    padding-left: 14px;
+    border-left: 2px solid var(--accent);
+    margin-bottom: 8px;
+  }
+
+  ul.gotchas li.money { border-left-color: var(--money); }
+  ul.gotchas code { color: var(--accent); overflow-wrap: anywhere; }
+  ul.gotchas li.money code { color: var(--money); }
+
+  .docs {
+    border-top: 1px solid var(--border);
+    padding: 12px 18px;
+    color: var(--text-dim);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .docs b { color: var(--text); font-weight: 400; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  * { box-sizing: border-box; }
+  .site-nav { margin-bottom: 36px; font-size: 12.5px; }
+  .site-nav a { color: var(--text-dim); text-decoration: none; }
+  .site-nav a:hover { color: var(--accent); }
+  footer a { color: var(--accent); }
+</style>
+<meta name="description" content="Scan references for a small AWS lab account: bootstrap and guardrails, IAM, VPC and subnets, security groups, S3 and cost control.">
+</head>
+<body>
+
+
+<div class="wrap">
+
+  <div class="site-nav"><a href="index.html">&larr; ivemcfire</a></div>
+
+  <header>
+    <h1>AWS Cheat Cards</h1>
+    <p class="lede">Scan references for the lab account. Commands, tables, the gotcha, the docs path.
+      Region is <code>eu-west-1</code>, budget cap is $20/month.</p>
+  </header>
+
+  <div class="rule">
+    <b>ASKED</b> — maps to numbered questions in the interview bank.
+    <span class="m">BILLS</span> — this card creates things that cost money; read the teardown before the build.
+  </div>
+
+  <nav class="index" aria-label="Cards">
+    <a href="#bootstrap">01 — Account bootstrap</a>
+    <a href="#iam">02 — IAM</a>
+    <a href="#vpc">03 — VPC &amp; subnets</a>
+    <a href="#sg">04 — Security groups &amp; NACLs</a>
+    <a href="#s3">05 — S3</a>
+    <a href="#cost">06 — Cost control</a>
+  </nav>
+
+  <article class="card" id="bootstrap">
+    <header>
+      <h2>01 — Account bootstrap</h2>
+      <div class="badges"><span class="badge">Day one</span></div>
+    </header>
+    <div class="body">
+
+      <h3>Order — nothing gets created until the budget alarm exists</h3>
+<pre>1. Sign up, Free plan, <b>root MFA immediately</b>
+2. Root account: never used again after step 3
+3. IAM user <b>&lt;admin-user&gt;</b> + AdministratorAccess + MFA + access key
+4. Budget alarm BEFORE any resource
+5. CLI profile, then verify</pre>
+
+      <h3>Budget alarm</h3>
+<pre>Billing → Budgets → Create budget → Cost budget
+  amount: 20 USD/month
+  alerts at 50% / 80% / 100% <i>actual</i> → email
+Billing → Preferences → <b>Receive free tier usage alerts</b></pre>
+
+      <h3>CLI</h3>
+<pre>sudo dnf install awscli2
+aws configure --profile ivx          <i># key, secret, eu-west-1, json</i>
+aws sts get-caller-identity --profile ivx
+export AWS_PROFILE=ivx</pre>
+
+      <h3>Verify before building anything</h3>
+<pre>aws budgets describe-budgets \
+  --account-id $(aws sts get-caller-identity --query Account --output text)
+aws iam list-mfa-devices</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Access keys in a repo = account compromised in minutes. Bots scan GitHub continuously.</li>
+        <li class="money">Billing data is <b>us-east-1 only</b>. Cost Explorer looks empty if you filter by region.</li>
+        <li class="money">Accounts opened after 2025-07-15 have <b>no 12-month EC2 free tier</b> — $100 credits at signup, $20 each for five Console Home tasks. The Free plan account closes at 6 months unless upgraded.</li>
+        <li class="money">Deleting an account's resources is not closing the account. Bills continue.</li>
+        <li><code>eu-west-1</code> vs <code>eu-west-2</code> typo = resources you can't find and don't delete.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> aws.amazon.com/free · awscli.amazonaws.com/v2/documentation/api/latest/reference/</div>
+  </article>
+
+  <article class="card" id="iam">
+    <header>
+      <h2>02 — IAM</h2>
+      <div class="badges"><span class="badge asked">A2 · A5 · A8</span></div>
+    </header>
+    <div class="body">
+
+      <h3>The four nouns</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Thing</th><th>Credentials?</th><th>Holds policies?</th><th>Note</th></tr>
+        <tr><td>User</td><td>yes — password / <code>AKIA</code> keys</td><td>yes</td><td>permanent identity</td></tr>
+        <tr><td>Group</td><td>no</td><td>yes</td><td>bag of users, no login of its own</td></tr>
+        <tr><td>Policy</td><td>—</td><td>is one</td><td>JSON: Allow/Deny × Action × Resource</td></tr>
+        <tr><td>Role</td><td>temporary — <code>ASIA</code> + SessionToken</td><td>yes, <b>plus a trust policy</b></td><td>assumed, expires ~1h</td></tr>
+      </table>
+      </div>
+      <p>Permission chain: <b>user → group → attached policy</b>. Break any link and it's AccessDenied.</p>
+
+      <h3>Policy document</h3>
+<pre>{"<b>Version</b>":"2012-10-17","<b>Statement</b>":[
+  {"Sid":"x","<b>Effect</b>":"Allow","<b>Action</b>":"s3:GetObject",
+   "<b>Resource</b>":"arn:aws:s3:::bucket/*"}]}</pre>
+      <ul class="gotchas">
+        <li><code>Version</code> is the policy <b>language</b> date, always <code>2012-10-17</code> — not the policy's own version (<code>VersionId: v1</code>).</li>
+        <li>Managed = has its own ARN, reusable. Inline = embedded, no ARN, dies with the principal.</li>
+        <li>AWS-managed ARN <code>arn:aws:iam::aws:policy/…</code> · yours <code>arn:aws:iam::&lt;acct&gt;:policy/…</code></li>
+      </ul>
+
+      <h3>A role is TWO documents</h3>
+<pre><b>trust policy</b>      (AssumeRolePolicyDocument) — WHO may assume it
+  Principal: {"Service":"ec2.amazonaws.com"} or {"AWS":"arn:...:user/name"}
+<b>permission policy</b> — WHAT it may do, attached normally</pre>
+
+      <h3>ARN shapes</h3>
+<pre>arn:aws:iam::&lt;acct&gt;:user/&lt;name&gt;   <i># IAM is global, region field empty</i>
+arn:aws:s3:::&lt;bucket&gt;             <i># the bucket    (s3:ListBucket)</i>
+arn:aws:s3:::&lt;bucket&gt;/*           <i># the objects   (s3:GetObject)</i></pre>
+
+      <h3>Commands</h3>
+<pre>aws sts get-caller-identity                    <i># WHO AM I. always first</i>
+aws iam list-attached-user-policies  --user-name X
+aws iam list-groups-for-user         --user-name X
+aws iam list-attached-group-policies --group-name X   <i># managed</i>
+aws iam list-group-policies          --group-name X   <i># inline</i>
+aws iam get-policy         --policy-arn A      <i># metadata -> DefaultVersionId</i>
+aws iam get-policy-version --policy-arn A --version-id v1
+aws iam create-role --role-name N --assume-role-policy-document file://trust.json
+aws iam attach-role-policy --role-name N --policy-arn A
+aws iam update-assume-role-policy --role-name N --policy-document file://trust.json
+aws sts assume-role --role-arn R --role-session-name test</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li><code>not authorized to perform: sts:AssumeRole</code> usually means the <b>role's trust policy</b> refused you, not that you lack permissions. Misleading wording.</li>
+        <li>Admin (<code>Action: *</code>) does not override a trust policy.</li>
+        <li>IAM is eventually consistent — change a trust policy, assume immediately, get a spurious AccessDenied. Wait ~10s. Bites in Terraform too.</li>
+        <li>IAM never validates that a <code>Resource</code> exists. A typo'd bucket is a silent no-op.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> docs.aws.amazon.com/service-authorization/latest/reference/ for actions per service · Console → IAM → Policies → Visual editor generates clean JSON.</div>
+  </article>
+
+  <article class="card" id="vpc">
+    <header>
+      <h2>03 — VPC &amp; subnets</h2>
+      <div class="badges"><span class="badge asked">A3 · A4 · A10</span><span class="badge bills">Bills</span></div>
+    </header>
+    <div class="body">
+
+      <h3>What makes a subnet public</h3>
+<pre>route table entry: <b>0.0.0.0/0 → igw-xxxx</b>
+
+<i># that is the whole answer. not the name, not auto-assign IP</i></pre>
+
+      <h3>Build one by hand</h3>
+<pre>aws ec2 create-vpc --cidr-block 10.0.0.0/16
+aws ec2 create-subnet --vpc-id vpc-x --cidr-block 10.0.1.0/24 \
+  --availability-zone eu-west-1a
+aws ec2 create-internet-gateway
+aws ec2 attach-internet-gateway --vpc-id vpc-x --internet-gateway-id igw-x
+aws ec2 create-route-table --vpc-id vpc-x
+aws ec2 create-route --route-table-id rtb-x \
+  --destination-cidr-block 0.0.0.0/0 --gateway-id igw-x
+aws ec2 associate-route-table --route-table-id rtb-x --subnet-id subnet-x
+aws ec2 modify-subnet-attribute --subnet-id subnet-x --map-public-ip-on-launch</pre>
+
+      <h3>Getting out from a private subnet</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Path</th><th>Cost</th><th>Use for</th></tr>
+        <tr><td>NAT gateway</td><td>hourly + per GB</td><td>general outbound internet</td></tr>
+        <tr><td>Gateway endpoint</td><td><b>free</b></td><td>S3, DynamoDB only</td></tr>
+        <tr><td>Interface endpoint (PrivateLink)</td><td>hourly + per GB</td><td>other AWS APIs</td></tr>
+      </table>
+      </div>
+
+      <h3>Inspect</h3>
+<pre>aws ec2 describe-vpcs --query 'Vpcs[].[VpcId,CidrBlock,IsDefault]' --output table
+aws ec2 describe-subnets --filters Name=vpc-id,Values=vpc-x \
+  --query 'Subnets[].[SubnetId,CidrBlock,AvailabilityZone]' --output table
+aws ec2 describe-route-tables --filters Name=vpc-id,Values=vpc-x</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>A VPC CIDR cannot be changed after creation. You can only add secondary CIDRs. Plan it once.</li>
+        <li>AWS reserves <b>5 addresses per subnet</b> — a /28 gives you 11 usable, not 16.</li>
+        <li>Subnets are AZ-scoped; VPCs are regional. A subnet never spans AZs.</li>
+        <li class="money">A NAT gateway is roughly $32/month before a byte moves, and it's per-AZ for real HA. This is the most common surprise line on a lab bill.</li>
+        <li class="money">An Elastic IP that isn't attached to anything is billed hourly. Free only while in use.</li>
+        <li>The default VPC comes fully wired with public subnets. Fine for a first launch, wrong for anything you'll show an interviewer.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> docs.aws.amazon.com/vpc/latest/userguide/ — "VPC with public and private subnets" is the reference topology.</div>
+  </article>
+
+  <article class="card" id="sg">
+    <header>
+      <h2>04 — Security groups &amp; NACLs</h2>
+      <div class="badges"><span class="badge asked">A1</span></div>
+    </header>
+    <div class="body">
+
+      <h3>The difference, in one table</h3>
+      <div class="scroll">
+      <table>
+        <tr><th></th><th>Security group</th><th>Network ACL</th></tr>
+        <tr><td>Attaches to</td><td>ENI (instance, endpoint, LB)</td><td>subnet</td></tr>
+        <tr><td>State</td><td><b>stateful</b> — replies allowed automatically</td><td><b>stateless</b> — replies need their own rule</td></tr>
+        <tr><td>Rules</td><td>allow only</td><td>allow <b>and</b> deny</td></tr>
+        <tr><td>Evaluation</td><td>all rules, any match wins</td><td>lowest rule number first, first match wins</td></tr>
+        <tr><td>Can reference</td><td>another security group</td><td>CIDR only</td></tr>
+        <tr><td>Default</td><td>no inbound, all outbound</td><td>allow everything both ways</td></tr>
+      </table>
+      </div>
+
+      <h3>Commands</h3>
+<pre>aws ec2 create-security-group --group-name web --description "web tier" --vpc-id vpc-x
+aws ec2 authorize-security-group-ingress --group-id sg-web \
+  --protocol tcp --port 443 --cidr 0.0.0.0/0
+
+<i># the idiomatic pattern: db allows web, by group, not by IP</i>
+aws ec2 authorize-security-group-ingress --group-id sg-db \
+  --protocol tcp --port 5432 --source-group sg-web
+
+aws ec2 describe-security-groups --group-ids sg-web \
+  --query 'SecurityGroups[].IpPermissions'</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Referencing a security group instead of a CIDR is the answer interviewers want — instances come and go, the group reference survives.</li>
+        <li>Stateless NACLs need an outbound rule for ephemeral ports <code>1024-65535</code> or replies are dropped. Outbound works, the answer never arrives.</li>
+        <li>A NACL <code>deny</code> beats any security group allow. NACLs are the blunt instrument — use them for a CIDR block ban, not for app rules.</li>
+        <li>Removing the last inbound rule doesn't remove the group's outbound allow-all. Check both directions.</li>
+        <li>A hang means dropped (security group or NACL). A refused connection means something answered. That distinction finds the layer in seconds.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html · …/vpc-network-acls.html</div>
+  </article>
+
+  <article class="card" id="s3">
+    <header>
+      <h2>05 — S3</h2>
+      <div class="badges"><span class="badge asked">A7</span><span class="badge bills">Bills</span></div>
+    </header>
+    <div class="body">
+
+      <h3>Two CLIs, on purpose</h3>
+<pre>aws s3 ls s3://bucket/prefix/      <i># high level: ls cp mv sync rm</i>
+aws s3 sync ./dir s3://bucket/dir/
+aws s3api get-bucket-policy --bucket b     <i># low level: everything else</i></pre>
+
+      <h3>Who can make it public — four layers</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Layer</th><th>Check</th></tr>
+        <tr><td>Account Block Public Access</td><td><code>aws s3control get-public-access-block</code></td></tr>
+        <tr><td>Bucket Block Public Access</td><td><code>aws s3api get-public-access-block --bucket b</code></td></tr>
+        <tr><td>Bucket policy</td><td><code>aws s3api get-bucket-policy --bucket b</code></td></tr>
+        <tr><td>Object ACL (legacy)</td><td><code>aws s3api get-bucket-acl --bucket b</code></td></tr>
+      </table>
+      </div>
+
+      <h3>Lock it down</h3>
+<pre>aws s3api put-public-access-block --bucket b \
+  --public-access-block-configuration \
+  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+
+aws s3api put-bucket-versioning --bucket b --versioning-configuration Status=Enabled
+aws s3api put-bucket-encryption --bucket b --server-side-encryption-configuration \
+  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Bucket ARN and object ARN are different resources. <code>s3:ListBucket</code> needs <code>arn:aws:s3:::b</code>; <code>s3:GetObject</code> needs <code>arn:aws:s3:::b/*</code>. Most broken policies are this.</li>
+        <li>Bucket names are globally unique across all AWS accounts — the storage is regional, the namespace is not.</li>
+        <li>A versioned bucket won't delete until every version and delete-marker is purged. <code>aws s3 rb --force</code> misses versions.</li>
+        <li class="money">Egress to the internet is the line item people forget. Storage is cheap; getting data out is not.</li>
+        <li class="money">Incomplete multipart uploads keep billing invisibly. Set a lifecycle rule to abort them after 7 days.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> docs.aws.amazon.com/AmazonS3/latest/userguide/ — "Blocking public access" and "Bucket policy examples".</div>
+  </article>
+
+  <article class="card" id="cost">
+    <header>
+      <h2>06 — Cost control</h2>
+      <div class="badges"><span class="badge asked">A6</span><span class="badge bills">The whole card</span></div>
+    </header>
+    <div class="body">
+
+      <h3>Where the money actually goes in a lab account</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Resource</th><th>Why it bills</th></tr>
+        <tr><td>NAT gateway</td><td>hourly + per GB, whether used or not</td></tr>
+        <tr><td>Unattached Elastic IP</td><td>hourly, precisely because it's idle</td></tr>
+        <tr><td>Detached EBS volume</td><td>per GB-month; survives instance termination</td></tr>
+        <tr><td>Load balancer</td><td>hourly + capacity units</td></tr>
+        <tr><td>CloudWatch log group</td><td>ingestion + storage, forever if retention is unset</td></tr>
+        <tr><td>RDS</td><td>hourly even when idle; snapshots outlive the instance</td></tr>
+      </table>
+      </div>
+
+      <h3>Check spend from the CLI</h3>
+<pre>aws ce get-cost-and-usage \
+  --time-period Start=$(date +%Y-%m-01),End=$(date -d tomorrow +%Y-%m-%d) \
+  --granularity MONTHLY --metrics UnblendedCost
+
+<i># same, split by service — this is the one that answers "why $300"</i>
+aws ce get-cost-and-usage \
+  --time-period Start=$(date +%Y-%m-01),End=$(date -d tomorrow +%Y-%m-%d) \
+  --granularity MONTHLY --metrics UnblendedCost \
+  --group-by Type=DIMENSION,Key=SERVICE</pre>
+
+      <h3>Teardown proof — run before you close the laptop</h3>
+<pre>aws ec2 describe-instances \
+  --query 'Reservations[].Instances[?State.Name!=`terminated`].InstanceId'
+aws ec2 describe-volumes --filters Name=status,Values=available
+aws ec2 describe-addresses --query 'Addresses[?AssociationId==`null`]'
+aws ec2 describe-nat-gateways --filter Name=state,Values=available
+aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li class="money">Cost Explorer lags up to 24h. A teardown that looks free today can still land tomorrow.</li>
+        <li class="money">Budgets alert, they don't stop anything. Nothing in AWS caps spend by itself.</li>
+        <li class="money">Terraform destroy leaves anything it didn't create — console-made test resources, orphaned snapshots, log groups.</li>
+        <li>Tag every lab resource at creation. Untagged resources can't be found by Cost Explorer and won't be found by you either.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> Billing → Cost Explorer (us-east-1 only) · docs.aws.amazon.com/cost-management/latest/userguide/</div>
+  </article>
+
+  <footer>
+    <p>6 cards. Next: EC2 &amp; key pairs, Terraform backend on S3, ECS/Fargate, GitHub Actions OIDC to
+      AWS, CloudWatch logs &amp; alarms, RDS.</p>
+  </footer>
+
+  <p style="color:var(--text-dim);font-size:12.5px;border-top:1px solid var(--border);padding-top:20px">Related: <a href="cka.html">CKA cheat cards</a> · <a href="cks.html">CKS cheat cards</a> · <a href="interview.html">DevOps interview bank</a></p>
+
+</div>
+</body>
+</html>

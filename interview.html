@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevOps Interview Bank — Ivalin Ivanov</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0a;
+    --surface: #111;
+    --surface-2: #151515;
+    --border: #222;
+    --border-bright: #2e2e2e;
+    --text: #e0e0e0;
+    --text-dim: #777;
+    --accent: #ff6b35;
+    --accent-dim: #ff6b3522;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: "Instrument Serif", Georgia, serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.65;
+    margin: 0;
+  }
+
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 48px 96px;
+  }
+
+  /* ---------- header ---------- */
+
+  header h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(2.4rem, 8vw, 3.6rem);
+    line-height: 1.05;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+
+  .lede {
+    color: var(--text-dim);
+    max-width: 62ch;
+    margin: 0 0 28px;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    align-items: baseline;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding-block: 14px;
+    margin-bottom: 28px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+
+  .legend b {
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  /* ---------- controls ---------- */
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 36px;
+  }
+
+  button.filter {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+    border-radius: 2px;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+
+  button.filter:hover { border-color: var(--accent); }
+
+  button.filter[aria-pressed="true"] {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .count { color: var(--text-dim); font-size: 12.5px; }
+
+  /* ---------- topic index ---------- */
+
+  nav.index {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 56px;
+  }
+
+  nav.index a {
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  nav.index a:hover { background: var(--surface-2); color: var(--accent); }
+  nav.index a span { color: var(--text-dim); }
+
+  /* ---------- sections ---------- */
+
+  section { margin-bottom: 56px; scroll-margin-top: 20px; }
+
+  h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 2rem;
+    margin: 0 0 4px;
+    text-wrap: balance;
+  }
+
+  .tag {
+    display: block;
+    color: var(--text-dim);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  .q {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 4px 14px;
+    padding-block: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .id {
+    color: var(--text-dim);
+    font-size: 12px;
+    padding-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .q.core .id { color: var(--accent); font-weight: 700; }
+
+  .ask { margin: 0; font-weight: 700; }
+
+  .ask::after {
+    content: " !!!";
+    color: var(--accent);
+    letter-spacing: 0.06em;
+  }
+
+  .q:not(.core) .ask::after { content: ""; }
+
+  .shape {
+    grid-column: 2;
+    margin: 0;
+    color: var(--text-dim);
+  }
+
+  .shape code {
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 0 4px;
+    font-size: 12.5px;
+    overflow-wrap: anywhere;
+  }
+
+  .trap {
+    grid-column: 2;
+    margin: 6px 0 0;
+    padding-left: 12px;
+    border-left: 2px solid var(--accent);
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  .trap b { color: var(--accent); font-weight: 700; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+  }
+
+  @media (max-width: 560px) {
+    .q { grid-template-columns: 1fr; }
+    .shape, .trap { grid-column: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  * { box-sizing: border-box; }
+  .site-nav { margin-bottom: 36px; font-size: 12.5px; }
+  .site-nav a { color: var(--text-dim); text-decoration: none; }
+  .site-nav a:hover { color: var(--accent); }
+  footer a { color: var(--accent); }
+</style>
+<meta name="description" content="81 DevOps interview questions grouped by topic, each with the shape of a passing answer and the follow-up that catches people out.">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="site-nav"><a href="index.html">&larr; ivemcfire</a></div>
+
+  <header>
+    <h1>DevOps Interview Bank</h1>
+    <p class="lede">Questions grouped by topic, each with the shape of a passing answer — not a script to
+      recite. Vague answers fail. Name the actual service, flag, or file.</p>
+    <div class="legend">
+      <span><b>!!!</b> asked in most interviews — must be cold</span>
+      <span>Unmarked — know it, don't rehearse it</span>
+      <span>Orange rule — the follow-up that catches people out</span>
+    </div>
+  </header>
+
+  <div class="controls">
+    <button class="filter" id="coreOnly" type="button" aria-pressed="false">Show only !!!</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <nav class="index" aria-label="Topics">
+    <a href="#aws">AWS <span>10</span></a>
+    <a href="#terraform">Terraform <span>10</span></a>
+    <a href="#cicd">CI/CD <span>8</span></a>
+    <a href="#gitops">GitOps <span>7</span></a>
+    <a href="#k8s">Kubernetes <span>10</span></a>
+    <a href="#k8s-sec">K8s security <span>8</span></a>
+    <a href="#linux">Linux &amp; network <span>8</span></a>
+    <a href="#obs">Observability <span>7</span></a>
+    <a href="#behav">Behavioural <span>7</span></a>
+    <a href="#ask">Ask them <span>6</span></a>
+  </nav>
+
+  <section id="aws">
+    <h2>AWS</h2>
+    <span class="tag">Identity, network, cost</span>
+
+    <div class="q core">
+      <div class="id">A1</div>
+      <p class="ask">Security group vs NACL — when does the difference actually bite you?</p>
+      <p class="shape">SG: stateful, attaches to an ENI, allow rules only. NACL: stateless, subnet-wide,
+        allow <em>and</em> deny, evaluated in rule-number order.</p>
+      <p class="trap"><b>Follow-up:</b> stateless means return traffic needs its own rule — the classic
+        symptom is an outbound request that works while the reply is dropped on an ephemeral port.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">A2</div>
+      <p class="ask">Give an EC2 instance read access to one S3 bucket, with no access keys.</p>
+      <p class="shape">IAM role + instance profile. Policy scoped to <code>arn:aws:s3:::bucket</code> and
+        <code>arn:aws:s3:::bucket/*</code> — both ARNs, bucket-level and object-level. Credentials arrive
+        through IMDS and rotate on their own.</p>
+      <p class="trap"><b>Say the words:</b> "no long-lived credentials on disk." That's the point of the
+        question.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">A3</div>
+      <p class="ask">What actually makes a subnet public?</p>
+      <p class="shape">A route table entry sending <code>0.0.0.0/0</code> to an internet gateway. Not the
+        name, not auto-assign public IP — those are consequences, not causes.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">A4</div>
+      <p class="ask">What is a NAT gateway for, and why might you avoid one?</p>
+      <p class="shape">Outbound internet for private subnets. Avoid because it bills hourly <em>and</em> per
+        GB processed; S3 and DynamoDB gateway endpoints are free and remove most of the traffic.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">A5</div>
+      <p class="ask">IAM user vs role vs policy, one sentence each.</p>
+      <p class="shape">User: a long-lived identity, usually with keys. Role: assumed, hands out temporary
+        STS credentials. Policy: the JSON document granting permissions, attached to either.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">A6</div>
+      <p class="ask">A bill alert fires for $300. Walk me through finding the cause.</p>
+      <p class="shape">Cost Explorer grouped by service, then by usage type to find the line item. Usual
+        suspects: NAT gateway data processing, unattached EBS volumes, idle load balancers, CloudWatch log
+        groups with no retention, cross-AZ transfer.</p>
+      <p class="trap"><b>Close the loop:</b> a budget alert and a tagging policy so the next one is caught
+        at $30, not $300.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">A7</div>
+      <p class="ask">An S3 bucket is public and shouldn't be. What do you check?</p>
+      <p class="shape">Block Public Access at account and bucket level, then the bucket policy, then ACLs.
+        IAM Access Analyzer finds the rest; CloudTrail says who changed it and when.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">A8</div>
+      <p class="ask">What does an instance profile do?</p>
+      <p class="shape">It's the wrapper that lets EC2 attach an IAM role. You attach the profile; the
+        instance assumes the role inside it.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">A9</div>
+      <p class="ask">IMDSv1 vs IMDSv2 — why does anyone care?</p>
+      <p class="shape">v2 requires a PUT to get a session token and honours a hop limit, so a
+        server-side request forgery bug in an app can no longer read the instance's role credentials.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">A10</div>
+      <p class="ask">How do you give a private subnet access to an AWS API without internet?</p>
+      <p class="shape">VPC endpoints. Gateway endpoints for S3 and DynamoDB (route-table based, free);
+        interface endpoints via PrivateLink for everything else (an ENI, billed hourly).</p>
+    </div>
+  </section>
+
+  <section id="terraform">
+    <h2>Terraform</h2>
+    <span class="tag">State, drift, promotion</span>
+
+    <div class="q core">
+      <div class="id">T1</div>
+      <p class="ask">What's in the state file, and why can't it live in git?</p>
+      <p class="shape">The mapping from resource address to real-world ID, plus attributes and metadata.
+        It holds secrets in plaintext, and git gives you no locking — two people, two branches, one
+        corrupted state.</p>
+      <p class="trap"><b>Follow-up:</b> where does it live instead? Remote backend — S3 with encryption
+        and locking, or Terraform Cloud. Know that S3 now does native locking; DynamoDB was the old way.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">T2</div>
+      <p class="ask">Two engineers run apply at the same time. What happens?</p>
+      <p class="shape">Without locking, interleaved writes and a corrupted state — the worst failure mode
+        in Terraform, because the code is fine and reality no longer matches. State locking serialises it.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">T3</div>
+      <p class="ask">Someone changed a resource in the console. How do you find out, and how do you fix it?</p>
+      <p class="shape">A plan shows the diff; <code>terraform apply -refresh-only</code> accepts reality
+        into state. Then decide: revert to code, or codify the change. Prevent it by removing write access
+        to the console.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">T4</div>
+      <p class="ask"><code>count</code> vs <code>for_each</code> — which, and why?</p>
+      <p class="shape">count is index-keyed, so removing the middle element re-creates everything after it.
+        for_each is key-keyed and stable. Default to for_each; count is for on/off toggles.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">T5</div>
+      <p class="ask">How do you promote a change from dev to prod?</p>
+      <p class="shape">Same module, different variable files and separate state per environment. Plan runs
+        on the PR, apply on merge. Prod gets a manual approval gate.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">T6</div>
+      <p class="ask">Terraform needs to manage a resource that already exists.</p>
+      <p class="shape"><code>terraform import</code>, or an <code>import</code> block in 1.5+ which is
+        reviewable in the plan and can generate the config for you.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">T7</div>
+      <p class="ask">What does <code>terraform plan</code> actually do?</p>
+      <p class="shape">Refreshes state against the provider APIs, diffs desired config against that, and
+        prints the actions. It reads the real world — it isn't a dry run against the file alone.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">T8</div>
+      <p class="ask">When is <code>-target</code> acceptable?</p>
+      <p class="shape">Recovering from a partial apply or a broken state. Never as routine workflow — if
+        you need it often, the root module is too big.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">T9</div>
+      <p class="ask">Module vs workspace.</p>
+      <p class="shape">Module: reusable code. Workspace: separate state for the same code. Using
+        workspaces for environments is contested — separate directories make the differences explicit.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">T10</div>
+      <p class="ask">How do you handle secrets in Terraform?</p>
+      <p class="shape">Don't commit tfvars with secrets. Pull at apply time from SSM Parameter Store,
+        Secrets Manager or Vault.</p>
+      <p class="trap"><b>The honest part:</b> they still land in state in plaintext. That's why the backend
+        is encrypted and access-controlled. Saying this out loud reads as experience.</p>
+    </div>
+  </section>
+
+  <section id="cicd">
+    <h2>CI/CD</h2>
+    <span class="tag">Pipelines, auth, rollback</span>
+
+    <div class="q core">
+      <div class="id">C1</div>
+      <p class="ask">Walk me through what happens from <code>git push</code> to running in production.</p>
+      <p class="shape">The big one. Linear narrative: trigger → lint and unit tests → build image →
+        tag with the commit SHA → push to registry → scan → deploy to staging → smoke test → promote to
+        prod → verify. Name the gate at each step and who owns it.</p>
+      <p class="trap"><b>Must be cold.</b> Hesitating here undoes a good interview. Rehearse it aloud
+        until it runs 90 seconds without a pause.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">C2</div>
+      <p class="ask">How does your pipeline authenticate to AWS?</p>
+      <p class="shape">OIDC federation — the CI provider presents a signed token, an IAM role trusts that
+        issuer with a condition on the repo and branch, and returns short-lived credentials.</p>
+      <p class="trap"><b>Wrong answer:</b> static access keys in repo secrets. If that's what a past job
+        did, say so and say what you'd change.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">C3</div>
+      <p class="ask">Where do secrets live, and who can read them?</p>
+      <p class="shape">Repo or org secrets for CI-only values, a real secret store for runtime. Access is
+        scoped by environment protection rules and reviewers. Secrets are masked in logs but a determined
+        job can still print them — so scope them per environment.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">C4</div>
+      <p class="ask">A deploy broke prod. What's your rollback?</p>
+      <p class="shape">Redeploy the previous immutable tag — <code>kubectl rollout undo</code>, a Helm or
+        Argo rollback, whatever the platform is. Seconds, not a rebuild.</p>
+      <p class="trap"><b>Where it gets real:</b> database migrations don't roll back. Answer with
+        expand/contract — additive migrations deployed ahead of the code that uses them.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">C5</div>
+      <p class="ask">What runs on a PR vs on merge to main, and why the split?</p>
+      <p class="shape">PR: lint, test, build, terraform plan — everything read-only. Merge: apply and
+        deploy. The split exists because only the second half needs privileged credentials.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">C6</div>
+      <p class="ask">Why is <code>:latest</code> a problem in a deployment?</p>
+      <p class="shape">Non-deterministic — two pods on two nodes can run different code. No rollback
+        target, and a manifest that never changes doesn't trigger a new rollout. Pin the SHA or a digest.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">C7</div>
+      <p class="ask">Rolling vs blue/green vs canary.</p>
+      <p class="shape">Rolling: cheapest, two versions live at once, so the API must stay compatible.
+        Blue/green: instant cutover and instant rollback, double the infrastructure. Canary: percentage
+        shift with metrics as the gate.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">C8</div>
+      <p class="ask">Your pipeline takes 40 minutes. How do you make it faster?</p>
+      <p class="shape">Measure first — find the slow stage. Then: cache dependencies and layers,
+        parallelise independent jobs, run the expensive suite only on merge, use a smaller base image.</p>
+    </div>
+  </section>
+
+  <section id="gitops">
+    <h2>GitOps</h2>
+    <span class="tag">Argo CD, Flux, reconciliation</span>
+
+    <div class="q core">
+      <div class="id">G1</div>
+      <p class="ask">What is GitOps, and how is it different from a normal CD pipeline?</p>
+      <p class="shape">Push CD runs <code>kubectl apply</code> from a pipeline that holds cluster
+        credentials. GitOps puts a controller inside the cluster that pulls from git and continuously
+        reconciles. Say: desired state, continuous reconciliation, no credentials leave the cluster.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">G2</div>
+      <p class="ask">How do you detect and handle drift?</p>
+      <p class="shape">The controller reports OutOfSync. Self-heal reverts manual changes automatically;
+        detect-only leaves the decision to a human. Start detect-only on an existing cluster.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">G3</div>
+      <p class="ask">How do you manage secrets in GitOps?</p>
+      <p class="shape">Never in plaintext in the repo. SOPS with age or KMS, Sealed Secrets, or External
+        Secrets Operator pulling from Vault or AWS Secrets Manager — the repo holds a reference or
+        ciphertext, the cluster resolves it.</p>
+      <p class="trap"><b>This follow-up is near-automatic</b> after G1. Have a named tool ready, not "we'd
+        encrypt them somehow."</p>
+    </div>
+
+    <div class="q">
+      <div class="id">G4</div>
+      <p class="ask">Argo CD or Flux?</p>
+      <p class="shape">Both CNCF-graduated. Argo CD: UI, multi-tenancy, wider adoption, heavier. Flux:
+        lighter, git-native, CLI-driven, better on constrained clusters. Answer with the tradeoff, not a
+        favourite.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">G5</div>
+      <p class="ask">You inherit a cluster with 15 namespaces of hand-applied resources. How do you onboard it?</p>
+      <p class="shape">Export live state, diff it against the repo, reconcile the gaps in git, then enable
+        sync. Auto-sync with self-heal goes on <em>last</em>.</p>
+      <p class="trap"><b>Turning on self-heal first</b> deletes everything that was never committed. Saying
+        that unprompted is the whole point of the question.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">G6</div>
+      <p class="ask">How do you manage many apps or many clusters?</p>
+      <p class="shape">App-of-apps, or ApplicationSet generating Applications from a list, a git directory,
+        or the cluster inventory. One repo change onboards a new environment.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">G7</div>
+      <p class="ask">How do you roll back under GitOps?</p>
+      <p class="shape"><code>git revert</code> and let the controller reconcile. The UI rollback is for
+        emergencies — it puts you out of sync with git until you commit the same change.</p>
+    </div>
+  </section>
+
+  <section id="k8s">
+    <h2>Kubernetes</h2>
+    <span class="tag">Workloads, scheduling, failure modes</span>
+
+    <div class="q core">
+      <div class="id">K1</div>
+      <p class="ask">A pod is stuck in Pending. Walk me through it.</p>
+      <p class="shape"><code>kubectl describe pod</code> and read the events — the scheduler writes the
+        reason there. Insufficient CPU or memory, a taint with no toleration, a nodeSelector or affinity
+        that matches nothing, or an unbound PVC.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">K2</div>
+      <p class="ask">CrashLoopBackOff. Where do you look?</p>
+      <p class="shape"><code>kubectl logs --previous</code> for the run that died, then the exit code.
+        137 is OOM, 1 is usually application error. Then check probes, and missing ConfigMap or Secret keys.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">K3</div>
+      <p class="ask">Requests vs limits.</p>
+      <p class="shape">Requests are what the scheduler reserves; limits are what the kernel enforces.
+        Over a CPU limit you get throttled; over a memory limit you get OOMKilled. They also decide QoS
+        class, which decides eviction order.</p>
+      <p class="trap"><b>Opinion worth having:</b> always set memory limits, be careful with CPU limits —
+        throttling a latency-sensitive service to enforce a number nobody measured is a common self-inflicted
+        outage.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">K4</div>
+      <p class="ask">How does traffic actually reach a pod?</p>
+      <p class="shape">Service selector matches pod labels, the endpoint controller keeps the
+        EndpointSlice current, kube-proxy programs iptables or IPVS on every node to DNAT the cluster IP to
+        a pod IP. ClusterIP → NodePort → LoadBalancer is the layering.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">K5</div>
+      <p class="ask">Deployment vs StatefulSet vs DaemonSet.</p>
+      <p class="shape">Deployment: interchangeable replicas. StatefulSet: stable identity, ordered
+        rollout, per-pod storage. DaemonSet: one per node, for agents.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">K6</div>
+      <p class="ask">Liveness vs readiness vs startup probes.</p>
+      <p class="shape">Liveness restarts the container. Readiness removes it from the service. Startup
+        suppresses the other two while a slow app boots.</p>
+      <p class="trap"><b>The classic outage:</b> a liveness probe that hits a dependency. The dependency
+        blips, every pod fails the probe, the whole deployment restarts itself into a loop. Liveness checks
+        the process, readiness checks the dependencies.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">K7</div>
+      <p class="ask">How does a rolling update work, and how do you undo one?</p>
+      <p class="shape">maxSurge and maxUnavailable control the window; a new ReplicaSet scales up as the
+        old scales down. <code>kubectl rollout undo</code> re-points at the previous ReplicaSet, which is
+        why revision history matters.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">K8</div>
+      <p class="ask">A node goes NotReady. What's your process?</p>
+      <p class="shape"><code>kubectl describe node</code> and read conditions — MemoryPressure,
+        DiskPressure, PIDPressure. Then on the node: is kubelet running, can it reach the API server, is
+        the disk full, is container runtime alive.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">K9</div>
+      <p class="ask">You change a ConfigMap. The pods don't pick it up. Why?</p>
+      <p class="shape">Env vars are injected at start and never change. Mounted volumes update
+        eventually, but the app has to re-read the file. Force it with a checksum annotation on the pod
+        template, or a controller that restarts on change.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">K10</div>
+      <p class="ask">Why does etcd need an odd number of members?</p>
+      <p class="shape">Quorum is n/2+1. Three tolerates one failure; four also tolerates only one, so the
+        fourth member adds failure surface and no availability. Losing quorum means the API goes read-only
+        and you're restoring from a snapshot.</p>
+    </div>
+  </section>
+
+  <section id="k8s-sec">
+    <h2>Kubernetes security</h2>
+    <span class="tag">Policy, isolation, supply chain</span>
+
+    <div class="q core">
+      <div class="id">S1</div>
+      <p class="ask">How do you stop one compromised pod reaching everything else in the cluster?</p>
+      <p class="shape">Default-deny NetworkPolicy per namespace, both ingress and egress, then allow only
+        what's needed. Pods are flat and fully routable until you do this.</p>
+      <p class="trap"><b>The gotcha everyone hits:</b> default-deny egress also blocks DNS. You must allow
+        UDP and TCP 53 to kube-dns or nothing in the namespace resolves anything.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">S2</div>
+      <p class="ask">What's Pod Security Admission?</p>
+      <p class="shape">Namespace labels enforcing privileged, baseline or restricted, in three modes:
+        warn, audit, enforce. Built in since PodSecurityPolicy was removed.</p>
+      <p class="trap"><b>How you roll it out:</b> warn and audit first, read what would have broken, then
+        enforce. Going straight to enforce on a live namespace blocks the next deploy.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">S3</div>
+      <p class="ask">Harden a container. What do you set?</p>
+      <p class="shape"><code>runAsNonRoot</code>, a non-zero <code>runAsUser</code>,
+        <code>allowPrivilegeEscalation: false</code>, <code>capabilities.drop: ["ALL"]</code>,
+        <code>readOnlyRootFilesystem: true</code>, <code>seccompProfile: RuntimeDefault</code>. No
+        privileged, no hostPath, no host namespaces.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">S4</div>
+      <p class="ask">How do you apply least privilege to a workload's API access?</p>
+      <p class="shape">Dedicated ServiceAccount per workload, Role scoped to the verbs and resources it
+        actually uses, <code>automountServiceAccountToken: false</code> everywhere it isn't needed. Verify
+        with <code>kubectl auth can-i --as=system:serviceaccount:ns:name</code>.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">S5</div>
+      <p class="ask">Are Kubernetes Secrets encrypted?</p>
+      <p class="shape">Base64 is encoding, not encryption. At rest in etcd they're plaintext unless you
+        configure an EncryptionConfiguration with a KMS provider. Anyone who can read etcd, or the backup,
+        reads every secret.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">S6</div>
+      <p class="ask">How do you know what's running in your cluster is what you built?</p>
+      <p class="shape">Pin image digests not tags, scan in CI and fail the build on high severity, restrict
+        pulls to approved registries via admission policy, generate an SBOM, sign images and verify the
+        signature at admission.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">S7</div>
+      <p class="ask">Someone deleted a production deployment. How do you find out who?</p>
+      <p class="shape">API server audit log — an audit policy defining which verbs and resources get
+        recorded at which level, plus the flags and a mounted host path for the log. If it wasn't enabled
+        beforehand, you can't answer, which is the lesson.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">S8</div>
+      <p class="ask">How would you detect a shell being spawned inside a running container?</p>
+      <p class="shape">Runtime detection — Falco watching syscalls via an eBPF probe, with rules matching
+        process execution inside a container. That's the detect half; container immutability
+        (readOnlyRootFilesystem, no shell in the image) is the prevent half.</p>
+    </div>
+  </section>
+
+  <section id="linux">
+    <h2>Linux &amp; networking</h2>
+    <span class="tag">The questions that separate ops from tutorial-followers</span>
+
+    <div class="q core">
+      <div class="id">L1</div>
+      <p class="ask">A server is at 100% CPU. Your first five commands?</p>
+      <p class="shape"><code>uptime</code> for load against core count, <code>top</code> to find the
+        process, <code>vmstat 1</code> to split user / system / iowait, <code>pidstat -t</code> for the
+        thread, <code>ss -s</code> if it looks network-bound.</p>
+      <p class="trap"><b>Read the shape, not the number:</b> high iowait isn't a CPU problem, high system
+        time points at syscalls or interrupts, load above cores with idle CPU means blocked on I/O.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">L2</div>
+      <p class="ask">Disk is full. Find what's eating it.</p>
+      <p class="shape"><code>df -h</code>, then <code>du -xh --max-depth=1 /</code> walking down.
+        <code>df -i</code> if it's inodes rather than bytes.</p>
+      <p class="trap"><b>When du and df disagree:</b> a deleted file is still held open by a process.
+        <code>lsof +L1</code> finds it; restarting the process frees the space.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">L3</div>
+      <p class="ask">A service won't start. How do you find out why?</p>
+      <p class="shape"><code>systemctl status</code> for the exit code, then
+        <code>journalctl -u &lt;unit&gt; -xe</code> for the actual error. Then the config syntax check, then
+        permissions on whatever it opens.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">L4</div>
+      <p class="ask">What happens when you type a URL and press enter?</p>
+      <p class="shape">Open-ended on purpose — they're finding your depth. DNS resolution, TCP handshake,
+        TLS negotiation, HTTP request, response, render. Go one layer deeper than feels necessary and let
+        them stop you.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">L5</div>
+      <p class="ask">How do you debug a DNS problem?</p>
+      <p class="shape"><code>dig +short</code> against the resolver, then against an authoritative server
+        to split resolution from caching. Check <code>/etc/resolv.conf</code> and search domains.</p>
+      <p class="trap"><b>In Kubernetes:</b> <code>ndots: 5</code> means a name with fewer than five dots
+        gets tried against every search domain first — which looks like slow DNS, not broken DNS.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">L6</div>
+      <p class="ask">What's listening on this box, and what's it talking to?</p>
+      <p class="shape"><code>ss -tulpn</code> for listeners with PIDs, <code>ss -tp state established</code>
+        for current connections.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">L7</div>
+      <p class="ask">A connection hangs instead of failing fast. What does that tell you?</p>
+      <p class="shape">A refused connection means something answered — the port is closed. A hang means
+        packets are being dropped silently: firewall with a DROP rule, security group, or a routing black
+        hole. The difference is the fastest diagnostic in networking.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">L8</div>
+      <p class="ask">What does an MTU mismatch look like?</p>
+      <p class="shape">Small requests work, large ones hang. Common with VPN and overlay networks where
+        encapsulation eats header space. Comes up constantly in real clusters.</p>
+    </div>
+  </section>
+
+  <section id="obs">
+    <h2>Observability &amp; incidents</h2>
+    <span class="tag">Alerting, on-call, postmortems</span>
+
+    <div class="q core">
+      <div class="id">O1</div>
+      <p class="ask">How do you know when something is down?</p>
+      <p class="shape">Alert on user-visible symptoms — error rate, latency, request success — not on CPU.
+        Blackbox probes from outside prove the whole path works. Resource metrics explain an incident; they
+        don't detect one.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">O2</div>
+      <p class="ask">Your team is drowning in alerts. Fix it.</p>
+      <p class="shape">Only symptoms page a human; causes go to a dashboard or a ticket. Route by severity,
+        inhibit downstream alerts when the upstream one is already firing, and delete anything nobody acted
+        on last quarter.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">O3</div>
+      <p class="ask">Metrics, logs and traces — when do you reach for each?</p>
+      <p class="shape">Metrics: is something wrong, cheap and always on. Logs: what exactly happened, for
+        one request. Traces: where the time went across services. RED for services, USE for resources.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">O4</div>
+      <p class="ask">Walk me through an incident you handled.</p>
+      <p class="shape">Structure beats drama: how you were alerted, what you checked and in what order,
+        what you ruled out, how you mitigated, what the root cause was, what you changed so it can't
+        recur. Give a time and a number.</p>
+      <p class="trap"><b>Mitigate before diagnose</b> is the senior signal — restore service first, find
+        the cause after. Say it explicitly.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">O5</div>
+      <p class="ask">What makes a good postmortem?</p>
+      <p class="shape">Blameless, a timeline, contributing factors rather than one root cause, and action
+        items with owners and dates. A postmortem with no assigned actions is a diary entry.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">O6</div>
+      <p class="ask">Why would a Prometheus instance fall over?</p>
+      <p class="shape">Cardinality. A label carrying a user ID, request ID or pod name creates a new time
+        series per value and memory follows. Keep labels bounded and low-cardinality.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">O7</div>
+      <p class="ask">What's an SLO, and what's an error budget?</p>
+      <p class="shape">SLO: the target, e.g. 99.9% of requests succeed over 30 days. Error budget: the
+        0.1% you're allowed to spend. Burn it fast and you freeze releases — it turns reliability into a
+        decision rule instead of an argument.</p>
+    </div>
+  </section>
+
+  <section id="behav">
+    <h2>Behavioural</h2>
+    <span class="tag">STAR — situation, action, measurable outcome</span>
+
+    <div class="q core">
+      <div class="id">B1</div>
+      <p class="ask">Tell me about yourself.</p>
+      <p class="shape">Ninety seconds, arc not history: where you came from, what you've been building,
+        what you're aiming at. It's the only question guaranteed to be asked. Write it, say it out loud,
+        cut it in half.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">B2</div>
+      <p class="ask">The hardest problem you've debugged.</p>
+      <p class="shape">Pick one with multiple stacked causes — real systems fail that way, and the story
+        shows how you handle a wrong hypothesis. Include the moment you realised your first theory was
+        wrong and what you did about it.</p>
+      <p class="trap"><b>Know your own numbers.</b> How long, what time, how many users, what the fix was.
+        Vagueness on your own story reads as fiction.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">B3</div>
+      <p class="ask">A time you caught a problem before it caused damage.</p>
+      <p class="shape">Shows judgment rather than heroics. Name what you noticed, why it was wrong, and
+        what would have happened.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">B4</div>
+      <p class="ask">A time you broke something.</p>
+      <p class="shape">Answer it honestly — a candidate who has never broken anything has never had
+        access. What broke, how you found out, how long to recover, what changed afterwards.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">B5</div>
+      <p class="ask">A time you disagreed with a technical decision.</p>
+      <p class="shape">How you made the case, what evidence you brought, and what you did when the
+        decision went the other way. Disagree-and-commit is the answer they want to hear.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">B6</div>
+      <p class="ask">How do you work under constraints — no budget, no hardware, no time?</p>
+      <p class="shape">Constraint-driven engineering stories land well because they're concrete. What the
+        limit was, what you traded away, why that trade was right.</p>
+    </div>
+
+    <div class="q core">
+      <div class="id">B7</div>
+      <p class="ask">How do you use AI tools, and how do you know the output is right?</p>
+      <p class="shape">Increasingly standard, and a trap if you're defensive or evasive. Say what you use
+        it for, and — the part they're actually testing — how you verify: you run it, you read it, you
+        check it against the docs, you own the result.</p>
+    </div>
+  </section>
+
+  <section id="ask">
+    <h2>Questions to ask them</h2>
+    <span class="tag">Having none is an answer, and it's a bad one</span>
+
+    <div class="q">
+      <div class="id">Q1</div>
+      <p class="ask">How does an infrastructure change get reviewed and deployed here?</p>
+      <p class="shape">Tells you whether there's real process or a person with production credentials and
+        good intentions.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">Q2</div>
+      <p class="ask">What does on-call look like, and how often does it actually fire?</p>
+      <p class="shape">The follow-up matters more than the answer: what happened to the last page, and
+        did it produce a fix?</p>
+    </div>
+
+    <div class="q">
+      <div class="id">Q3</div>
+      <p class="ask">Does staging actually match production?</p>
+      <p class="shape">Nobody says yes. How they say no tells you how much of your week will be spent on
+        environment drift.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">Q4</div>
+      <p class="ask">What's the oldest piece of infrastructure nobody wants to touch?</p>
+      <p class="shape">Every org has one. A team that can name it and laugh has a healthy relationship
+        with its own debt.</p>
+    </div>
+
+    <div class="q">
+      <div class="id">Q5</div>
+      <p class="ask">How is this team distributed, and how do decisions get made across time zones?</p>
+      <p class="shape">For remote roles, the real question behind "is this remote-first or
+        remote-tolerated".</p>
+    </div>
+
+    <div class="q">
+      <div class="id">Q6</div>
+      <p class="ask">What would you want the person in this role to have done by their first ninety days?</p>
+      <p class="shape">Makes them state the actual expectation. Surprising how often they haven't
+        decided.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>81 questions across 10 topics. The <b style="color:var(--accent)">!!!</b> set is the cold-recall
+      list — 20 questions that carry most interviews.</p>
+  </footer>
+
+  <p style="color:var(--text-dim);font-size:12.5px;border-top:1px solid var(--border);padding-top:20px">Related: <a href="cka.html">CKA cheat cards</a> · <a href="cks.html">CKS cheat cards</a> · <a href="aws.html">AWS cheat cards</a></p>
+
+</div>
+
+<script>
+  (function () {
+    var btn = document.getElementById('coreOnly');
+    var wrap = document.querySelector('.wrap');
+    var countEl = document.getElementById('count');
+    var total = document.querySelectorAll('.q').length;
+    var core = document.querySelectorAll('.q.core').length;
+
+    function render() {
+      var on = btn.getAttribute('aria-pressed') === 'true';
+      countEl.textContent = on
+        ? core + ' must-know questions'
+        : total + ' questions, ' + core + ' marked !!!';
+    }
+
+    btn.addEventListener('click', function () {
+      var on = btn.getAttribute('aria-pressed') === 'true';
+      btn.setAttribute('aria-pressed', String(!on));
+      document.querySelectorAll('.q').forEach(function (q) {
+        q.hidden = !on && !q.classList.contains('core');
+      });
+      render();
+    });
+
+    render();
+  })();
+</script>
+</body>
+</html>

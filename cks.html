@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CKS Cheat Cards — Ivalin Ivanov</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0a;
+    --surface: #111;
+    --surface-2: #161616;
+    --border: #222;
+    --border-bright: #2e2e2e;
+    --text: #e0e0e0;
+    --text-dim: #777;
+    --accent: #ff6b35;
+    --accent-dim: #ff6b3522;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: "Instrument Serif", Georgia, serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 48px 96px;
+  }
+
+  header h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(2.4rem, 8vw, 3.6rem);
+    line-height: 1.05;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+
+  .lede { color: var(--text-dim); max-width: 64ch; margin: 0 0 24px; }
+
+  .rule {
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding-block: 14px;
+    margin-bottom: 40px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+  }
+
+  .rule b { color: var(--accent); }
+
+  nav.index {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  nav.index a {
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+    padding: 12px 14px;
+    font-size: 12.5px;
+  }
+
+  nav.index a:hover { background: var(--surface-2); color: var(--accent); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- card ---------- */
+
+  .card {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    margin-bottom: 36px;
+    scroll-margin-top: 20px;
+  }
+
+  .card > header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+
+  .card h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 1.7rem;
+    margin: 0;
+  }
+
+  .badge {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--border-bright);
+    border-radius: 2px;
+    padding: 2px 8px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .badge.memo { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+
+  .body { padding: 18px; }
+
+  h3 {
+    font-size: 11.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 700;
+    margin: 22px 0 8px;
+  }
+
+  .body > h3:first-child { margin-top: 0; }
+
+  pre {
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  pre b { color: var(--accent); font-weight: 400; }
+  pre i { color: var(--text-dim); font-style: normal; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin-bottom: 12px;
+  }
+
+  .scroll { overflow-x: auto; }
+
+  th, td {
+    text-align: left;
+    padding: 7px 12px 7px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  th { color: var(--text-dim); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; }
+  td code { color: var(--accent); overflow-wrap: anywhere; }
+
+  ul.gotchas { list-style: none; margin: 0 0 12px; padding: 0; }
+
+  ul.gotchas li {
+    padding-left: 14px;
+    border-left: 2px solid var(--accent);
+    margin-bottom: 8px;
+  }
+
+  ul.gotchas code { color: var(--accent); overflow-wrap: anywhere; }
+
+  .docs {
+    border-top: 1px solid var(--border);
+    padding: 12px 18px;
+    color: var(--text-dim);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .docs b { color: var(--text); font-weight: 400; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  * { box-sizing: border-box; }
+  .site-nav { margin-bottom: 36px; font-size: 12.5px; }
+  .site-nav a { color: var(--text-dim); text-decoration: none; }
+  .site-nav a:hover { color: var(--accent); }
+  footer a { color: var(--accent); }
+</style>
+<meta name="description" content="Scan references for the Certified Kubernetes Security Specialist exam: NetworkPolicy, Pod Security Admission, RBAC, apiserver hardening, audit logging and Falco.">
+</head>
+<body>
+
+
+<div class="wrap">
+
+  <div class="site-nav"><a href="index.html">&larr; ivemcfire</a></div>
+
+  <header>
+    <h1>CKS Cheat Cards</h1>
+    <p class="lede">Scan references, not study notes. Commands, tables, the gotcha, the docs path.
+      Teaching happens in drills.</p>
+  </header>
+
+  <div class="rule">
+    <b>MEMORIZE</b> — drill cold, docs won't save you in time.
+    <b>LOOKUP</b> — drill the navigation: which page, which snippet, which fields to edit.
+    All syntax below is exam-canonical kubeadm. k3s differs where noted.
+  </div>
+
+  <nav class="index" aria-label="Cards">
+    <a href="#netpol">01 — NetworkPolicy</a>
+    <a href="#psa">02 — Pod Security Admission</a>
+    <a href="#rbac">03 — RBAC &amp; ServiceAccounts</a>
+    <a href="#apiserver">04 — apiserver hardening</a>
+    <a href="#audit">05 — Audit logging</a>
+    <a href="#falco">06 — Falco rules</a>
+  </nav>
+
+  <article class="card" id="netpol">
+    <header>
+      <h2>01 — NetworkPolicy</h2>
+      <span class="badge memo">Memorize</span>
+    </header>
+    <div class="body">
+
+      <h3>Default deny, both directions</h3>
+<pre><b>apiVersion:</b> networking.k8s.io/v1
+<b>kind:</b> NetworkPolicy
+<b>metadata:</b>
+  <b>name:</b> default-deny
+  <b>namespace:</b> prod
+<b>spec:</b>
+  <b>podSelector:</b> {}          <i># empty = every pod in the namespace</i>
+  <b>policyTypes:</b>
+  - Ingress
+  - Egress                  <i># omitting a type = that direction stays open</i></pre>
+
+      <h3>Allow DNS — required after any default-deny egress</h3>
+<pre>  <b>egress:</b>
+  - <b>to:</b>
+    - <b>namespaceSelector:</b>
+        <b>matchLabels:</b>
+          kubernetes.io/metadata.name: kube-system
+    <b>ports:</b>
+    - <b>protocol:</b> UDP
+      <b>port:</b> 53
+    - <b>protocol:</b> TCP
+      <b>port:</b> 53</pre>
+
+      <h3>Selector semantics</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Written as</th><th>Means</th></tr>
+        <tr><td><code>- from: [{podSelector}, {namespaceSelector}]</code></td><td>OR — two separate sources</td></tr>
+        <tr><td><code>- from: [{podSelector, namespaceSelector}]</code></td><td>AND — those pods in those namespaces</td></tr>
+        <tr><td><code>podSelector: {}</code></td><td>all pods</td></tr>
+        <tr><td><code>namespaceSelector: {}</code></td><td>all namespaces</td></tr>
+        <tr><td><code>ipBlock.cidr</code> + <code>except</code></td><td>the only way to match non-pod IPs</td></tr>
+      </table>
+      </div>
+
+      <h3>Verify</h3>
+<pre>k get netpol -n prod
+k describe netpol default-deny -n prod
+k run t --image busybox --rm -it --restart Never -- wget -qO- -T 3 svc.ns:80</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Default-deny egress kills DNS. Symptom reads as "service is down", cause is name resolution.</li>
+        <li>Policies are additive and allow-only — there is no deny rule and no ordering.</li>
+        <li>A pod with zero matching policies is fully open; one matching policy locks it to that policy.</li>
+        <li><code>namespaceSelector</code> matches namespace labels. <code>kubernetes.io/metadata.name</code> is set automatically on every namespace — use it.</li>
+        <li>The CNI must enforce policy. Flannel alone does not; k3s adds an enforcing controller by default.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> kubernetes.io/docs/concepts/services-networking/network-policies/ — copy the "default deny all" examples at the bottom of the page.</div>
+  </article>
+
+  <article class="card" id="psa">
+    <header>
+      <h2>02 — Pod Security Admission</h2>
+      <span class="badge memo">Memorize</span>
+    </header>
+    <div class="body">
+
+      <h3>The label shape</h3>
+<pre>k label ns prod pod-security.kubernetes.io/enforce=restricted
+k label ns prod pod-security.kubernetes.io/warn=restricted
+k label ns prod pod-security.kubernetes.io/audit=restricted
+
+<i># pin the version, overwrite an existing label</i>
+k label ns prod pod-security.kubernetes.io/enforce-version=v1.35 --overwrite</pre>
+
+      <h3>Modes × levels</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Mode</th><th>Effect</th><th>Level</th><th>Blocks</th></tr>
+        <tr><td><code>enforce</code></td><td>rejects the pod</td><td><code>privileged</code></td><td>nothing</td></tr>
+        <tr><td><code>audit</code></td><td>audit log entry</td><td><code>baseline</code></td><td>privileged, hostPath, host namespaces, most capabilities</td></tr>
+        <tr><td><code>warn</code></td><td>warning to the client</td><td><code>restricted</code></td><td>baseline + must runAsNonRoot, drop ALL, seccomp RuntimeDefault</td></tr>
+      </table>
+      </div>
+
+      <h3>Verify</h3>
+<pre>k get ns prod --show-labels
+k run bad --image nginx -n prod          <i># should be rejected under restricted</i>
+k label ns prod pod-security.kubernetes.io/enforce-</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Enforce only blocks <b>new</b> pods. Already-running pods keep running — a Deployment fails at its next rollout, not immediately.</li>
+        <li>A pod that passes <code>baseline</code> usually fails <code>restricted</code>: restricted needs <code>runAsNonRoot</code>, <code>allowPrivilegeEscalation: false</code>, <code>capabilities.drop: [ALL]</code>, <code>seccompProfile: RuntimeDefault</code>.</li>
+        <li>Trailing <code>-</code> on a label key removes it.</li>
+        <li>Exempt the namespaces that genuinely need privilege (CNI, storage, node agents) or you break the cluster.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> kubernetes.io/docs/concepts/security/pod-security-admission/ · the level field lists are under /docs/concepts/security/pod-security-standards/</div>
+  </article>
+
+  <article class="card" id="rbac">
+    <header>
+      <h2>03 — RBAC &amp; ServiceAccounts</h2>
+      <span class="badge memo">Memorize</span>
+    </header>
+    <div class="body">
+
+      <h3>Create, bind, verify</h3>
+<pre>k create sa app -n prod
+
+k create role pod-reader --verb get,list,watch --resource pods -n prod
+k create rolebinding app-reads --role pod-reader --serviceaccount prod:app -n prod
+
+k create clusterrole node-reader --verb get,list --resource nodes
+k create clusterrolebinding app-nodes --clusterrole node-reader --serviceaccount prod:app
+
+<i># always confirm by impersonation, not by re-reading the YAML</i>
+k auth can-i list pods -n prod --as system:serviceaccount:prod:app
+k auth can-i --list -n prod --as system:serviceaccount:prod:app</pre>
+
+      <h3>Turn off token automount</h3>
+<pre>k edit sa default -n prod        <i># add: automountServiceAccountToken: false</i>
+k edit deploy web -n prod        <i># same field under spec.template.spec</i>
+k get sa default -n prod -o yaml | grep automount</pre>
+
+      <h3>Find what to reduce</h3>
+<pre>k get clusterrolebindings -o wide | grep cluster-admin
+k describe clusterrole edit | head -30
+k get rolebindings,roles -A</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Pod spec beats ServiceAccount: if both set <code>automountServiceAccountToken</code>, the pod wins.</li>
+        <li>Security tasks say <b>reduce</b>, not create. Read the existing Role first, then remove verbs — don't author a fresh one.</li>
+        <li>RoleBinding + ClusterRole = those permissions in that one namespace. Common and frequently misread.</li>
+        <li><code>--as</code> checks <b>your</b> authorization to impersonate too. A "no" can mean you lack impersonate rights, not that the SA lacks the verb.</li>
+        <li>Namespace on every create. Missing <code>-n</code> is the single most expensive habit.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> kubernetes.io/docs/reference/access-authn-authz/rbac/ · SA tokens: /docs/tasks/configure-pod-container/configure-service-account/</div>
+  </article>
+
+  <article class="card" id="apiserver">
+    <header>
+      <h2>04 — apiserver hardening</h2>
+      <span class="badge memo">Memorize the ritual</span>
+    </header>
+    <div class="body">
+
+      <h3>The ritual — every single time</h3>
+<pre><i># 1. back up OUTSIDE the manifests directory</i>
+cp /etc/kubernetes/manifests/kube-apiserver.yaml /tmp/apiserver.bak
+
+<i># 2. edit</i>
+vim /etc/kubernetes/manifests/kube-apiserver.yaml
+
+<i># 3. watch it come back — kubelet reconciles, do not restart anything</i>
+crictl ps | grep apiserver
+watch crictl ps
+
+<i># 4. if the API never returns</i>
+cp /tmp/apiserver.bak /etc/kubernetes/manifests/kube-apiserver.yaml</pre>
+
+      <h3>Flags that get asked</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Flag</th><th>Set to</th></tr>
+        <tr><td><code>--anonymous-auth</code></td><td><code>false</code></td></tr>
+        <tr><td><code>--authorization-mode</code></td><td><code>Node,RBAC</code> — never <code>AlwaysAllow</code></td></tr>
+        <tr><td><code>--profiling</code></td><td><code>false</code></td></tr>
+        <tr><td><code>--tls-min-version</code></td><td><code>VersionTLS12</code> or <code>VersionTLS13</code></td></tr>
+        <tr><td><code>--enable-admission-plugins</code></td><td><code>NodeRestriction</code>, <code>PodSecurity</code>, …</td></tr>
+        <tr><td><code>--kubelet-certificate-authority</code></td><td>CA path</td></tr>
+        <tr><td><code>--audit-log-path</code></td><td>see card 05</td></tr>
+      </table>
+      </div>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>A <code>.bak</code> left <b>inside</b> <code>/etc/kubernetes/manifests/</code> is loaded as a second static pod. Back up to <code>/tmp</code>.</li>
+        <li>Any file referenced by a flag needs a <code>hostPath</code> volume <b>and</b> a <code>volumeMount</code>. Flag alone = apiserver never starts.</li>
+        <li>Don't restart kubelet or containerd. Kubelet picks up the file change on its own; if you must kick it, move the manifest out and back.</li>
+        <li>While the apiserver is down <code>kubectl</code> is dead — <code>crictl ps</code> is your only view.</li>
+        <li><b>k3s:</b> no static manifests. Flags go in <code>/etc/rancher/k3s/config.yaml</code> under <code>kube-apiserver-arg</code>, then restart the k3s service.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/</div>
+  </article>
+
+  <article class="card" id="audit">
+    <header>
+      <h2>05 — Audit logging</h2>
+      <span class="badge">Lookup</span>
+    </header>
+    <div class="body">
+
+      <h3>Policy file — /etc/kubernetes/audit-policy.yaml</h3>
+<pre><b>apiVersion:</b> audit.k8s.io/v1
+<b>kind:</b> Policy
+<b>rules:</b>
+<i># specific rules FIRST — first match wins</i>
+- <b>level:</b> None
+  <b>users:</b> ["system:kube-proxy"]
+- <b>level:</b> RequestResponse
+  <b>resources:</b>
+  - <b>group:</b> ""
+    <b>resources:</b> ["secrets"]
+- <b>level:</b> Metadata            <i># catch-all LAST</i></pre>
+
+      <h3>Four flags on the apiserver</h3>
+<pre>--audit-policy-file=/etc/kubernetes/audit-policy.yaml
+--audit-log-path=/var/log/kubernetes/audit.log
+--audit-log-maxage=7
+--audit-log-maxbackup=2</pre>
+
+      <h3>Both mounts — this is what people forget</h3>
+<pre><b>volumes:</b>
+- <b>name:</b> audit-policy
+  <b>hostPath:</b> {<b>path:</b> /etc/kubernetes/audit-policy.yaml, <b>type:</b> File}
+- <b>name:</b> audit-log
+  <b>hostPath:</b> {<b>path:</b> /var/log/kubernetes, <b>type:</b> DirectoryOrCreate}
+<b>volumeMounts:</b>
+- <b>name:</b> audit-policy
+  <b>mountPath:</b> /etc/kubernetes/audit-policy.yaml
+  <b>readOnly:</b> true
+- <b>name:</b> audit-log
+  <b>mountPath:</b> /var/log/kubernetes</pre>
+
+      <h3>Levels</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Level</th><th>Records</th></tr>
+        <tr><td><code>None</code></td><td>nothing</td></tr>
+        <tr><td><code>Metadata</code></td><td>who, what, when — no bodies</td></tr>
+        <tr><td><code>Request</code></td><td>+ request body</td></tr>
+        <tr><td><code>RequestResponse</code></td><td>+ response body</td></tr>
+      </table>
+      </div>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>First match wins. A catch-all above a specific rule makes the specific rule dead code.</li>
+        <li>The key is <code>verbs</code>, plural — and <code>resources</code> nests <code>group</code> + <code>resources</code>. Copy the docs example, don't type it from memory.</li>
+        <li>Log path is a <b>directory</b> mount; the policy is a <b>File</b> mount. Wrong <code>type:</code> and the apiserver won't start.</li>
+        <li>Read it back with <code>tail -f /var/log/kubernetes/audit.log | grep secrets</code> before calling it done.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> kubernetes.io/docs/tasks/debug/debug-cluster/audit/ — copy the policy block verbatim, then edit.</div>
+  </article>
+
+  <article class="card" id="falco">
+    <header>
+      <h2>06 — Falco rules</h2>
+      <span class="badge">Lookup</span>
+    </header>
+    <div class="body">
+
+      <h3>Where things live</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Path</th><th>What</th></tr>
+        <tr><td><code>/etc/falco/falco.yaml</code></td><td>config — output format, which rule files load</td></tr>
+        <tr><td><code>/etc/falco/falco_rules.yaml</code></td><td>shipped rules — read, don't edit</td></tr>
+        <tr><td><code>/etc/falco/falco_rules.local.yaml</code></td><td>your rules and overrides</td></tr>
+      </table>
+      </div>
+
+      <h3>Rule shape</h3>
+<pre>- <b>rule:</b> Shell in container
+  <b>desc:</b> Detect a shell spawned inside a container
+  <b>condition:</b> container.id != host and proc.name in (bash, sh, zsh)
+  <b>output:</b> "%evt.time,%user.name,%container.id,%proc.name"
+  <b>priority:</b> WARNING
+  <b>tags:</b> [container, shell]</pre>
+
+      <h3>Common condition fields</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Field</th><th>Matches</th></tr>
+        <tr><td><code>container.id</code> / <code>container.name</code></td><td>container, <code>!= host</code> excludes the host</td></tr>
+        <tr><td><code>proc.name</code> / <code>proc.cmdline</code></td><td>the process</td></tr>
+        <tr><td><code>evt.type</code></td><td>syscall: <code>execve</code>, <code>open</code>, <code>connect</code></td></tr>
+        <tr><td><code>fd.name</code> / <code>fd.directory</code></td><td>file or socket touched</td></tr>
+        <tr><td><code>k8s.ns.name</code> / <code>k8s.pod.name</code></td><td>Kubernetes metadata</td></tr>
+      </table>
+      </div>
+
+      <h3>Apply and read</h3>
+<pre>falco -r /etc/falco/falco_rules.local.yaml <i># validate the file</i>
+systemctl restart falco
+journalctl -u falco -f
+tail -f /var/log/syslog | grep falco</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li>Tasks usually say <b>modify an existing rule</b>, not write one. Find it in <code>falco_rules.yaml</code>, copy it into <code>.local.yaml</code>, keep the same <code>rule:</code> name to override.</li>
+        <li>The output field list is graded literally — paste the requested fields in the requested order.</li>
+        <li>Rule changes need a restart. Editing the file alone changes nothing.</li>
+        <li><code>%</code> prefixes fields in <code>output</code>, never in <code>condition</code>.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> falco.org/docs/rules/ — on the allowed list. Drill navigating it like kubernetes.io.</div>
+  </article>
+
+  <footer>
+    <p>6 of 18 in-scope topics. Next up: seccomp &amp; AppArmor, secrets encryption at rest, admission
+      policy, Istio mTLS, Trivy, kube-bench, container immutability.</p>
+  </footer>
+
+  <p style="color:var(--text-dim);font-size:12.5px;border-top:1px solid var(--border);padding-top:20px">Related: <a href="cka.html">CKA cheat cards</a> · <a href="aws.html">AWS cheat cards</a> · <a href="interview.html">DevOps interview bank</a></p>
+
+</div>
+</body>
+</html>
