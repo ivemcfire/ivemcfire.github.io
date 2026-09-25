@@ -260,7 +260,7 @@
     <a href="#cicd">CI/CD <span>8</span></a>
     <a href="#gitops">GitOps <span>7</span></a>
     <a href="#k8s">Kubernetes <span>10</span></a>
-    <a href="#k8s-sec">K8s security <span>8</span></a>
+    <a href="#k8s-sec">K8s security <span>9</span></a>
     <a href="#linux">Linux &amp; network <span>8</span></a>
     <a href="#obs">Observability <span>7</span></a>
     <a href="#behav">Behavioural <span>7</span></a>
@@ -720,6 +720,19 @@
         process execution inside a container. That's the detect half; container immutability
         (readOnlyRootFilesystem, no shell in the image) is the prevent half.</p>
     </div>
+
+    <div class="q core">
+      <div class="id">S9</div>
+      <p class="ask">A CIS benchmark scan reports 17 failures on your cluster. What do you do?</p>
+      <p class="shape">Verify every finding against ground truth before changing anything. A scanner
+        reports what it can see, and on some distributions it cannot see the control plane at all —
+        k3s and RKE2 run the apiserver, controller-manager and scheduler in a single process, so a
+        flag-based scanner records FAIL where it should record N/A. Separate real gaps from tool
+        limitations, fix the real ones, and record the rest as accepted deviations with the evidence.</p>
+      <p class="trap"><b>The senior signal:</b> remediating blind is how you break a control plane to
+        satisfy a scanner. And the findings that actually matter are usually in the policy layer —
+        no NetworkPolicies, no Pod Security Admission, default ServiceAccounts in use — not in the flags.</p>
+    </div>
   </section>
 
   <section id="linux">
@@ -960,8 +973,8 @@
   </section>
 
   <footer>
-    <p>81 questions across 10 topics. The <b style="color:var(--accent)">!!!</b> set is the cold-recall
-      list — 20 questions that carry most interviews.</p>
+    <p>82 questions across 10 topics. The <b style="color:var(--accent)">!!!</b> set is the cold-recall
+      list — 21 questions that carry most interviews.</p>
   </footer>
 
   <p style="color:var(--text-dim);font-size:12.5px;border-top:1px solid var(--border);padding-top:20px">Related: <a href="cka.html">CKA cheat cards</a> · <a href="cks.html">CKS cheat cards</a> · <a href="aws.html">AWS cheat cards</a></p>

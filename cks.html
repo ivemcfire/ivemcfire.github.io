@@ -231,6 +231,7 @@
     <a href="#apiserver">04 — apiserver hardening</a>
     <a href="#audit">05 — Audit logging</a>
     <a href="#falco">06 — Falco rules</a>
+    <a href="#kubebench">07 — kube-bench / CIS</a>
   </nav>
 
   <article class="card" id="netpol">
@@ -538,8 +539,60 @@ tail -f /var/log/syslog | grep falco</pre>
     <div class="docs"><b>Docs:</b> falco.org/docs/rules/ — on the allowed list. Drill navigating it like kubernetes.io.</div>
   </article>
 
+
+  <article class="card" id="kubebench">
+    <header>
+      <h2>07 — kube-bench / CIS</h2>
+      <span class="badge">Lookup</span>
+    </header>
+    <div class="body">
+
+      <h3>Run it as a Job, not a binary on the node</h3>
+<pre>curl -sLo job-master.yaml \
+  https://raw.githubusercontent.com/aquasecurity/kube-bench/main/job-master.yaml
+k apply -f job-master.yaml
+k wait --for=condition=complete job/kube-bench-master --timeout 180s
+k logs job/kube-bench-master | tee /tmp/kb.txt
+k get pod -l job-name=kube-bench-master -o wide   <i># WHICH node did it scan?</i></pre>
+      <p>Neither upstream manifest is pinned. With more than one control-plane node, add
+        <code>nodeName:</code> under <code>spec.template.spec</code> or it scans whichever it lands on.</p>
+
+      <h3>Read the output</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Marker</th><th>Means</th></tr>
+        <tr><td><code>[PASS]</code></td><td>control satisfied</td></tr>
+        <tr><td><code>[FAIL]</code></td><td>automated check failed — <b>verify before acting</b></td></tr>
+        <tr><td><code>[WARN]</code></td><td>manual control, the tool can't judge it</td></tr>
+      </table>
+      </div>
+      <p>Sections: 1 control plane · 2 etcd · 3 control-plane config · 4 worker and kubelet · 5 policies.
+        The remediation text prints after each section and names the exact file and command.</p>
+
+      <h3>Fix only what was asked, then prove it</h3>
+<pre>grep '^\[FAIL\]' /tmp/kb.txt
+grep -A3 '^\[FAIL\] 4.1.3' /tmp/kb.txt   <i># the remediation block</i></pre>
+      <p>Re-run the Job afterwards. FAIL becoming PASS is the proof — not the fact that you ran a command.</p>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li><b>A FAIL is a claim, not a fact.</b> Verify against the live process arguments before changing anything.</li>
+        <li><b>On k3s and RKE2, sections 1.2, 1.3 and 1.4 are all false FAILs.</b> Those distributions run
+          the apiserver, controller-manager and scheduler as goroutines inside one process, so kube-bench
+          finds no flags and records FAIL rather than N/A. Ground truth:
+          <code>journalctl -u k3s | grep -m1 "Running kube-apiserver" | tr ' ' '\n' | grep '^--' | sort</code></li>
+        <li>Fixing findings beyond the asked control scores nothing and costs real time.</li>
+        <li>File-permission controls (4.1.x) get reset by some upgrades. Script them; don't chmod once.</li>
+        <li>Write down what you deliberately won't fix as <b>accepted deviations</b>, with the evidence.
+          A clean score is not the goal.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> not on the allowed-docs list — the task supplies what's needed.
+      <code>kube-bench --help</code> and the remediation text in the output are the in-exam reference.</div>
+  </article>
+
   <footer>
-    <p>6 of 18 in-scope topics. Next up: seccomp &amp; AppArmor, secrets encryption at rest, admission
+    <p>7 of 18 in-scope topics. Next: seccomp &amp; AppArmor, secrets encryption at rest, admission
       policy, Istio mTLS, Trivy, kube-bench, container immutability.</p>
   </footer>
 
