@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Who Says Claude Code CLI Is Only for Work or Boring Stuff? &mdash; Ivalin's Lab
+    </title>
+    <meta name="description" content="Sorting 3,500 Rock Band songs on a modded Xbox 360 with Claude Code CLI, which logged into the console over FTP and rearranged 101 GB in one second." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://ivemcfire.github.io/posts/rb3-setlists.html" />
+    <meta property="og:title" content="Who Says Claude Code CLI Is Only for Work or Boring Stuff?" />
+    <meta property="og:description" content="Sorting 3,500 Rock Band songs on a modded Xbox 360 with Claude Code CLI, which logged into the console over FTP and rearranged 101 GB in one second." />
+    <meta property="og:image" content="https://ivemcfire.github.io/images/rb3-setlists_small.jpg" />
+    <meta property="og:image:width" content="1881" />
+    <meta property="og:image:height" content="836" />
+    <meta name="author" content="Ivalin Ivanov" />
+    <meta property="article:published_time" content="2026-09-26" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg: #0a0a0a;
+          --surface: #111;
+          --border: #222;
+          --text: #e0e0e0;
+          --text-dim: #777;
+          --accent: #ff6b35;
+          --accent-dim: #ff6b3522;
+          --mono: 'JetBrains Mono', monospace;
+          --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 15px;
+          line-height: 1.7;
+          min-height: 100vh;
+      }
+
+      .grain {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 100;
+      }
+
+      nav {
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+      }
+
+      nav a {
+          color: var(--text-dim);
+          text-decoration: none;
+          font-size: 0.8rem;
+          transition: color 0.2s;
+      }
+
+      nav a:hover { color: var(--accent); }
+
+      article {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 3rem 2rem 6rem;
+      }
+
+      article h1 {
+          font-family: var(--serif);
+          font-size: 2.8rem;
+          font-weight: 400;
+          line-height: 1.15;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+      }
+
+      article > em:first-of-type {
+          display: block;
+          color: var(--text-dim);
+          font-size: 0.9rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      article h2 {
+          font-family: var(--serif);
+          font-size: 1.8rem;
+          font-weight: 400;
+          margin-top: 3rem;
+          margin-bottom: 1rem;
+          color: var(--text);
+      }
+
+      article h3 {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      article p {
+          margin-bottom: 1.2rem;
+          font-size: 0.88rem;
+      }
+
+      article a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid var(--accent-dim);
+          transition: border-color 0.2s;
+      }
+
+      article a:hover {
+          border-bottom-color: var(--accent);
+      }
+
+      article strong {
+          color: #fff;
+          font-weight: 700;
+      }
+
+      article code {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 0.15em 0.4em;
+          font-size: 0.85em;
+          font-family: var(--mono);
+          color: var(--accent);
+      }
+
+      .back-to-top {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: var(--accent);
+          color: #fff;
+          border: none;
+          width: 44px;
+          height: 44px;
+          font-size: 1.2rem;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.3s;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      .back-to-top.visible {
+          opacity: 1;
+      }
+
+      .back-to-top:hover {
+          background: #e55a2b;
+      }
+
+      .code-block {
+          position: relative;
+          margin: 1.5rem 0;
+      }
+
+      .code-block .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--border);
+          border: 1px solid #333;
+          color: var(--text-dim);
+          padding: 0.3rem 0.7rem;
+          font-family: var(--mono);
+          font-size: 0.65rem;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+      }
+
+      .code-block .copy-btn:hover {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+      }
+
+      .code-block .copy-btn.copied {
+          background: #2a9d4a;
+          border-color: #2a9d4a;
+          color: #fff;
+      }
+
+      article pre {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          padding: 1.5rem;
+          padding-top: 2.5rem;
+          overflow-x: auto;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          margin: 0;
+      }
+
+      article pre code {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--text);
+          font-size: inherit;
+          user-select: text;
+      }
+
+      article blockquote {
+          border-left: 3px solid var(--accent);
+          padding: 0.75rem 1.5rem;
+          margin: 1.5rem 0;
+          background: var(--accent-dim);
+          color: var(--text-dim);
+          font-size: 0.85rem;
+      }
+
+      article blockquote p { margin-bottom: 0; }
+
+      article ul, article ol {
+          margin: 1rem 0 1.5rem 1.5rem;
+          font-size: 0.88rem;
+      }
+
+      article li {
+          margin-bottom: 0.5rem;
+      }
+
+      article img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid var(--border);
+          margin: 1.5rem 0;
+          display: block;
+      }
+
+      article .photo-caption {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+          text-align: center;
+          margin-top: -1rem;
+          margin-bottom: 1.5rem;
+          font-style: italic;
+      }
+
+      article hr {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 3rem 0;
+      }
+
+      article table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          font-size: 0.82rem;
+      }
+
+      article th {
+          text-align: left;
+          padding: 0.6rem 1rem;
+          border-bottom: 2px solid var(--accent);
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: var(--text-dim);
+      }
+
+      article td {
+          padding: 0.6rem 1rem;
+          border-bottom: 1px solid var(--border);
+      }
+
+      footer {
+          border-top: 1px solid var(--border);
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
+          color: var(--text-dim);
+          font-size: 0.75rem;
+      }
+
+      @media (max-width: 600px) {
+          article h1 { font-size: 1.8rem; }
+          article h2 { font-size: 1.4rem; }
+          article, nav { padding-left: 1.2rem; padding-right: 1.2rem; }
+          article pre { padding: 1rem; font-size: 0.72rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <nav><a href="/">&larr; IvalinLAB</a></nav>
+    <article>
+      <h1>Who Says Claude Code CLI Is Only for Work or Boring Stuff?</h1>
+      <em>I used it to sort out 3,500 Rock Band songs on a modded Xbox 360. Somewhere in the middle Opus started talking to the console by itself.</em>
+
+      <img
+        src="../images/rb3-setlists_small.jpg"
+        alt="A laptop terminal listing loaded songs, next to an Xbox 360 and a plastic guitar controller"
+      />
+      <p class="photo-caption">The laptop does the sorting. The console only plays.</p>
+
+      <hr />
+
+      <h2>It Started With Metallica</h2>
+
+      <p>
+        I was not debugging anything. I wanted more Metallica.
+      </p>
+
+      <p>
+        My Rock Band 3 collection had grown over years. About 3,500 songs in 36
+        packages, a lot of them Guitar Hero conversions. I asked Opus what Metallica I
+        am missing. Opus read the metadata out of the packages and said I already own
+        41 tracks.
+      </p>
+
+      <p>
+        So I went to the console to look. Six showed up. The song list was around
+        2,400 songs, not 3,500, and the Metallica playlist would not even open - the
+        game said I do not own 42 of the songs in it.
+      </p>
+
+      <p>
+        My first thought was that I broke something. Opus killed that in a minute. A
+        playlist is only a list of names, so if the game says you do not own them, the
+        songs are missing and not the list. Different problem, and a better one.
+      </p>
+
+      <h2>What I Would Have Done Alone</h2>
+
+      <p>
+        This is the honest part. I would have re-downloaded the packages. Probably
+        twice, on a slow connection, and learned nothing.
+      </p>
+
+      <p>
+        Opus read the first kilobyte of each file instead. Every Xbox 360 content
+        package carries a content type and a title ID in its header. Those two values
+        are the folder the file belongs in. Content type 1 is a saved game, one
+        folder. Content type 2 is downloadable content, another folder.
+      </p>
+
+      <pre><code>CON   ct=1   tid=45410914  -&gt; 45410914/00000001  Guitar Hero On-Disc Pack 01
+CON   ct=1   tid=45410914  -&gt; 45410914/00000001  Guitar Hero DLC Pack 01
+LIVE  ct=2   tid=45410829  -&gt; 45410829/00000002  Rock Band Song Exporter License</code></pre>
+
+      <p>
+        Mine were all in one folder. Thirty-three of thirty-six in the wrong one. A
+        file in the wrong folder is not corrupt and not rejected, the console just
+        never asks about it. Nothing in a log, nothing on screen. Over 1,000 songs were
+        on the drive the whole time, in perfect condition, invisible.
+      </p>
+
+      <h2>Then Opus Connected to My Xbox</h2>
+
+      <p>
+        Here is the part I did not see coming.
+      </p>
+
+      <p>
+        I thought the answer would be a plan. Move this here, move that there, maybe a
+        script for me to run. 101&nbsp;GB of packages, and the only way I could see was
+        sending the whole library again. Six duplicate packs included, because on my
+        own I would not have known they were duplicates. The console takes files at
+        about 4&nbsp;MB per second. Seven hours.
+      </p>
+
+      <p>
+        So I asked what felt like a dumb question. The console is on the network and
+        Aurora has FTP. If the files only change folders, why move them at all? Can you
+        not do it on the Xbox directly?
+      </p>
+
+      <p>
+        Opus could. That still surprises me. Claude Code CLI logged into a 2005 game
+        console straight from my terminal. Walked the content folders. Showed me
+        exactly what was sitting where.
+      </p>
+
+      <p>
+        Opus did not start moving things straight away either, which I liked. First a
+        1&nbsp;KB throwaway file, uploaded and renamed. That was the test. Some FTP
+        servers do a rename as copy and delete, and on a 4&nbsp;GB package that
+        mistake costs an evening. The test passed. Opus showed me the list of 29 moves
+        and waited for me to say go.
+      </p>
+
+      <pre><code>ok  0.009s    0.20 GiB  LostRBDLC
+ok  0.010s    3.69 GiB  RB1DLCPACK05OF10-004_
+ok  0.019s    3.92 GiB  Guitar Hero On-Disc Pack 01-002_</code></pre>
+
+      <p>
+        The biggest package is 3.92&nbsp;GiB and it moved in 19 milliseconds. A rename
+        does not touch the file, it rewrites one directory entry. Seven hours became one
+        second. No drive unplugged, nothing copied, no reboot.
+      </p>
+
+      <p>
+        I booted the game and Enter Sandman was back, with everything else.
+      </p>
+
+      <h2>Then the Playlists</h2>
+
+      <p>
+        With the library visible, the old annoyance came back. RB3 is lacking basic
+        playlist abilities: making your own; putting one song in several playlists;
+        playing a playlist in random order; dropping songs you do not want etc. The
+        setlists are baked into the game data.
+      </p>
+
+      <p>
+        Which is strange good news, because anything baked in can be rebuilt. Opus read
+        the metadata out of every package and built me 20 playlists with my
+        requirements, 100 songs max each. Metallica Tribute, 80s Throwback, Classic
+        Rock, Pop Hits, Party &amp; Funk, Karaoke Night, Drums Workout, Bass Lines,
+        Guitar Heroes and the rest.
+      </p>
+
+      <p>
+        So 415 songs are now sitting in more than one playlist. No menu would ever
+        have let me do that. 3,500 songs stopped being a
+        song list and became my library, by genre, by decade, by artist.
+      </p>
+
+      <p>
+        Shuffle - now possible too. The play order is just the order the list is
+        written in, so Opus rewrites it, rebuilds the patch and pushes it back to the
+        console in a few minutes, any time I ask.
+      </p>
+
+      <p>
+        And if I want songs out, there is a web catalogue now, a minute of work for
+        Opus. I open it on my phone while I play and click what I do not want. Removing
+        is an exclusion list and not a delete, so the song stays installed and I can
+        change my mind later.
+      </p>
+
+      <h2>How We Actually Worked</h2>
+
+      <p>
+        Looking back at it, the split is the interesting part. Opus found in one minute
+        a detail I did not know existed and would never have gone looking for. I asked
+        whether we could skip the copying, which was not clever, just someone who did
+        not want to sit through seven hours of transfer.
+      </p>
+
+      <p>
+        Opus also told me when I was wrong. My own notes said the folder mismatch does
+        not matter. It did. It was the whole bug.
+      </p>
+
+      <p>
+        Neither half gets there alone. The reading is fast and does not get bored at
+        the fortieth file header. The dumb question comes from the person who has to
+        live with the result.
+      </p>
+
+      <p>
+        So no, Claude Code CLI is not only for work or boring stuff. Opus spent a
+        Saturday inside a game console and my Rock Band nights are now rocking even
+        more.
+      </p>
+
+      <hr />
+
+      <p>
+        Previous posts:
+        <a href="cka-four-sits.html">The CKA Took Me Four Sits</a> &middot;
+        <a href="k3s-leaked-goroutine.html">Empty Logs and a Burning Core</a> &middot;
+        <a href="every-light-was-green.html">Every Light Was Green. The Cluster Was Dead.</a>
+      </p>
+    </article>
+    <footer>Built with bare HTML and deployed on GitHub Pages.</footer>
+    <button
+      class="back-to-top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      &uarr;
+    </button>
+    <script>
+      const btn = document.querySelector(".back-to-top");
+      window.addEventListener("scroll", () => {
+        btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      document.querySelectorAll("article pre").forEach((pre) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-block";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") || pre;
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "Copy";
+              btn.classList.remove("copied");
+            }, 2000);
+          });
+        });
+        wrapper.appendChild(btn);
+      });
+    </script>
+  </body>
+</html>
