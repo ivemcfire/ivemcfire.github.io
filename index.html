@@ -62,13 +62,19 @@
         margin: 0 auto;
       }
 
+      .masthead {
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+      }
+
       header h1 {
         font-family: var(--serif);
         font-size: 3.5rem;
         font-weight: 400;
         letter-spacing: -0.02em;
         line-height: 1.1;
-        margin-bottom: 1rem;
+        white-space: nowrap;
       }
 
       header h1 span {
@@ -78,24 +84,43 @@
       header p {
         color: var(--text-dim);
         font-size: 0.85rem;
-        max-width: 500px;
+        max-width: 540px;
       }
 
-      .links {
-        margin-top: 1rem;
+      .navbar {
         display: flex;
+        justify-content: space-between;
+        align-items: center;
         gap: 1.5rem;
+        margin-top: 1.75rem;
       }
 
-      .links a {
-        color: var(--text-dim);
+      .navbar a {
         text-decoration: none;
         font-size: 0.8rem;
         transition: color 0.2s;
       }
 
-      .links a:hover {
+      .nav-main,
+      .links {
+        display: flex;
+        gap: 1.5rem;
+      }
+
+      .nav-main a {
+        color: #fff;
+      }
+
+      .nav-main a:hover {
         color: var(--accent);
+      }
+
+      .links a {
+        color: var(--accent);
+      }
+
+      .links a:hover {
+        color: #fff;
       }
 
       main {
@@ -221,6 +246,23 @@
         background: #e55a2b;
       }
 
+      @media (max-width: 760px) {
+        .masthead {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1rem;
+        }
+        .navbar {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1rem;
+        }
+        .nav-main,
+        .links {
+          flex-wrap: wrap;
+        }
+      }
+
       @media (max-width: 600px) {
         header h1 {
           font-size: 2.2rem;
@@ -240,16 +282,27 @@
     <div class="grain"></div>
 
     <header>
-      <h1>Ivalin's <span>Lab</span></h1>
-      <p>
-        Infrastructure experiments, homelab builds, and deploying things on
-        hardware that wasn't designed for it.
-      </p>
-      <div class="links">
-        <a href="https://github.com/ivemcfire">GitHub</a>
-        <a href="https://www.linkedin.com/in/ivemcfire">LinkedIn</a>
-        <a href="Ivalin_Ivanov_DevOps_Resume.pdf" target="_blank" rel="noopener">Resume</a>
+      <div class="masthead">
+        <h1>Ivalin<span>LAB</span></h1>
+        <p>
+          Infrastructure experiments, homelab builds, and deploying things on
+          hardware that wasn't designed for it.
+        </p>
       </div>
+      <nav class="navbar">
+        <div class="nav-main">
+          <a href="#" id="random-post">Blog</a>
+          <a href="cka.html">CKA</a>
+          <a href="cks.html">CKS</a>
+          <a href="aws.html">AWS</a>
+          <a href="interview.html">DevOps</a>
+        </div>
+        <div class="links">
+          <a href="https://github.com/ivemcfire">GitHub</a>
+          <a href="https://www.linkedin.com/in/ivemcfire">LinkedIn</a>
+          <a href="Ivalin_Ivanov_DevOps_Resume.pdf" target="_blank" rel="noopener">Resume</a>
+        </div>
+      </nav>
     </header>
 
     <main>
@@ -258,60 +311,6 @@
         alt="Working on the homelab"
         style="max-width: 100%; border: 1px solid #222; margin-bottom: 2rem"
       />
-      <div class="label">References</div>
-
-      <a href="cka.html" class="post">
-        <div class="post-meta">Reference</div>
-        <h2>CKA Cheat Cards</h2>
-        <p>
-          Workloads, scheduling, RBAC, NetworkPolicy, etcd backup and a cluster-down ladder. Commands, tables, the gotcha, the docs path.
-        </p>
-        <div class="tags">
-          <span class="tag">Kubernetes</span>
-          <span class="tag">CKA</span>
-          <span class="tag">Reference</span>
-        </div>
-      </a>
-
-      <a href="cks.html" class="post">
-        <div class="post-meta">Reference</div>
-        <h2>CKS Cheat Cards</h2>
-        <p>
-          Default-deny NetworkPolicy, Pod Security Admission, RBAC minimization, apiserver hardening, audit logging, Falco rules.
-        </p>
-        <div class="tags">
-          <span class="tag">Kubernetes</span>
-          <span class="tag">Security</span>
-          <span class="tag">CKS</span>
-        </div>
-      </a>
-
-      <a href="aws.html" class="post">
-        <div class="post-meta">Reference</div>
-        <h2>AWS Cheat Cards</h2>
-        <p>
-          Account guardrails, IAM, VPC and subnets, security groups against NACLs, S3 and what actually costs money in a lab account.
-        </p>
-        <div class="tags">
-          <span class="tag">AWS</span>
-          <span class="tag">IAM</span>
-          <span class="tag">Cost</span>
-        </div>
-      </a>
-
-      <a href="interview.html" class="post">
-        <div class="post-meta">Reference</div>
-        <h2>DevOps Interview Bank</h2>
-        <p>
-          81 questions across ten topics, each with the shape of a passing answer and the follow-up that catches people out.
-        </p>
-        <div class="tags">
-          <span class="tag">Interview</span>
-          <span class="tag">DevOps</span>
-          <span class="tag">Career</span>
-        </div>
-      </a>
-
       <div class="label">Posts</div>
 
       <a href="posts/cka-four-sits.html" class="post">
@@ -583,6 +582,15 @@
       const btn = document.querySelector(".back-to-top");
       window.addEventListener("scroll", () => {
         btn.classList.toggle("visible", window.scrollY > 400);
+      });
+
+      // Blog tab: jump to a random post from the cards listed below.
+      document.getElementById("random-post").addEventListener("click", (e) => {
+        e.preventDefault();
+        const posts = document.querySelectorAll('a.post[href^="posts/"]');
+        if (!posts.length) return;
+        const pick = posts[Math.floor(Math.random() * posts.length)];
+        window.location.href = pick.getAttribute("href");
       });
     </script>
   </body>
