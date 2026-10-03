@@ -193,6 +193,22 @@
     font-size: 12.5px;
   }
 
+
+  figure.fig { margin: 0 0 14px; border: 1px solid var(--border); background: var(--bg); border-radius: 2px; }
+  figure.fig .pan { overflow-x: auto; padding: 16px; }
+  figure.fig svg { display: block; width: 100%; min-width: 620px; height: auto; }
+  figure.fig figcaption { border-top: 1px solid var(--border); padding: 10px 14px; color: var(--text-dim); font-size: 12px; }
+  .fig text { font-family: var(--mono); }
+  .fig .nm { font-size: 12px; fill: var(--text); }
+  .fig .lbl { font-size: 11px; fill: var(--text-dim); }
+  .fig .keytx { font-size: 11px; fill: var(--accent); }
+  .fig .box { fill: var(--surface); stroke: var(--border-bright); }
+  .fig .vpc { fill: none; stroke: var(--border-bright); stroke-dasharray: 5 4; }
+  .fig .sgbox { fill: none; stroke: var(--accent); stroke-dasharray: 4 3; }
+  .fig line, .fig polyline { fill: none; stroke: var(--text-dim); }
+  .fig .key { stroke: var(--accent); }
+  .fig .dash { stroke-dasharray: 4 3; }
+
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
   }
@@ -224,6 +240,7 @@
   </div>
 
   <nav class="index" aria-label="Cards">
+    <a href="#graph">00 — The object graph</a>
     <a href="#bootstrap">01 — Account bootstrap</a>
     <a href="#iam">02 — IAM</a>
     <a href="#vpc">03 — VPC &amp; subnets</a>
@@ -231,6 +248,170 @@
     <a href="#s3">05 — S3</a>
     <a href="#cost">06 — Cost control</a>
   </nav>
+
+  <article class="card" id="graph">
+    <header>
+      <h2>00 — The object graph</h2>
+      <div class="badges"><span class="badge asked">A1 · A3 · A8</span><span class="badge">Read first</span></div>
+    </header>
+    <div class="body">
+
+      <h3>Network — what contains what, and what only points at what</h3>
+      <figure class="fig">
+        <div class="pan">
+<svg viewBox="0 0 680 386" role="img" aria-label="An internet gateway attached to the VPC, a route table whose default route points at it and which is associated with two subnets, an instance whose NIC is filtered by a security group, and the subnet edge filtered by a NACL.">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--text-dim)"/>
+    </marker>
+    <marker id="arK" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="470" y="8" width="170" height="28"/>
+  <text class="nm" x="555" y="27" text-anchor="middle">the internet</text>
+  <line x1="555" y1="36" x2="555" y2="62"/>
+
+  <rect class="box" x="470" y="62" width="170" height="34"/>
+  <text class="nm" x="555" y="84" text-anchor="middle">internet gateway</text>
+
+  <line class="key" x1="555" y1="96" x2="555" y2="118" marker-end="url(#arK)"/>
+  <text class="keytx" x="565" y="112">attached</text>
+
+  <rect class="vpc" x="20" y="118" width="620" height="250"/>
+  <text class="lbl" x="32" y="138">VPC  ivx-lab-vpc  ·  10.0.0.0/16</text>
+
+  <rect class="box" x="240" y="160" width="200" height="74"/>
+  <text class="nm"    x="252" y="181">route table</text>
+  <text class="keytx" x="252" y="200">0.0.0.0/0  →  igw</text>
+  <text class="lbl"   x="252" y="219">10.0.0.0/16  →  local</text>
+
+  <polyline class="key" points="440,186 500,186 500,96" marker-end="url(#arK)"/>
+  <text class="keytx" x="508" y="150">default route</text>
+
+  <polyline points="300,234 300,246 190,246 190,256" marker-end="url(#ar)"/>
+  <text class="lbl" x="196" y="242">associated</text>
+  <polyline points="380,234 380,246 490,246 490,256" marker-end="url(#ar)"/>
+  <text class="lbl" x="410" y="242">associated</text>
+
+  <rect class="box" x="60" y="256" width="260" height="100"/>
+  <text class="lbl" x="72" y="276">ivx-lab-public-a</text>
+  <text class="lbl" x="72" y="292">10.0.1.0/24  ·  eu-west-1a</text>
+  <rect class="sgbox" x="70" y="300" width="170" height="34"/>
+  <rect class="box" x="78" y="306" width="154" height="22"/>
+  <text class="nm" x="86" y="322">t3.micro + ENI</text>
+  <text class="keytx" x="246" y="322">SG (NIC)</text>
+  <text class="lbl" x="72" y="348">NACL — subnet edge, stateless</text>
+
+  <rect class="box" x="360" y="256" width="260" height="100"/>
+  <text class="lbl" x="372" y="276">ivx-lab-public-b</text>
+  <text class="lbl" x="372" y="292">10.0.2.0/24  ·  eu-west-1b</text>
+  <text class="lbl" x="372" y="320">empty — the second AZ exists</text>
+  <text class="lbl" x="372" y="336">so a load balancer can be</text>
+  <text class="lbl" x="372" y="352">added later</text>
+</svg>
+        </div>
+        <figcaption>Containment is half the story. A subnet is public only because a route table <i>associated with it</i> carries a default route to an internet gateway <i>attached to the VPC</i> — three objects, three separate API calls, and the one that silently goes missing is the route.</figcaption>
+      </figure>
+
+      <h3>IAM — three objects and two gates between a policy and a box</h3>
+      <figure class="fig">
+        <div class="pan">
+<svg viewBox="0 0 730 290" role="img" aria-label="A policy attached to a role, a trust policy gating who may assume the role, the role held by an instance profile, the profile assigned to an EC2 instance, and IMDSv2 handing the instance temporary credentials.">
+  <defs>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--text-dim)"/>
+    </marker>
+    <marker id="arK2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="230" y="24" width="140" height="52"/>
+  <text class="nm"  x="240" y="46">trust policy</text>
+  <text class="lbl" x="240" y="64">ec2.amazonaws.com</text>
+  <line class="key dash" x1="300" y1="76" x2="300" y2="120" marker-end="url(#arK2)"/>
+  <text class="keytx" x="310" y="102">gate 1 — who</text>
+
+  <rect class="box" x="20" y="120" width="120" height="56"/>
+  <text class="nm"  x="30" y="143">policy</text>
+  <text class="lbl" x="30" y="161">s3-readonly-lab</text>
+
+  <line class="key" x1="140" y1="148" x2="230" y2="148" marker-end="url(#arK2)"/>
+  <text class="keytx" x="185" y="139" text-anchor="middle">gate 2 — what</text>
+
+  <rect class="box" x="230" y="120" width="130" height="56"/>
+  <text class="nm"  x="240" y="143">role</text>
+  <text class="lbl" x="240" y="161">ivx-ec2-s3-reader</text>
+
+  <line x1="360" y1="148" x2="410" y2="148" marker-end="url(#ar2)"/>
+  <text class="lbl" x="385" y="139" text-anchor="middle">holds</text>
+
+  <rect class="box" x="410" y="120" width="140" height="56"/>
+  <text class="nm"  x="420" y="143">instance profile</text>
+  <text class="lbl" x="420" y="161">not the role</text>
+
+  <line x1="550" y1="148" x2="600" y2="148" marker-end="url(#ar2)"/>
+  <text class="lbl" x="575" y="139" text-anchor="middle">assign</text>
+
+  <rect class="box" x="600" y="120" width="110" height="56"/>
+  <text class="nm"  x="610" y="143">instance</text>
+  <text class="lbl" x="610" y="161">ivx-lab-box</text>
+
+  <line x1="655" y1="176" x2="655" y2="216" marker-end="url(#ar2)"/>
+  <text class="keytx" x="645" y="200" text-anchor="end">no keys on disk</text>
+
+  <rect class="box" x="520" y="216" width="190" height="58"/>
+  <text class="nm"  x="530" y="239">IMDSv2</text>
+  <text class="lbl" x="530" y="257">ASIA… + SessionToken, ~1 h</text>
+</svg>
+        </div>
+        <figcaption>Two gates, not one: the trust policy decides <i>who may become</i> the role, the attached policy decides <i>what it may then do</i>. Admin rights do not override a trust policy. The instance profile is a third object that happens to share the role's name — the console creates it invisibly, the CLI does not.</figcaption>
+      </figure>
+
+      <h3>Create order — dependencies first</h3>
+<pre> 1  VPC                 create-vpc
+ 2  subnets ×2          create-subnet                <i>one AZ each</i>
+ 3  public IPs          modify-subnet-attribute --map-public-ip-on-launch ×2
+ 4  internet gateway    create-internet-gateway + <b>attach-internet-gateway</b>
+ 5  route table         create-route-table + create-route + <b>associate-route-table ×2</b>
+ 6  security group      create-security-group + authorize-security-group-ingress
+ 7  key pair            create-key-pair &gt; ~/.ssh/key.pem ; chmod 400
+ 8  IAM                 create-policy, create-role, attach-role-policy,
+                        create-instance-profile, <b>add-role-to-instance-profile</b>
+ 9  S3                  create-bucket (LocationConstraint), versioning, public-access-block
+10  AMI id              ssm get-parameters   <i># never hardcode an ami-</i>
+11  instance            run-instances --iam-instance-profile Name=…</pre>
+
+      <h3>Destroy order — dependents first, and nothing cascades</h3>
+<pre> 1  instances           terminate-instances + wait   <i># an attached ENI blocks the subnet and the SG</i>
+ 2  object versions     list-object-versions + delete-objects, <i>then the delete markers</i>
+ 3  bucket              delete-bucket                <i># refuses while anything is left</i>
+ 4  key pair            delete-key-pair ; rm the local .pem
+ 5  role out of profile <b>remove-role-from-instance-profile</b>
+ 6  instance profile    delete-instance-profile
+ 7  policy off role     <b>detach-role-policy</b>
+ 8  role                delete-role
+ 9  policy              delete-policy
+10  security group      delete-security-group        <i># the default SG dies with the VPC</i>
+11  route table         disassociate-route-table ×2, delete-route-table
+12  IGW                 <b>detach-internet-gateway</b>, delete-internet-gateway
+13  subnets             delete-subnet ×2
+14  VPC                 delete-vpc</pre>
+
+      <h3>Gotchas</h3>
+      <ul class="gotchas">
+        <li><b>AWS never cascades.</b> Every containment and attachment is unwound by hand. Three of the fourteen steps are detachments, not deletions — role out of profile, policy off role, IGW off VPC.</li>
+        <li>A versioned bucket keeps a <b>delete marker</b> for every deleted object, and those block <code>delete-bucket</code> exactly like objects do. Run the delete loop twice: <code>Versions</code>, then <code>DeleteMarkers</code>.</li>
+        <li><code>ParamValidation: expected one argument</code> means a shell variable was <b>empty</b>, not that the flag was wrong.</li>
+        <li>IAM is eventually consistent. A role used in the same breath as it was created gets a spurious AccessDenied — wait and retry. Scripts need a <code>sleep</code>; Terraform retries for you.</li>
+        <li>The main route table and the default security group cannot be deleted. They die with the VPC, and a teardown script should expect those two refusals.</li>
+        <li>A half-failed imperative script leaves orphans, and re-running it creates duplicates. This is the entire argument for declarative state.</li>
+      </ul>
+    </div>
+    <div class="docs"><b>Docs:</b> docs.aws.amazon.com/vpc/latest/userguide/ · docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html</div>
+  </article>
 
   <article class="card" id="bootstrap">
     <header>
